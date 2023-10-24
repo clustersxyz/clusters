@@ -46,7 +46,7 @@ contract Clusters {
     /// @notice Display name to be shown for a cluster, like ENS reverse records
     mapping(uint256 clusterId => string name) public canonicalClusterName;
 
-    mapping(uint256 clusterId => mapping(address addr => bool invited)) invited;
+    mapping(uint256 clusterId => mapping(address addr => bool invited)) public invited;
 
     constructor(address _pricing) {
         pricing = Pricing(_pricing);
@@ -65,6 +65,7 @@ contract Clusters {
     }
 
     /// @dev Should work smoothly for fully expired names and names partway through their duration
+    /// @dev Needs to be onchain ETH bid escrowed in one place because otherwise prices shift
     function bidName(uint256 clusterId) external {}
 
     /// PUBLIC FUNCTIONS ///
