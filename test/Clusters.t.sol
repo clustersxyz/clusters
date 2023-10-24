@@ -13,4 +13,9 @@ contract ClustersTest is Test {
         pricing = new Pricing();
         clusters = new Clusters(address(pricing));
     }
+
+    function testPricing() public {
+        int256 decay = pricing.getDecayMultiplier(1, 730 days);
+        console2.log(decay);
+    }
 }
