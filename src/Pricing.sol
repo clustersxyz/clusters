@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.22;
 
 import {toWadUnsafe, wadExp, wadLn, unsafeWadMul} from "solmate/utils/SignedWadMath.sol";
 
 /// @notice A stateless computation library for price, bids, decays, etc
-/// @dev All state is stored in clusters so we can replace the Pricing module while providing guarantees to existing holders
+/// @dev All state is stored in clusters so we can replace the Pricing module while providing guarantees to existing
+/// holders
 contract Pricing {
     uint256 internal constant SECONDS_IN_MONTH = 30 days;
     uint256 internal constant SECONDS_IN_YEAR = 365 days;

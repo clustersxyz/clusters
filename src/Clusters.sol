@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.22;
 
 import {EnumerableSet} from "openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
@@ -11,7 +11,8 @@ import {Pricing} from "./Pricing.sol";
 // And same for expiries, the bid is required to trigger. Need smooth mathematical functions here
 // Can users set a canonical name for cluster? Yes, they can own multiple names and they can also have zero names.
 // Should you be able to transfer name between clusters? Yes, and how can they be traded?
-// How do we handle when an account gets hacked and kick everyone else out from valuable cluster? Problem of success, can just ignore. Don't get phished, 2FA not worth it.
+// How do we handle when an account gets hacked and kick everyone else out from valuable cluster? Problem of success,
+// can just ignore. Don't get phished, 2FA not worth it.
 // What do we do about everybody being in cluster 0? Treat it like a burn address of sorts.
 // What does the empty foobar/ resolver point to? CREATE2 Singlesig?
 

@@ -5,7 +5,7 @@ libs = ['lib']
 
 auto_detect_remappings = false
 
-solc_version = "0.8.21"
+solc_version = "0.8.22"
 # EVM version must be Paris not Shanghai to prevent PUSH0 incompatibility with other EVM chains
 evm_version = "paris"
 # Etherscan verification max is 100 million
@@ -17,7 +17,7 @@ via_ir = false
 
 
 [fmt]
-line_length = 180
+line_length = 120
 wrap_comments = true # Increases readability of comments
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
