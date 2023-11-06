@@ -77,7 +77,7 @@ contract NameManager {
     function pokeName(string memory _name) public {
         bytes32 name = _toBytes32(_name);
         PriceIntegral memory integral = priceIntegral[name];
-        uint256 spent =
+        (uint256 spent, uint256 newPrice) =
             pricing.getIntegratedPrice(integral.lastUpdatedPrice, block.timestamp - integral.lastUpdatedTimestamp);
         // Name expires only once out of eth
         uint256 backing = ethBacking[name];
@@ -88,6 +88,12 @@ contract NameManager {
         } else {
             protocolRevenue += spent;
             ethBacking[name] -= spent;
+            priceIntegral[name] = PriceIntegral({
+                name: name,
+                lastUpdatedTimestamp: block.timestamp,
+                lastUpdatedPrice: newPrice,
+                maxExpiry: 0
+            });
         }
     }
 

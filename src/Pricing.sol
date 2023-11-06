@@ -25,7 +25,7 @@ contract Pricing {
     constructor() {}
 
     /// @notice If no bids occur and name price starts at p0, how many seconds until ethAmount runs out?
-    function getMaxDuration(uint256 p0, uint256 ethAmount) external returns (int256) {
+    function getMaxDuration(uint256 p0, uint256 ethAmount) external view returns (int256) {
         if (p0 <= minAnnualPrice) {
             return unsafeWadDiv(unsafeWadMul(toWadUnsafe(SECONDS_IN_YEAR), toWadUnsafe(ethAmount)), toWadUnsafe(p0));
         } else {
@@ -34,10 +34,16 @@ contract Pricing {
     }
 
     /// @notice The amount of eth that's been spent on a name since last update
-    function getIntegratedPrice(uint256 lastUpdatedPrice, uint256 secondsAfterUpdate) public view returns (uint256) {
+    /// @return spent How much eth has been spent
+    /// @return price The current price
+    function getIntegratedPrice(uint256 lastUpdatedPrice, uint256 secondsAfterUpdate)
+        public
+        view
+        returns (uint256, uint256)
+    {
         if (lastUpdatedPrice <= minAnnualPrice) {
             // Lower bound
-            return minAnnualPrice * secondsAfterUpdate / SECONDS_IN_YEAR;
+            return (minAnnualPrice * secondsAfterUpdate / SECONDS_IN_YEAR, minAnnualPrice);
         } else {
             // Exponential decay from middle range
             // Calculate time until intersection with min price
@@ -51,10 +57,17 @@ contract Pricing {
 
             if (secondsAfterUpdate <= numSecondsUntilMinPrice) {
                 // Return simple exponential decay integral
-                return getIntegratedDecayPrice(lastUpdatedPrice, secondsAfterUpdate);
+                return (
+                    getIntegratedDecayPrice(lastUpdatedPrice, secondsAfterUpdate),
+                    getDecayPrice(lastUpdatedPrice, secondsAfterUpdate)
+                );
             } else {
-                return getIntegratedDecayPrice(lastUpdatedPrice, numSecondsUntilMinPrice)
-                    + getIntegratedPrice(minAnnualPrice, secondsAfterUpdate - numSecondsUntilMinPrice);
+                (uint256 simpleMinLeftover,) =
+                    getIntegratedPrice(minAnnualPrice, secondsAfterUpdate - numSecondsUntilMinPrice);
+                return (
+                    getIntegratedDecayPrice(lastUpdatedPrice, numSecondsUntilMinPrice) + simpleMinLeftover,
+                    minAnnualPrice
+                );
             }
         }
     }
@@ -75,6 +88,10 @@ contract Pricing {
         return uint256(
             unsafeWadMul(int256(p0), unsafeWadDiv(getDecayMultiplier(numSeconds) - toWadUnsafe(1), wadLn(0.5e18)))
         );
+    }
+
+    function getDecayPrice(uint256 p0, uint256 numSeconds) public pure returns (uint256) {
+        return uint256(unsafeWadMul(int256(p0), getDecayMultiplier(numSeconds)));
     }
 
     /// @notice Implements e^(ln(0.5)x) ~= e^(-0.6931x) which cuts the number in half every year for exponential decay
