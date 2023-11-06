@@ -3,6 +3,8 @@ pragma solidity ^0.8.22;
 
 import {toWadUnsafe, wadExp, wadLn, unsafeWadMul, unsafeWadDiv} from "solmate/utils/SignedWadMath.sol";
 
+import {console2} from "forge-std/Test.sol";
+
 /*
 ECONOMIC MODEL:
 annual price: f'(n) = p0 + 15n
@@ -33,27 +35,56 @@ contract Pricing {
 
     /// @notice The amount of eth that's been spent on a name since last update
     function getIntegratedPrice(uint256 lastUpdatedPrice, uint256 secondsAfterUpdate) public view returns (uint256) {
-        if (lastUpdatedPrice <= minAnnualPrice) return minAnnualPrice * secondsAfterUpdate / SECONDS_IN_YEAR;
-        else return 0;
+        if (lastUpdatedPrice <= minAnnualPrice) {
+            // Lower bound
+            return minAnnualPrice * secondsAfterUpdate / SECONDS_IN_YEAR;
+        } else {
+            // Exponential decay from middle range
+            // Calculate time until intersection with min price
+            // p0 * e^(t*ln0.5) = minPrice
+            // t = ln(minPrice/p0) / ln(0.5)
+            int256 numYearsUntilMinPrice = unsafeWadDiv(
+                wadLn(unsafeWadDiv(toWadUnsafe(minAnnualPrice), toWadUnsafe(lastUpdatedPrice))), wadLn(0.5e18)
+            );
+            uint256 numSecondsUntilMinPrice =
+                uint256(unsafeWadMul(numYearsUntilMinPrice, toWadUnsafe(SECONDS_IN_YEAR)) / 1e18);
+
+            if (secondsAfterUpdate <= numSecondsUntilMinPrice) {
+                // Return simple exponential decay integral
+                return getIntegratedDecayPrice(lastUpdatedPrice, secondsAfterUpdate);
+            } else {
+                return getIntegratedDecayPrice(lastUpdatedPrice, numSecondsUntilMinPrice)
+                    + getIntegratedPrice(minAnnualPrice, secondsAfterUpdate - numSecondsUntilMinPrice);
+            }
+        }
     }
 
-    /// @notice The annual max price integrated over its duration,
+    /// @notice The annual max price integrated over its duration
     function getIntegratedMaxPrice(uint256 p0, uint256 numSeconds) public pure returns (uint256) {
         return p0 * numSeconds / SECONDS_IN_YEAR + (15 * numSeconds ** 2) / (2 * SECONDS_IN_YEAR ** 2);
     }
 
+    /// @notice The annual max price at an instantaneous point in time, derivative of getIntegratedMaxPrice
     function getMaxPrice(uint256 p0, uint256 numSeconds) public pure returns (uint256) {
         return p0 + (15 * numSeconds) / (2 * SECONDS_IN_YEAR);
     }
 
+    /// @notice Returns the integral of the annual price while it's exponentially decaying over `numSeconds` starting at
+    /// p0
+    function getIntegratedDecayPrice(uint256 p0, uint256 numSeconds) public pure returns (uint256) {
+        return uint256(
+            unsafeWadMul(int256(p0), unsafeWadDiv(getDecayMultiplier(numSeconds) - toWadUnsafe(1), wadLn(0.5e18)))
+        );
+    }
+
     /// @notice Implements e^(ln(0.5)x) ~= e^(-0.6931x) which cuts the number in half every year for exponential decay
     /// @dev Since this will be <1, returns a wad with 18 decimals
-    function getDecayMultiplier(uint256 p0, uint256 numSecondsSinceBid) external pure returns (int256) {
-        return wadExp(wadLn(0.5e18) * int256(numSecondsSinceBid) / int256(SECONDS_IN_YEAR));
+    function getDecayMultiplier(uint256 numSeconds) public pure returns (int256) {
+        return wadExp(wadLn(0.5e18) * int256(numSeconds) / int256(SECONDS_IN_YEAR));
     }
 
     /// @notice Should boost the annual price to 1/12th of (bidAmount * months)
-    function getBidMultiplier(uint256 p0, uint256 pBid, uint256 bidLengthInSeconds) external pure returns (int256) {
+    function getBidMultiplier(uint256 pBid, uint256 bidLengthInSeconds) external pure returns (int256) {
         int256 wadMonths = toWadUnsafe(bidLengthInSeconds) / int256(SECONDS_IN_MONTH);
         int256 targetPrice = unsafeWadMul(wadMonths, int256(pBid));
     }

@@ -106,9 +106,7 @@ contract NameManager {
     /// @dev Should work smoothly for fully expired names and names partway through their duration
     /// @dev Needs to be onchain ETH bid escrowed in one place because otherwise prices shift
     function bidName(string memory name) external payable {
-        // Deposit eth into escrow
-
-        // Should people have to precommit to time spent in escrow? No we want continuous
+        pokeName(name);
     }
 
     /// LOCAL NAME MANAGEMENT ///
