@@ -31,7 +31,8 @@ contract Clusters is NameManager {
 
     constructor(address _pricing) NameManager(_pricing) {}
 
-    // TODO: Make this payable and pass along msg.value?
+    // TODO: Make this payable and pass along msg.value? As it stands insecure to make payable because of msg.value
+    // reuse
     function multicall(bytes[] calldata data) external returns (bytes[] memory results) {
         results = new bytes[](data.length);
         bool success;
@@ -76,6 +77,7 @@ contract Clusters is NameManager {
     /// INTERNAL FUNCTIONS ///
 
     function _add(address addr, uint256 clusterId) internal {
+        require(addressLookup[addr] == 0, "already in cluster");
         invited[clusterId][addr] = false;
         addressLookup[addr] = clusterId;
         _clusterAddresses[clusterId].add(addr);

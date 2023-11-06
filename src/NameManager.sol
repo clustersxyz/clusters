@@ -6,7 +6,7 @@ import {EnumerableSet} from "openzeppelin/contracts/utils/structs/EnumerableSet.
 import {Pricing} from "./Pricing.sol";
 
 /// @notice The bidding, accepting, eth storing component of Clusters. Handles name assignment
-///         to cluster ids.
+///         to cluster ids and checks auth of cluster membership before acting on one of its names
 contract NameManager {
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
@@ -30,11 +30,20 @@ contract NameManager {
     /// @notice Enumerate all names owned by a cluster
     mapping(uint256 clusterId => EnumerableSet.Bytes32Set names) internal _clusterNames;
 
-    /// @notice Timestamp a name expires at
-    mapping(bytes32 name => uint256 expiry) internal minNameExpiry;
-
     /// @notice The amount of money backing each name registration
     mapping(bytes32 name => uint256 amount) internal ethBacking;
+
+    /// @notice Amount of eth that's transferred from ethBacking to the protocol
+    uint256 internal protocolRevenue;
+
+    struct PriceIntegral {
+        bytes32 name;
+        uint256 lastUpdatedTimestamp;
+        uint256 lastUpdatedPrice;
+        uint256 maxExpiry;
+    }
+
+    mapping(bytes32 name => PriceIntegral integral) internal priceIntegral;
 
     constructor(address _pricing) {
         pricing = Pricing(_pricing);
@@ -42,12 +51,18 @@ contract NameManager {
 
     /// ECONOMIC FUNCTIONS ///
 
-    function buyName(string memory _name, uint256 clusterId, uint256 numSeconds) external payable {
+    function buyName(string memory _name, uint256 clusterId) external payable {
         bytes32 name = _toBytes32(_name);
         // Check that name is unused
         require(nameLookup[name] == 0, "name already bought");
-        require(msg.value >= pricing.getPrice(0.01 ether, numSeconds), "not enough eth");
-        _assignName(name, clusterId, block.timestamp + numSeconds);
+        ethBacking[name] += msg.value;
+        priceIntegral[name] = PriceIntegral({
+            name: name,
+            lastUpdatedTimestamp: block.timestamp,
+            lastUpdatedPrice: pricing.minAnnualPrice(),
+            maxExpiry: block.timestamp + uint256(pricing.getMaxDuration(pricing.minAnnualPrice(), msg.value))
+        });
+        _assignName(name, clusterId);
     }
 
     /// @notice Move name from one cluster to another without payment
@@ -55,18 +70,44 @@ contract NameManager {
         bytes32 name = _toBytes32(_name);
         uint256 currentCluster = addressLookup[msg.sender];
         require(_clusterNames[currentCluster].contains(name), "not name owner");
-        if (canonicalClusterName[currentCluster] == name) {
-            delete canonicalClusterName[currentCluster];
+        _transferName(name, currentCluster, toClusterId);
+    }
+
+    /// @notice Move accrued revenue from ethBacked to protocolRevenue, and delete expired names
+    function pokeName(string memory _name) public {
+        bytes32 name = _toBytes32(_name);
+        PriceIntegral memory integral = priceIntegral[name];
+        uint256 spent =
+            pricing.getIntegratedPrice(integral.lastUpdatedPrice, block.timestamp - integral.lastUpdatedTimestamp);
+        // Name expires only once out of eth
+        uint256 backing = ethBacking[name];
+        if (spent >= backing) {
+            protocolRevenue += backing;
+            ethBacking[name] = 0;
+            _transferName(name, nameLookup[name], 0);
+        } else {
+            protocolRevenue += spent;
+            ethBacking[name] -= spent;
         }
-        _clusterNames[currentCluster].remove(name);
-        _clusterNames[toClusterId].add(name);
+    }
+
+    /// @dev Transfer cluster name or delete cluster name without checking auth
+    /// @dev Delete by transferring to cluster id 0
+    function _transferName(bytes32 name, uint256 fromClusterId, uint256 toClusterId) internal {
+        if (canonicalClusterName[fromClusterId] == name) {
+            delete canonicalClusterName[fromClusterId];
+        }
+        _clusterNames[fromClusterId].remove(name);
+        if (toClusterId != 0) {
+            _clusterNames[toClusterId].add(name);
+        }
     }
 
     /// @dev Should work smoothly for fully expired names and names partway through their duration
     /// @dev Needs to be onchain ETH bid escrowed in one place because otherwise prices shift
     function bidName(string memory name) external payable {
         // Deposit eth into escrow
-        uint256 bidAmount = msg.value;
+
         // Should people have to precommit to time spent in escrow? No we want continuous
     }
 
@@ -87,11 +128,12 @@ contract NameManager {
         forwardLookup[currentCluster][walletName] = msg.sender;
     }
 
-    function _assignName(bytes32 name, uint256 clusterId, uint256 expiry) internal {
+    function _assignName(bytes32 name, uint256 clusterId) internal {
         nameLookup[name] = clusterId;
         _clusterNames[clusterId].add(name);
-        minNameExpiry[name] = expiry;
     }
+
+    function _unassignName(bytes32 name, uint256 clusterId) internal {}
 
     /// STRING HELPERS ///
 
