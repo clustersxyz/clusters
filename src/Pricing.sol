@@ -3,6 +3,13 @@ pragma solidity ^0.8.22;
 
 import {toWadUnsafe, wadExp, wadLn, unsafeWadMul} from "solmate/utils/SignedWadMath.sol";
 
+/*
+ECONOMIC MODEL:
+annual price: f'(n) = p0 + 15n
+integral of annual price, registration fee for n years: f(n) = p0*n + 7.5n^2
+
+*/
+
 /// @notice A stateless computation library for price, bids, decays, etc
 /// @dev All state is stored in clusters so we can replace the Pricing module while providing guarantees to existing
 /// holders
