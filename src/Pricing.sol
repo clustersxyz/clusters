@@ -34,6 +34,8 @@ contract Pricing {
     }
 
     /// @notice The amount of eth that's been spent on a name since last update
+    /// @param lastUpdatedPrice Can be greater than max price, used to calculate decay times
+    /// @param secondsAfterUpdate How many seconds it's been since lastUpdatedPrice
     /// @return spent How much eth has been spent
     /// @return price The current price
     function getIntegratedPrice(uint256 lastUpdatedPrice, uint256 secondsAfterUpdate)
@@ -44,6 +46,14 @@ contract Pricing {
         if (lastUpdatedPrice <= minAnnualPrice) {
             // Lower bound
             return (minAnnualPrice * secondsAfterUpdate / SECONDS_IN_YEAR, minAnnualPrice);
+        } else if (false) {
+            // Upper bound
+            // Calculate time until intersection with max price
+            // Then calculate time until intersection with min price
+            // https://www.wolframalpha.com/input?i=pe%5E%28x*ln%280.5%29%29+%3D+p+%2B+15x%2C+solve+for+x
+            // Intersection of pe^(t*ln(0.5)) = p + 15t
+            // t = 1.4427 * W0(0.49e^(0.49p)) - 2p/30
+            // https://www.wolframalpha.com/input?i=plot+1.4427+*+lambert+w+function%280.49e%5E%280.49x%29%29+-+2x%2F30+for+x+in+%5B0%2C+10%5D
         } else {
             // Exponential decay from middle range
             // Calculate time until intersection with min price
@@ -79,17 +89,17 @@ contract Pricing {
 
     /// @notice The annual max price at an instantaneous point in time, derivative of getIntegratedMaxPrice
     function getMaxPrice(uint256 p0, uint256 numSeconds) public pure returns (uint256) {
-        return p0 + (15 * numSeconds) / (2 * SECONDS_IN_YEAR);
+        return p0 + (15 * numSeconds) / SECONDS_IN_YEAR;
     }
 
-    /// @notice Returns the integral of the annual price while it's exponentially decaying over `numSeconds` starting at
-    /// p0
+    /// @notice The integral of the annual price while it's exponentially decaying over `numSeconds` starting at p0
     function getIntegratedDecayPrice(uint256 p0, uint256 numSeconds) public pure returns (uint256) {
         return uint256(
             unsafeWadMul(int256(p0), unsafeWadDiv(getDecayMultiplier(numSeconds) - toWadUnsafe(1), wadLn(0.5e18)))
         );
     }
 
+    /// @notice The annual decayed price at an instantaneous point in time, derivative of getIntegratedDecayPrice
     function getDecayPrice(uint256 p0, uint256 numSeconds) public pure returns (uint256) {
         return uint256(unsafeWadMul(int256(p0), getDecayMultiplier(numSeconds)));
     }

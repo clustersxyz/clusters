@@ -65,7 +65,7 @@ contract Clusters is NameManager {
         _remove(msg.sender);
     }
 
-    function kick(address addr) external {
+    function remove(address addr) external {
         require(addressLookup[msg.sender] == addressLookup[addr], "not in same cluster");
         _remove(addr);
     }
