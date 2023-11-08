@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.22;
 
-import {toWadUnsafe, wadExp, wadLn, unsafeWadMul, unsafeWadDiv} from "solmate/utils/SignedWadMath.sol";
+import {wadLn, unsafeWadMul, unsafeWadDiv} from "solmate/utils/SignedWadMath.sol";
 
 import {console2} from "forge-std/Test.sol";
 
-/// @notice Numerical approximation for principal branch of [Lambert W
-/// function](https://en.wikipedia.org/wiki/Lambert_W_function)
+/// @notice Approximated principal branch of [Lambert W function](https://en.wikipedia.org/wiki/Lambert_W_function)
 /// @dev Only supports the [1/e, 3+1/e] and [3+1/e, inf] interval
 /// @dev Approximate [1/e, 3+1/e] with a lookup table weighted average and [3+1/e, inf] with ln(x) + ln(ln(x)) +
 /// ln(ln(x))/ln(x)
