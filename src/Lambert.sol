@@ -20,7 +20,7 @@ contract Lambert {
     }
 
     /// @notice Approximates W0(x) where x is a wad
-    function W0(int256 xWad) external view returns (int256) {
+    function W0(int256 xWad) public view returns (int256) {
         require(LOWER_BOUND_WAD < xWad, "must be > 1/e");
         if (xWad <= MID_BOUND_WAD) {
             int256 range = MID_BOUND_WAD - LOWER_BOUND_WAD;
@@ -29,7 +29,6 @@ contract Lambert {
             // Slot number is slotCount * (x - a) / (b - a), we want integer rounding here
             int256 slotIndex = (PRECISION_SLOTS * (xWad - LOWER_BOUND_WAD)) / range;
             int256 a = LOWER_BOUND_WAD + slotIndex * slotWidth;
-            int256 b = a + range / PRECISION_SLOTS;
             // Weighted average is f(a) + w(f(b) - f(a)) = wf(b) + (1-w)f(a) where w = (x-a)/(b-a)
             int256 w = unsafeWadDiv(xWad - a, slotWidth);
             int256 result = unsafeWadMul(w, lambertArray[uint256(slotIndex + 1)])
