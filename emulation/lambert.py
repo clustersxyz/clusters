@@ -10,9 +10,9 @@ step = (b - a) / precision_slots
 slots = np.linspace(a, b, precision_slots+1, endpoint=True)
 print(slots)
 for i, x in enumerate(slots):
-    res = np.real(scipy.special.lambertw(i))
+    res = np.real(scipy.special.lambertw(x))
     integerRes = int(f"{res:.18f}".replace(".", ""))
-    # print(f"W({i}) = {res}")
+    print(f"W({x}) = {res}")
     print(f"lambertArray[{i}] = {integerRes};")
 
 print(len(slots))

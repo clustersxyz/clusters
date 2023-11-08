@@ -4,14 +4,17 @@ pragma solidity ^0.8.13;
 import {Test, console2} from "forge-std/Test.sol";
 import {Clusters} from "../src/Clusters.sol";
 import {Pricing} from "../src/Pricing.sol";
+import {Lambert} from "../src/Lambert.sol";
 
 contract ClustersTest is Test {
     Pricing public pricing;
     Clusters public clusters;
+    Lambert public lambert;
 
     function setUp() public {
         pricing = new Pricing();
         clusters = new Clusters(address(pricing));
+        lambert = new Lambert();
     }
 
     function testDecayMultiplier() public {
@@ -41,5 +44,27 @@ contract ClustersTest is Test {
         (uint256 complexDecaySpent, uint256 complexDecayPrice) = pricing.getIntegratedPrice(1 ether, 10 * 365 days);
         assertEq(complexDecaySpent, 1461829528582326522); // 1.42 ether over 6.6 years then 0.03 ether over 3 years
         assertEq(complexDecayPrice, minPrice);
+    }
+
+    function testLambert() public {
+        vm.expectRevert("must be > 1/e");
+        lambert.W0(0);
+        vm.expectRevert("must be > 1/e");
+        lambert.W0(367879441171442322);
+
+        // W(1/e) ~= 0.278
+        assertEq(lambert.W0(367879441171442322 + 1), 278464542761073797);
+
+        // W(0.5) ~= 0.351
+        assertEq(lambert.W0(0.5e18), 351703661682451427);
+
+        // W(e) == 1
+        assertEq(lambert.W0(2718281828459045235), 999997172107599752);
+
+        // W(3) ~= 1.0499
+        assertEq(lambert.W0(3e18), 1049906379855897971);
+
+        // W(10) ~= 1.7455, approx is 1.830768336445553094
+        assertEq(lambert.W0(10e18), 1830768336445553094);
     }
 }
