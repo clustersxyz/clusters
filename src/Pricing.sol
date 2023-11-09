@@ -9,10 +9,13 @@ import {console2} from "forge-std/Test.sol";
 
 /*
 ECONOMIC MODEL:
-min price: 0.01 ether
-max price: 0.02 ether + 0.01 ether per year
-annual price: f'(n) = 0.02 + 0.01n
-integral of annual price, registration fee for n years: f(n) = 0.02n + 0.005n^2
+min annual price: 0.01 ether
+max annual price: 0.02 ether + 0.01 ether per year
+max annual price: f'(n) = 0.02 + 0.01n
+integral of max annual price, registration fee for n years: f(n) = 0.02n + 0.005n^2
+
+prices follow an exponential decay: pe^(y*ln(0.5)) where y is the fractional number of years since last bid and p is price at last bid
+bids increase price to bid amount in 1 month, price += ((bidPrice - oldPrice) * months^2) and simply price = bidPrice for months >= 1
 
 */
 
