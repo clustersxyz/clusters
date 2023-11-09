@@ -82,6 +82,17 @@ contract ClustersTest is Test {
         assertEq(maxToMinPrice, 0.01 ether);
     }
 
+    function testPriceAfterBid() public {
+        uint256 newPrice = pricing.getPriceAfterBid(1 ether, 2 ether, 0);
+        assertEq(newPrice, 1 ether);
+
+        newPrice = pricing.getPriceAfterBid(1 ether, 2 ether, 15 days);
+        assertEq(newPrice, 1.25 ether);
+
+        newPrice = pricing.getPriceAfterBid(1 ether, 2 ether, 30 days);
+        assertEq(newPrice, 2 ether);
+    }
+
     function testLambert() public {
         vm.expectRevert("must be > 1/e");
         lambert.W0(0);

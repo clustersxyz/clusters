@@ -14,9 +14,10 @@ max annual price: 0.02 ether + 0.01 ether per year
 max annual price: f'(n) = 0.02 + 0.01n
 integral of max annual price, registration fee for n years: f(n) = 0.02n + 0.005n^2
 
-prices follow an exponential decay: pe^(y*ln(0.5)) where y is the fractional number of years since last bid and p is price at last bid
-bids increase price to bid amount in 1 month, price += ((bidPrice - oldPrice) * months^2) and simply price = bidPrice for months >= 1
-
+prices follow an exponential decay: pe^(y*ln(0.5)) where y is the fractional number of years since last bid and p is
+price at last bid
+bids increase price to bid amount in 1 month, price += ((bidPrice - oldPrice) * months^2) and simply price = bidPrice
+for months >= 1
 */
 
 /// @notice A stateless computation library for price, bids, decays, etc
@@ -154,11 +155,11 @@ contract Pricing is Lambert {
         return wadExp(wadLn(0.5e18) * int256(numSeconds) / int256(SECONDS_IN_YEAR));
     }
 
-    /// @notice Should boost the annual price to 1/12th of (bidAmount * months)
-    function getBidMultiplier(uint256 pBid, uint256 bidLengthInSeconds) external pure returns (int256) {
+    /// @notice Current adjusts quadratically up to bid price, capped at 1 month duration
+    function getPriceAfterBid(uint256 p0, uint256 pBid, uint256 bidLengthInSeconds) external pure returns (uint256) {
+        if (p0 >= pBid) return p0;
+        if (bidLengthInSeconds >= SECONDS_IN_MONTH) return pBid;
         int256 wadMonths = toWadUnsafe(bidLengthInSeconds) / int256(SECONDS_IN_MONTH);
-        int256 targetPrice = unsafeWadMul(wadMonths, int256(pBid));
-        // TODO: implement logic
-        return targetPrice;
+        return p0 + uint256(unsafeWadMul(int256(pBid - p0), unsafeWadMul(wadMonths, wadMonths)));
     }
 }
