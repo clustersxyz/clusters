@@ -60,9 +60,26 @@ contract ClustersTest is Test {
     }
 
     function testIntegratedPriceSimpleMax() public {
-        (uint256 simpleMaxSpent, uint256 simpleMaxPrice) =
-            pricing.getIntegratedPrice(1 ether, 365 days, secondsAfterCreation);
-        assertEq(simpleMaxSpent, simpleMaxSpent);
+        (uint256 simpleMaxSpent, uint256 simpleMaxPrice) = pricing.getIntegratedPrice(1 ether, 365 days, 365 days);
+        assertEq(simpleMaxSpent, 0.025 ether);
+        assertEq(simpleMaxPrice, 0.5 ether - 1); // Actual price has decayed by half before being truncated by max
+    }
+
+    function testIntegratedPriceMaxToMiddleRange() public {
+        (uint256 maxToMiddleSpent, uint256 maxToMiddlePrice) =
+            pricing.getIntegratedPrice(0.025 ether, 365 days, 365 days);
+        assertEq(maxToMiddleSpent, 18033688011112042); // 0.018 ether for 1 year that dips from max into middle
+        assertEq(maxToMiddlePrice, 0.0125 ether - 1);
+    }
+
+    function testIntegratedPriceMaxToMinRange() public {
+        (uint256 maxToMinSpent, uint256 maxToMinPrice) = pricing.getIntegratedPrice(0.025 ether, 730 days, 730 days);
+        assertEq(maxToMinSpent, 28421144664460826); // 0.028 ether for 2 year that dips from max into middle to min
+        assertEq(maxToMinPrice, 0.01 ether);
+
+        (maxToMinSpent, maxToMinPrice) = pricing.getIntegratedPrice(0.025 ether, 3 * 365 days, 3 * 365 days);
+        assertEq(maxToMinSpent, 38421144664460826); // 0.028 ether for 2 year that dips from max into middle to min
+        assertEq(maxToMinPrice, 0.01 ether);
     }
 
     function testLambert() public {

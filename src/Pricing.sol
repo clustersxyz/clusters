@@ -43,7 +43,7 @@ contract Pricing is Lambert {
     /// @param lastUpdatedPrice Can be greater than max price, used to calculate decay times
     /// @param secondsAfterUpdate How many seconds it's been since lastUpdatedPrice
     /// @return spent How much eth has been spent
-    /// @return price The current price
+    /// @return price The current un-truncated price, which can be greater than maxPrice
     function getIntegratedPrice(uint256 lastUpdatedPrice, uint256 secondsAfterUpdate, uint256 secondsAfterCreation)
         public
         view
@@ -71,6 +71,27 @@ contract Pricing is Lambert {
 
             if (secondsAfterUpdate <= numSecondsUntilMaxPrice) {
                 return (getIntegratedMaxPrice(secondsAfterUpdate), getDecayPrice(lastUpdatedPrice, secondsAfterUpdate));
+            } else {
+                int256 numYearsUntilMinPrice = unsafeWadDiv(
+                    wadLn(unsafeWadDiv(toWadUnsafe(minAnnualPrice), toWadUnsafe(lastUpdatedPrice))), wadLn(0.5e18)
+                );
+                uint256 numSecondsUntilMinPrice =
+                    uint256(unsafeWadMul(numYearsUntilMinPrice, toWadUnsafe(SECONDS_IN_YEAR)) / 1e18);
+
+                if (secondsAfterUpdate <= numSecondsUntilMinPrice) {
+                    uint256 integralPart1 = getIntegratedMaxPrice(numSecondsUntilMaxPrice);
+                    uint256 maxPrice1 = getDecayPrice(lastUpdatedPrice, numSecondsUntilMaxPrice);
+                    uint256 integralPart2 =
+                        getIntegratedDecayPrice(maxPrice1, secondsAfterUpdate - numSecondsUntilMaxPrice);
+                    return (integralPart1 + integralPart2, getDecayPrice(lastUpdatedPrice, secondsAfterCreation));
+                } else {
+                    uint256 integralPart1 = getIntegratedMaxPrice(numSecondsUntilMaxPrice);
+                    uint256 maxPrice1 = getDecayPrice(lastUpdatedPrice, numSecondsUntilMaxPrice);
+                    uint256 integralPart2 =
+                        getIntegratedDecayPrice(maxPrice1, numSecondsUntilMinPrice - numSecondsUntilMaxPrice);
+                    uint256 integralPart3 = minAnnualPrice * secondsAfterUpdate / SECONDS_IN_YEAR;
+                    return (integralPart1 + integralPart2 + integralPart3, minAnnualPrice);
+                }
             }
         } else {
             // Exponential decay from middle range
@@ -113,26 +134,28 @@ contract Pricing is Lambert {
     }
 
     /// @notice The integral of the annual price while it's exponentially decaying over `numSeconds` starting at p0
-    function getIntegratedDecayPrice(uint256 p0, uint256 numSeconds) public view returns (uint256) {
+    function getIntegratedDecayPrice(uint256 p0, uint256 numSeconds) public pure returns (uint256) {
         return uint256(
             unsafeWadMul(int256(p0), unsafeWadDiv(getDecayMultiplier(numSeconds) - toWadUnsafe(1), wadLn(0.5e18)))
         );
     }
 
     /// @notice The annual decayed price at an instantaneous point in time, derivative of getIntegratedDecayPrice
-    function getDecayPrice(uint256 p0, uint256 numSeconds) public view returns (uint256) {
+    function getDecayPrice(uint256 p0, uint256 numSeconds) public pure returns (uint256) {
         return uint256(unsafeWadMul(int256(p0), getDecayMultiplier(numSeconds)));
     }
 
     /// @notice Implements e^(ln(0.5)x) ~= e^(-0.6931x) which cuts the number in half every year for exponential decay
     /// @dev Since this will be <1, returns a wad with 18 decimals
-    function getDecayMultiplier(uint256 numSeconds) public view returns (int256) {
+    function getDecayMultiplier(uint256 numSeconds) public pure returns (int256) {
         return wadExp(wadLn(0.5e18) * int256(numSeconds) / int256(SECONDS_IN_YEAR));
     }
 
     /// @notice Should boost the annual price to 1/12th of (bidAmount * months)
-    function getBidMultiplier(uint256 pBid, uint256 bidLengthInSeconds) external view returns (int256) {
+    function getBidMultiplier(uint256 pBid, uint256 bidLengthInSeconds) external pure returns (int256) {
         int256 wadMonths = toWadUnsafe(bidLengthInSeconds) / int256(SECONDS_IN_MONTH);
         int256 targetPrice = unsafeWadMul(wadMonths, int256(pBid));
+        // TODO: implement logic
+        return targetPrice;
     }
 }
