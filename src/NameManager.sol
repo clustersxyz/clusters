@@ -45,6 +45,16 @@ contract NameManager {
 
     mapping(bytes32 name => PriceIntegral integral) internal priceIntegral;
 
+    struct Bid {
+        bytes32 name;
+        uint256 ethAmount;
+        uint256 createdTimestamp;
+    }
+
+    mapping(uint256 bidId => Bid) internal bids;
+
+    uint256 nextBidId = 1;
+
     constructor(address _pricing) {
         pricing = Pricing(_pricing);
     }
@@ -114,8 +124,13 @@ contract NameManager {
 
     /// @dev Should work smoothly for fully expired names and names partway through their duration
     /// @dev Needs to be onchain ETH bid escrowed in one place because otherwise prices shift
-    function bidName(string memory name) external payable {
-        pokeName(name);
+    function bidName(string memory _name) external payable {
+        pokeName(_name);
+        bids[nextBidId++] = Bid({
+            name: _toBytes32(_name),
+            bidAmount: msg.value,
+            createdTimestamp: block.timestamp
+        });
     }
 
     /// LOCAL NAME MANAGEMENT ///
