@@ -12,6 +12,7 @@ contract NameManager {
     using EnumerableSet for EnumerableSet.UintSet;
 
     error NoBid();
+    error Invalid();
     error NoCluster();
     error TransferFailed();
 
@@ -296,6 +297,33 @@ contract NameManager {
                 _assignName(name, addressLookup[highestBidder]);
             }
         }
+    }
+
+    /// @notice Reduce bid and refund difference
+    function reduceBid(string memory _name, uint256 amount) external {
+        // Retrieve existing bid
+        bytes32 name = _toBytes32(_name);
+        uint256 bidId = bidLookup[name][msg.sender];
+        // Revert if no bid exists
+        if (bidId == 0) revert NoBid();
+        // Retrieve bid value and confirm amount isn't larger than it
+        uint256 bid = bids[bidId].ethAmount;
+        if (amount > bid) revert Invalid();
+        // If reducing bid to 0, revoke altogether
+        if (bid - amount == 0) {
+            delete bidLookup[name][msg.sender];
+            bidsForName[name].remove(bidId);
+            delete bids[bidId];
+        }
+        // Otherwise, decrease bid
+        else {
+            unchecked { bids[bidId].ethAmount -= amount; }
+        }
+        // Reduce bidPool accordingly
+        unchecked { bidPool -= amount; }
+        // Transfer bid reduction after all state is purged to prevent reentrancy
+        (bool success, ) = payable(msg.sender).call{ value: amount }("");
+        if (!success) revert TransferFailed();
     }
 
     /// @notice Allow valid bidder to revoke bid and get refunded
