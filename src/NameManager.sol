@@ -33,6 +33,9 @@ contract NameManager {
     /// @notice The amount of money backing each name registration
     mapping(bytes32 name => uint256 amount) internal ethBacking;
 
+    /// @notice Total amount of ETH backing name registrations
+    uint256 internal ethBackingTotal;
+
     /// @notice Amount of eth that's transferred from ethBacking to the protocol
     uint256 internal protocolRevenue;
 
@@ -65,7 +68,10 @@ contract NameManager {
         bytes32 name = _toBytes32(_name);
         // Check that name is unused
         require(nameLookup[name] == 0, "name already bought");
-        ethBacking[name] += msg.value;
+        unchecked {
+            ethBacking[name] += msg.value;
+            ethBackingTotal += msg.value;
+        }
         priceIntegral[name] = PriceIntegral({
             name: name,
             lastUpdatedTimestamp: block.timestamp,
@@ -95,12 +101,18 @@ contract NameManager {
         // Name expires only once out of eth
         uint256 backing = ethBacking[name];
         if (spent >= backing) {
-            protocolRevenue += backing;
+            unchecked {
+                protocolRevenue += backing;
+                ethBackingTotal -= backing;
+            }
             ethBacking[name] = 0;
             _transferName(name, nameLookup[name], 0);
         } else {
-            protocolRevenue += spent;
-            ethBacking[name] -= spent;
+            unchecked {
+                protocolRevenue += spent;
+                ethBacking[name] -= spent;
+                ethBackingTotal -= backing;
+            }
             priceIntegral[name] = PriceIntegral({
                 name: name,
                 lastUpdatedTimestamp: block.timestamp,
@@ -128,7 +140,7 @@ contract NameManager {
         pokeName(_name);
         bids[nextBidId++] = Bid({
             name: _toBytes32(_name),
-            bidAmount: msg.value,
+            ethAmount: msg.value,
             createdTimestamp: block.timestamp
         });
     }
