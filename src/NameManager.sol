@@ -290,7 +290,7 @@ contract NameManager {
                 address highestBidder = bids[highestBidId].bidder;
                 // Purge highest bidder's bid
                 delete bids[highestBidId];
-                bidsForName[name].remove(bidId);
+                bidsForName[name].remove(highestBidId);
                 delete bidLookup[name][highestBidder];
                 // Process name registration and transfer
                 priceIntegral[name] = PriceIntegral({
