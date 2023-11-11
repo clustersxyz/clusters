@@ -9,6 +9,7 @@ import {Pricing} from "./Pricing.sol";
 ///         to cluster ids and checks auth of cluster membership before acting on one of its names
 contract NameManager {
     using EnumerableSet for EnumerableSet.Bytes32Set;
+    using EnumerableSet for EnumerableSet.UintSet;
 
     Pricing internal pricing;
 
@@ -48,15 +49,25 @@ contract NameManager {
 
     mapping(bytes32 name => PriceIntegral integral) internal priceIntegral;
 
+    /// @notice All relevant information for an individual bid
     struct Bid {
         bytes32 name;
         uint256 ethAmount;
         uint256 createdTimestamp;
+        address bidder;
     }
 
+    /// @notice Bid info storage, all bidIds are incremental and are not sorted by name
     mapping(uint256 bidId => Bid) internal bids;
 
-    uint256 nextBidId = 1;
+    /// @notice Counter for next bidId, always +1 over most recent bid
+    uint256 internal nextBidId = 1;
+
+    mapping(bytes32 name => EnumerableSet.UintSet bidIds) internal bidsForName;
+
+    mapping(bytes32 name => mapping(address bidder => uint256 bidId)) internal bidLookup;
+
+    uint256 internal bidPool;
 
     constructor(address _pricing) {
         pricing = Pricing(_pricing);
@@ -137,12 +148,39 @@ contract NameManager {
     /// @dev Should work smoothly for fully expired names and names partway through their duration
     /// @dev Needs to be onchain ETH bid escrowed in one place because otherwise prices shift
     function bidName(string memory _name) external payable {
+        bytes32 name = _toBytes32(_name);
+        // Update name status prior to bid processing so expired names can be handled during bid processing
         pokeName(_name);
-        bids[nextBidId++] = Bid({
-            name: _toBytes32(_name),
-            ethAmount: msg.value,
-            createdTimestamp: block.timestamp
-        });
+        // Retrieve existing bid, if any
+        uint256 bidId = bidLookup[name][msg.sender];
+        // If msg.sender hasn't placed a bid, process new bid
+        if (bidId == 0) {
+            unchecked {
+                // Retrieve bidId and increment pointer
+                bidId = nextBidId++;
+                // Increment total bid accounting
+                bidPool += msg.value;
+            }
+            bids[bidId] = Bid({
+                name: name,
+                ethAmount: msg.value,
+                createdTimestamp: block.timestamp,
+                bidder: msg.sender
+            });
+            // Log bidId for name
+            bidsForName[name].add(bidId);
+            // Log bidId for msg.sender
+            bidLookup[name][msg.sender] = bidId;
+        }
+        // If bid does exist, increment existing bid by msg.value
+        else {
+            unchecked {
+                // Increment existing bid
+                bids[bidId].ethAmount += msg.value;
+                // Increment total bid accounting
+                bidPool += msg.value;
+            }
+        }
     }
 
     /// LOCAL NAME MANAGEMENT ///
