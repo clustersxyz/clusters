@@ -347,19 +347,31 @@ contract NameManager {
 
     /// LOCAL NAME MANAGEMENT ///
 
-    function setCanonicalName(string memory _name) external {
+    function setCanonicalName(string memory _name) external hasCluster {
         bytes32 name = _toBytes32(_name);
         uint256 currentCluster = addressLookup[msg.sender];
         require(nameLookup[name] == currentCluster, "don't own name");
         canonicalClusterName[currentCluster] = name;
     }
 
-    function setWalletName(string memory _walletName) external {
+    function removeCanonicalName() external hasCluster {
+        uint256 currentCluster = addressLookup[msg.sender];
+        delete canonicalClusterName[currentCluster];
+    }
+
+    function setWalletName(string memory _walletName) external hasCluster {
         bytes32 walletName = _toBytes32(_walletName);
         uint256 currentCluster = addressLookup[msg.sender];
         require(forwardLookup[currentCluster][walletName] == address(0), "name already in use for cluster");
         reverseLookup[msg.sender] = walletName;
         forwardLookup[currentCluster][walletName] = msg.sender;
+    }
+
+    function removeWalletName() external hasCluster {
+        uint256 currentCluster = addressLookup[msg.sender];
+        bytes32 walletName = reverseLookup[msg.sender];
+        delete reverseLookup[msg.sender];
+        delete forwardLookup[currentCluster][walletName];
     }
 
     function _assignName(bytes32 name, uint256 clusterId) internal {
