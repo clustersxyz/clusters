@@ -69,12 +69,16 @@ contract NameManager {
     /// @notice Counter for next bidId, always +1 over most recent bid
     uint256 internal nextBidId = 1;
 
+    /// @notice Set of bids per name allows for bid enumeration
     mapping(bytes32 name => EnumerableSet.UintSet bidIds) internal bidsForName;
 
+    /// @notice Since each address can only bid on a name once, this helps for bid lookup
     mapping(bytes32 name => mapping(address bidder => uint256 bidId)) internal bidLookup;
 
+    /// @notice Internal accounting for all bid ETH held in contract
     uint256 internal bidPool;
 
+    /// @notice Restrict certain functions to those who have created a cluster for their address
     modifier hasCluster() {
         // Revert if msg.sender doesn't have a cluster
         if (addressLookup[msg.sender] == 0) revert NoCluster();
