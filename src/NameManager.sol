@@ -11,6 +11,8 @@ contract NameManager {
     using EnumerableSet for EnumerableSet.Bytes32Set;
     using EnumerableSet for EnumerableSet.UintSet;
 
+    error NoCluster();
+
     Pricing internal pricing;
 
     /// @notice Which cluster an address belongs to
@@ -69,13 +71,19 @@ contract NameManager {
 
     uint256 internal bidPool;
 
+    modifier hasCluster() {
+        // Revert if msg.sender doesn't have a cluster
+        if (addressLookup[msg.sender] == 0) revert NoCluster();
+        _;
+    }
+
     constructor(address _pricing) {
         pricing = Pricing(_pricing);
     }
 
     /// ECONOMIC FUNCTIONS ///
 
-    function buyName(string memory _name, uint256 clusterId) external payable {
+    function buyName(string memory _name, uint256 clusterId) external payable hasCluster {
         bytes32 name = _toBytes32(_name);
         // Check that name is unused
         require(nameLookup[name] == 0, "name already bought");
@@ -136,49 +144,152 @@ contract NameManager {
     /// @dev Transfer cluster name or delete cluster name without checking auth
     /// @dev Delete by transferring to cluster id 0
     function _transferName(bytes32 name, uint256 fromClusterId, uint256 toClusterId) internal {
+        // If name is canonical cluster name for sending cluster, remove that assignment
         if (canonicalClusterName[fromClusterId] == name) {
             delete canonicalClusterName[fromClusterId];
         }
-        _clusterNames[fromClusterId].remove(name);
+        // Assign name to new cluster, otherwise unassign
         if (toClusterId != 0) {
-            _clusterNames[toClusterId].add(name);
+            // Assign name to new cluster
+            _assignName(name, toClusterId);
+            // Remove from old cluster
+            _clusterNames[fromClusterId].remove(name);
+        } else {
+            // Purge name assignment and remove from cluster
+            _unassignName(name, fromClusterId);
         }
     }
 
     /// @dev Should work smoothly for fully expired names and names partway through their duration
     /// @dev Needs to be onchain ETH bid escrowed in one place because otherwise prices shift
-    function bidName(string memory _name) external payable {
+    function bidName(string memory _name) external payable hasCluster {
         bytes32 name = _toBytes32(_name);
         // Update name status prior to bid processing so expired names can be handled during bid processing
         pokeName(_name);
-        // Retrieve existing bid, if any
-        uint256 bidId = bidLookup[name][msg.sender];
-        // If msg.sender hasn't placed a bid, process new bid
-        if (bidId == 0) {
-            unchecked {
-                // Retrieve bidId and increment pointer
-                bidId = nextBidId++;
-                // Increment total bid accounting
-                bidPool += msg.value;
+        // If name is still owned after poke, process bid
+        if (nameLookup[name] != 0) {
+            // Retrieve existing bid, if any
+            uint256 bidId = bidLookup[name][msg.sender];
+            // If msg.sender hasn't placed a bid, process new bid
+            if (bidId == 0) {
+                unchecked {
+                    // Retrieve bidId and increment pointer
+                    bidId = nextBidId++;
+                    // Increment total bid accounting
+                    bidPool += msg.value;
+                }
+                // Store bid information
+                bids[bidId] = Bid({
+                    name: name,
+                    ethAmount: msg.value,
+                    createdTimestamp: block.timestamp,
+                    bidder: msg.sender
+                });
+                // Log bidId for name
+                bidsForName[name].add(bidId);
+                // Log bidId for msg.sender
+                bidLookup[name][msg.sender] = bidId;
             }
-            bids[bidId] = Bid({
-                name: name,
-                ethAmount: msg.value,
-                createdTimestamp: block.timestamp,
-                bidder: msg.sender
-            });
-            // Log bidId for name
-            bidsForName[name].add(bidId);
-            // Log bidId for msg.sender
-            bidLookup[name][msg.sender] = bidId;
+            // If bid does exist, increment existing bid by msg.value
+            else {
+                unchecked {
+                    // Increment existing bid
+                    bids[bidId].ethAmount += msg.value;
+                    // Increment total bid accounting
+                    bidPool += msg.value;
+                }
+            }
         }
-        // If bid does exist, increment existing bid by msg.value
+        // If name shows clusterId 0, then the poke exhausted remaining ethBacking
+        // In this case, sort all bids and transfer name to highest existing bidder
         else {
-            unchecked {
-                // Increment existing bid
-                bids[bidId].ethAmount += msg.value;
-                // Increment total bid accounting
-                bidPool += msg.value;
+            // Cache all current bidIds
+            uint256[] memory bidIds = bidsForName[name].values();
+            // Iterate through all bids looking for the highest one
+            uint256 highestBidIndex;
+            uint256 highestBid;
+            for (uint256 i; i < bidIds.length;) {
+                uint256 bid = bids[bidIds[i]].ethAmount;
+                if (bid > highestBid) {
+                    highestBidIndex = i;
+                    highestBid = bid;
+                }
+                unchecked { ++i; }
+            }
+            // Retrieve msg.sender's existing bid info, if any
+            uint256 bidId = bidLookup[name][msg.sender];
+            uint256 existingBid = bids[bidId].ethAmount;
+            uint256 totalBid = msg.value + existingBid;
+            // Transfer name to msg.sender if they have the highest bid
+            // If bid is equal to highest bid, still give it to msg.sender as they paid gas to process transfer
+            if (totalBid >= highestBid) {
+                // Adjust all relevant internal accounting
+                unchecked {
+                    ethBacking[name] += totalBid;
+                    ethBackingTotal += totalBid;
+                    bidPool -= existingBid;
+                }
+                // If msg.sender had a pre-existing bid, purge it
+                if (bidId != 0) {
+                    delete bids[bidId];
+                    bidsForName[name].remove(bidId);
+                    delete bidLookup[name][msg.sender];
+                }
+                // Process name registration and transfer
+                priceIntegral[name] = PriceIntegral({
+                    name: name,
+                    lastUpdatedTimestamp: block.timestamp,
+                    lastUpdatedPrice: pricing.minAnnualPrice(),
+                    maxExpiry: block.timestamp + uint256(pricing.getMaxDuration(pricing.minAnnualPrice(), totalBid))
+                });
+                _assignName(name, addressLookup[msg.sender]);
+            }
+            // If msg.sender isn't the highest bid, log their bid and change name ownership to highest bidder
+            else {
+                // Log msg.sender's bid adjustment if a bid already exists
+                if (bidId != 0) {
+                    unchecked { bids[bidId].ethAmount += msg.value; }
+                }
+                // Create new bid for them if it doesn't
+                else {
+                    unchecked { bidId = nextBidId++; }
+                    // Store bid information
+                    bids[bidId] = Bid({
+                        name: name,
+                        ethAmount: msg.value,
+                        createdTimestamp: block.timestamp,
+                        bidder: msg.sender
+                    });
+                    // Log bidId for name
+                    bidsForName[name].add(bidId);
+                    // Log bidId for msg.sender
+                    bidLookup[name][msg.sender] = bidId;
+                }
+                // Add their bid to bidPool
+                unchecked { bidPool += msg.value; }
+
+                /// Change name owner to highest bidder
+                // Process internal accounting changes
+                unchecked {
+                    ethBacking[name] += highestBid;
+                    ethBackingTotal += highestBid;
+                    bidPool -= highestBid;
+                }
+                // Retrieve highest bidder info
+                uint256 highestBidId = bidIds[highestBidIndex];
+                address highestBidder = bids[highestBidId].bidder;
+                // Purge highest bidder's bid
+                delete bids[highestBidId];
+                bidsForName[name].remove(bidId);
+                delete bidLookup[name][highestBidder];
+                // Process name registration and transfer
+                priceIntegral[name] = PriceIntegral({
+                    name: name,
+                    lastUpdatedTimestamp: block.timestamp,
+                    lastUpdatedPrice: pricing.minAnnualPrice(),
+                    maxExpiry: block.timestamp + uint256(pricing.getMaxDuration(pricing.minAnnualPrice(), highestBid))
+                });
+                _assignName(name, addressLookup[highestBidder]);
             }
         }
     }
@@ -205,7 +316,10 @@ contract NameManager {
         _clusterNames[clusterId].add(name);
     }
 
-    function _unassignName(bytes32 name, uint256 clusterId) internal {}
+    function _unassignName(bytes32 name, uint256 clusterId) internal {
+        nameLookup[name] = 0;
+        _clusterNames[clusterId].remove(name);
+    }
 
     /// STRING HELPERS ///
 
