@@ -11,7 +11,9 @@ contract NameManager {
     using EnumerableSet for EnumerableSet.Bytes32Set;
     using EnumerableSet for EnumerableSet.UintSet;
 
+    error NoBid();
     error NoCluster();
+    error TransferFailed();
 
     Pricing internal pricing;
 
@@ -160,6 +162,8 @@ contract NameManager {
         }
     }
 
+    /// @notice Allow bids on valid or expired names. If valid, bid will be logged or existing bid incremented. If the 
+    ///         name is expired, bidName() will trigger a transfer to highest bidder (including msg.sender evaluation)
     /// @dev Should work smoothly for fully expired names and names partway through their duration
     /// @dev Needs to be onchain ETH bid escrowed in one place because otherwise prices shift
     function bidName(string memory _name) external payable hasCluster {
@@ -292,6 +296,24 @@ contract NameManager {
                 _assignName(name, addressLookup[highestBidder]);
             }
         }
+    }
+
+    /// @notice Allow valid bidder to revoke bid and get refunded
+    function revokeBid(string memory _name) external {
+        // Retrieve existing bid
+        bytes32 name = _toBytes32(_name);
+        uint256 bidId = bidLookup[name][msg.sender];
+        // Revert if no bid exists
+        if (bidId == 0) revert NoBid();
+        // Retrieve bid value and purge all bid state
+        uint256 bid = bids[bidId].ethAmount;
+        unchecked { bidPool -= bid; }
+        delete bidLookup[name][msg.sender];
+        bidsForName[name].remove(bidId);
+        delete bids[bidId];
+        // Transfer revoked bid after all state is purged to prevent reentrancy
+        (bool success, ) = payable(msg.sender).call{ value: bid }("");
+        if (!success) revert TransferFailed();
     }
 
     /// LOCAL NAME MANAGEMENT ///
