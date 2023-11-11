@@ -59,6 +59,7 @@ contract NameManager {
         bytes32 name;
         uint256 ethAmount;
         uint256 createdTimestamp;
+        // TODO: Evaluate if updatedTimestamp is necessary
         address bidder;
     }
 
