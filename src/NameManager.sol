@@ -14,6 +14,7 @@ contract NameManager {
     error NoBid();
     error Invalid();
     error NoCluster();
+    error NoPayment();
     error TransferFailed();
 
     Pricing internal pricing;
@@ -91,7 +92,9 @@ contract NameManager {
 
     /// ECONOMIC FUNCTIONS ///
 
+    /// @notice Buy unregistered name. Must pay at least minimum yearly payment.
     function buyName(string memory _name, uint256 clusterId) external payable hasCluster {
+        if (msg.value < pricing.minAnnualPrice()) revert NoPayment();
         bytes32 name = _toBytes32(_name);
         if (name == bytes32("")) revert Invalid();
         // Check that name is unused
