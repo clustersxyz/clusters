@@ -254,6 +254,7 @@ contract NameManager {
                     bidPool += msg.value;
                 }
             }
+
             // Update name status and transfer to highest sufficient bidder if expired
             pokeName(_name);
         }
