@@ -289,9 +289,7 @@ contract NameManager {
                 uint256 highestBidId = bidIds[highestBidIndex];
                 address highestBidder = bids[highestBidId].bidder;
                 // Purge highest bidder's bid
-                delete bids[highestBidId];
-                bidsForName[name].remove(highestBidId);
-                delete bidLookup[name][highestBidder];
+                _deleteBid(highestBidId);
                 // Process name registration and transfer
                 priceIntegral[name] = PriceIntegral({
                     name: name,
@@ -316,9 +314,7 @@ contract NameManager {
         if (amount > bid) revert Invalid();
         // If reducing bid to 0, revoke altogether
         if (bid - amount == 0) {
-            delete bidLookup[name][msg.sender];
-            bidsForName[name].remove(bidId);
-            delete bids[bidId];
+            _deleteBid(bidId);
         }
         // Otherwise, decrease bid
         else {
@@ -341,12 +337,21 @@ contract NameManager {
         // Retrieve bid value and purge all bid state
         uint256 bid = bids[bidId].ethAmount;
         unchecked { bidPool -= bid; }
-        delete bidLookup[name][msg.sender];
-        bidsForName[name].remove(bidId);
-        delete bids[bidId];
+        _deleteBid(bidId);
         // Transfer revoked bid after all state is purged to prevent reentrancy
         (bool success, ) = payable(msg.sender).call{ value: bid }("");
         if (!success) revert TransferFailed();
+    }
+
+    /// @notice Internal function to delete bid storage
+    /// @dev Does not decrement bidPool!
+    function _deleteBid(uint256 bidId) internal {
+        Bid memory bid = bids[bidId];
+        bytes32 name = bid.name;
+        address bidder = bid.bidder;
+        delete bidLookup[name][bidder];
+        bidsForName[name].remove(bidId);
+        delete bids[bidId];
     }
 
     /// LOCAL NAME MANAGEMENT ///
