@@ -4,6 +4,7 @@ pragma solidity ^0.8.23;
 import {EnumerableSet} from "openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 import {Pricing} from "./Pricing.sol";
+import {ClusterData} from "./libraries/ClusterData.sol";
 
 /// @notice The bidding, accepting, eth storing component of Clusters. Handles name assignment
 ///         to cluster ids and checks auth of cluster membership before acting on one of its names
@@ -46,25 +47,10 @@ contract NameManager {
     /// @notice Amount of eth that's transferred from ethBacking to the protocol
     uint256 public protocolRevenue;
 
-    struct PriceIntegral {
-        bytes32 name;
-        uint256 lastUpdatedTimestamp;
-        uint256 lastUpdatedPrice;
-        uint256 maxExpiry;
-    }
-
-    mapping(bytes32 name => PriceIntegral integral) public priceIntegral;
-
-    /// @notice All relevant information for an individual bid
-    struct Bid {
-        bytes32 name;
-        uint256 ethAmount;
-        uint256 createdTimestamp;
-        address bidder;
-    }
+    mapping(bytes32 name => ClusterData.PriceIntegral integral) public priceIntegral;
 
     /// @notice Bid info storage, all bidIds are incremental and are not sorted by name
-    mapping(uint256 bidId => Bid) public bids;
+    mapping(uint256 bidId => ClusterData.Bid) internal bids;
 
     /// @notice Counter for next bidId, always +1 over most recent bid
     uint256 public nextBidId = 1;
@@ -103,6 +89,12 @@ contract NameManager {
         return bidsForName[name].values();
     }
 
+    /// @notice Get Bid struct from storage
+    /// @return bid Bid struct
+    function getBid(uint256 bidId) external view returns (ClusterData.Bid memory bid) {
+        return bids[bidId];
+    }
+
     /// ECONOMIC FUNCTIONS ///
 
     /// @notice Buy unregistered name. Must pay at least minimum yearly payment.
@@ -116,7 +108,7 @@ contract NameManager {
             ethBacking[name] += msg.value;
             ethBackingTotal += msg.value;
         }
-        priceIntegral[name] = PriceIntegral({
+        priceIntegral[name] = ClusterData.PriceIntegral({
             name: name,
             lastUpdatedTimestamp: block.timestamp,
             lastUpdatedPrice: pricing.minAnnualPrice(),
@@ -139,7 +131,7 @@ contract NameManager {
     function pokeName(string memory _name) public {
         bytes32 name = _toBytes32(_name);
         if (name == bytes32("")) revert Invalid();
-        PriceIntegral memory integral = priceIntegral[name];
+        ClusterData.PriceIntegral memory integral = priceIntegral[name];
         (uint256 spent, uint256 newPrice) = pricing.getIntegratedPrice(
             integral.lastUpdatedPrice,
             block.timestamp - integral.lastUpdatedTimestamp,
@@ -165,7 +157,7 @@ contract NameManager {
                 ethBacking[name] -= spent;
                 ethBackingTotal -= spent;
             }
-            priceIntegral[name] = PriceIntegral({
+            priceIntegral[name] = ClusterData.PriceIntegral({
                 name: name,
                 lastUpdatedTimestamp: block.timestamp,
                 lastUpdatedPrice: newPrice,
@@ -205,7 +197,7 @@ contract NameManager {
             // Purge highest bidder's bid
             _deleteBid(bidId);
             // Process name registration and transfer
-            priceIntegral[name] = PriceIntegral({
+            priceIntegral[name] = ClusterData.PriceIntegral({
                 name: name,
                 lastUpdatedTimestamp: block.timestamp,
                 lastUpdatedPrice: pricing.minAnnualPrice(),
@@ -252,7 +244,7 @@ contract NameManager {
                     bidPool += msg.value;
                 }
                 // Store bid information
-                bids[bidId] = Bid({
+                bids[bidId] = ClusterData.Bid({
                     name: name,
                     ethAmount: msg.value,
                     createdTimestamp: block.timestamp,
@@ -322,7 +314,7 @@ contract NameManager {
     /// @notice Internal function to delete bid storage
     /// @dev Does not decrement bidPool!
     function _deleteBid(uint256 bidId) internal {
-        Bid memory bid = bids[bidId];
+        ClusterData.Bid memory bid = bids[bidId];
         bytes32 name = bid.name;
         address bidder = bid.bidder;
         delete bidLookup[name][bidder];
