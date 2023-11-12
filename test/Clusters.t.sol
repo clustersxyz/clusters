@@ -203,4 +203,62 @@ contract ClustersTest is Test {
         require(bid.createdTimestamp == block.timestamp, "bid createdTimestamp incorrect");
         require(bid.bidder == address(1), "bid bidder incorrect");
     }
+
+    function testReduceBid() public {
+        createCluster();
+        buyName();
+        bytes32 name = _toBytes32("Test Name");
+        vm.deal(address(1), 1 ether);
+        vm.startPrank(address(1));
+        clusters.create();
+        clusters.bidName{ value: 0.2 ether }("Test Name");
+        uint256 balance = address(1).balance;
+        clusters.reduceBid("Test Name", 0.05 ether);
+        vm.stopPrank();
+        require(address(1).balance == balance + 0.05 ether, "refund error");
+        require(clusters.addressLookup(address(this)) == 1, "address(this) not assigned to cluster");
+        require(clusters.nameLookup(name) == 1, "name not assigned to cluster");
+        bytes32[] memory names = clusters.getClusterNames(1);
+        require(name == names[0], "cluster name array incorrect");
+        require(clusters.ethBacking(name) == 0.1 ether, "ethBacking incorrect");
+        require(clusters.ethBackingTotal() == 0.1 ether, "ethBackingTotal incorrect");
+        require(address(clusters).balance == 0.25 ether, "contract balance issue");
+        uint256[] memory bidIds = clusters.getBidsForName(name);
+        require(1 == bidIds[0], "bidId increment error");
+        require(clusters.bidLookup(name, address(1)) == 1, "bidLookup error");
+        require(clusters.bidPool() == 0.15 ether, "bidPool incorrect");
+        ClusterData.Bid memory bid = clusters.getBid(1);
+        require(bid.name == name, "bid name incorrect");
+        require(bid.ethAmount == 0.15 ether, "bid ethAmount incorrect");
+        require(bid.createdTimestamp == block.timestamp, "bid createdTimestamp incorrect");
+        require(bid.bidder == address(1), "bid bidder incorrect");
+    }
+
+    function testRevokeBid() public {
+        createCluster();
+        buyName();
+        bytes32 name = _toBytes32("Test Name");
+        vm.deal(address(1), 1 ether);
+        vm.startPrank(address(1));
+        clusters.create();
+        clusters.bidName{ value: 0.2 ether }("Test Name");
+        clusters.revokeBid("Test Name");
+        vm.stopPrank();
+        require(clusters.addressLookup(address(this)) == 1, "address(this) not assigned to cluster");
+        require(clusters.nameLookup(name) == 1, "name not assigned to cluster");
+        bytes32[] memory names = clusters.getClusterNames(1);
+        require(name == names[0], "cluster name array incorrect");
+        require(clusters.ethBacking(name) == 0.1 ether, "ethBacking incorrect");
+        require(clusters.ethBackingTotal() == 0.1 ether, "ethBackingTotal incorrect");
+        require(address(clusters).balance == 0.1 ether, "contract balance issue");
+        uint256[] memory bidIds = clusters.getBidsForName(name);
+        require(bidIds.length == 0, "bidsForName not purged");
+        require(clusters.bidLookup(name, address(1)) == 0, "bidLookup not purged");
+        require(clusters.bidPool() == 0, "bidPool not adjusted");
+        ClusterData.Bid memory bid = clusters.getBid(1);
+        require(bid.name == "", "bid name not purged");
+        require(bid.ethAmount == 0, "bid ethAmount not purged");
+        require(bid.createdTimestamp == 0, "bid createdTimestamp not purged");
+        require(bid.bidder == address(0), "bid bidder not purged");
+    }
 }
