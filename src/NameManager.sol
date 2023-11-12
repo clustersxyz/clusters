@@ -138,7 +138,7 @@ contract NameManager {
                 protocolRevenue += backing;
                 ethBackingTotal -= backing;
             }
-            ethBacking[name] = 0;
+            delete ethBacking[name];
             // Check for and transfer to highest sufficient bidder, if no bids it will be address(0) which is cluster 0
             address highestBidder = _processBids(name);
             _transferName(name, nameLookup[name], addressLookup[highestBidder]);
