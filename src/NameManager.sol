@@ -138,7 +138,7 @@ contract NameManager {
                 protocolRevenue += backing;
                 ethBackingTotal -= backing;
             }
-            ethBacking[name] = 0;
+            delete ethBacking[name];
             // Check for and transfer to highest sufficient bidder, if no bids it will be address(0) which is cluster 0
             address highestBidder = _processBids(name);
             _transferName(name, nameLookup[name], addressLookup[highestBidder]);
@@ -254,98 +254,8 @@ contract NameManager {
                     bidPool += msg.value;
                 }
             }
-        }
-        // If name shows clusterId 0, then the poke exhausted remaining ethBacking
-        // In this case, sort all bids and transfer name to highest existing bidder
-        else {
-            // Cache all current bidIds
-            uint256[] memory bidIds = bidsForName[name].values();
-            // Iterate through all bids looking for the highest one
-            uint256 highestBidIndex;
-            uint256 highestBid;
-            for (uint256 i; i < bidIds.length;) {
-                uint256 bid = bids[bidIds[i]].ethAmount;
-                if (bid > highestBid) {
-                    highestBidIndex = i;
-                    highestBid = bid;
-                }
-                unchecked { ++i; }
-            }
-            // Retrieve msg.sender's existing bid info, if any
-            uint256 bidId = bidLookup[name][msg.sender];
-            uint256 existingBid = bids[bidId].ethAmount;
-            uint256 totalBid = msg.value + existingBid;
-            // Transfer name to msg.sender if they have the highest bid
-            // If bid is equal to highest bid, still give it to msg.sender as they paid gas to process transfer
-            if (totalBid >= highestBid) {
-                // Adjust all relevant internal accounting
-                unchecked {
-                    ethBacking[name] += totalBid;
-                    ethBackingTotal += totalBid;
-                    bidPool -= existingBid;
-                }
-                // If msg.sender had a pre-existing bid, purge it
-                if (bidId != 0) {
-                    delete bids[bidId];
-                    bidsForName[name].remove(bidId);
-                    delete bidLookup[name][msg.sender];
-                }
-                // Process name registration and transfer
-                priceIntegral[name] = PriceIntegral({
-                    name: name,
-                    lastUpdatedTimestamp: block.timestamp,
-                    lastUpdatedPrice: pricing.minAnnualPrice(),
-                    maxExpiry: block.timestamp + uint256(pricing.getMaxDuration(pricing.minAnnualPrice(), totalBid))
-                });
-                _assignName(name, addressLookup[msg.sender]);
-            }
-            // If msg.sender isn't the highest bid, log their bid and change name ownership to highest bidder
-            else {
-                // Log msg.sender's bid adjustment if a bid already exists
-                if (bidId != 0) {
-                    unchecked { bids[bidId].ethAmount += msg.value; }
-                }
-                // Create new bid for them if it doesn't
-                else {
-                    unchecked { bidId = nextBidId++; }
-                    // Store bid information
-                    bids[bidId] = Bid({
-                        name: name,
-                        ethAmount: msg.value,
-                        createdTimestamp: block.timestamp,
-                        bidder: msg.sender
-                    });
-                    // Log bidId for name
-                    bidsForName[name].add(bidId);
-                    // Log bidId for msg.sender
-                    bidLookup[name][msg.sender] = bidId;
-                }
-                // Add their bid to bidPool
-                unchecked { bidPool += msg.value; }
-
-                /// Change name owner to highest bidder
-                // Process internal accounting changes
-                unchecked {
-                    ethBacking[name] += highestBid;
-                    ethBackingTotal += highestBid;
-                    bidPool -= highestBid;
-                }
-                // Retrieve highest bidder info
-                uint256 highestBidId = bidIds[highestBidIndex];
-                address highestBidder = bids[highestBidId].bidder;
-                // Purge highest bidder's bid
-                delete bids[highestBidId];
-                bidsForName[name].remove(highestBidId);
-                delete bidLookup[name][highestBidder];
-                // Process name registration and transfer
-                priceIntegral[name] = PriceIntegral({
-                    name: name,
-                    lastUpdatedTimestamp: block.timestamp,
-                    lastUpdatedPrice: pricing.minAnnualPrice(),
-                    maxExpiry: block.timestamp + uint256(pricing.getMaxDuration(pricing.minAnnualPrice(), highestBid))
-                });
-                _assignName(name, addressLookup[highestBidder]);
-            }
+            // Update name status and transfer to highest sufficient bidder if expired
+            pokeName(_name);
         }
     }
 
