@@ -20,31 +20,31 @@ contract NameManager {
     Pricing internal pricing;
 
     /// @notice Which cluster an address belongs to
-    mapping(address addr => uint256 clusterId) internal addressLookup;
+    mapping(address addr => uint256 clusterId) public addressLookup;
 
     /// @notice Which cluster a name belongs to
-    mapping(bytes32 name => uint256 clusterId) internal nameLookup;
+    mapping(bytes32 name => uint256 clusterId) public nameLookup;
 
     /// @notice Display name to be shown for a cluster, like ENS reverse records
-    mapping(uint256 clusterId => bytes32 name) internal canonicalClusterName;
+    mapping(uint256 clusterId => bytes32 name) public canonicalClusterName;
 
     /// @notice For example lookup[17]["hot"] -> 0x123...
-    mapping(uint256 clusterId => mapping(bytes32 walletName => address wallet)) internal forwardLookup;
+    mapping(uint256 clusterId => mapping(bytes32 walletName => address wallet)) public forwardLookup;
 
     /// @notice For example lookup[0x123...] -> "hot", then combine with cluster name in a diff method
-    mapping(address wallet => bytes32 walletName) internal reverseLookup;
+    mapping(address wallet => bytes32 walletName) public reverseLookup;
 
     /// @notice Enumerate all names owned by a cluster
-    mapping(uint256 clusterId => EnumerableSet.Bytes32Set names) internal _clusterNames;
+    mapping(uint256 clusterId => EnumerableSet.Bytes32Set names) internal clusterNames;
 
     /// @notice The amount of money backing each name registration
-    mapping(bytes32 name => uint256 amount) internal ethBacking;
+    mapping(bytes32 name => uint256 amount) public ethBacking;
 
     /// @notice Total amount of ETH backing name registrations
-    uint256 internal ethBackingTotal;
+    uint256 public ethBackingTotal;
 
     /// @notice Amount of eth that's transferred from ethBacking to the protocol
-    uint256 internal protocolRevenue;
+    uint256 public protocolRevenue;
 
     struct PriceIntegral {
         bytes32 name;
@@ -53,31 +53,30 @@ contract NameManager {
         uint256 maxExpiry;
     }
 
-    mapping(bytes32 name => PriceIntegral integral) internal priceIntegral;
+    mapping(bytes32 name => PriceIntegral integral) public priceIntegral;
 
     /// @notice All relevant information for an individual bid
     struct Bid {
         bytes32 name;
         uint256 ethAmount;
         uint256 createdTimestamp;
-        // TODO: Evaluate if updatedTimestamp is necessary
         address bidder;
     }
 
     /// @notice Bid info storage, all bidIds are incremental and are not sorted by name
-    mapping(uint256 bidId => Bid) internal bids;
+    mapping(uint256 bidId => Bid) public bids;
 
     /// @notice Counter for next bidId, always +1 over most recent bid
-    uint256 internal nextBidId = 1;
+    uint256 public nextBidId = 1;
 
     /// @notice Set of bids per name allows for bid enumeration
     mapping(bytes32 name => EnumerableSet.UintSet bidIds) internal bidsForName;
 
     /// @notice Since each address can only bid on a name once, this helps for bid lookup
-    mapping(bytes32 name => mapping(address bidder => uint256 bidId)) internal bidLookup;
+    mapping(bytes32 name => mapping(address bidder => uint256 bidId)) public bidLookup;
 
     /// @notice Internal accounting for all bid ETH held in contract
-    uint256 internal bidPool;
+    uint256 public bidPool;
 
     /// @notice Restrict certain functions to those who have created a cluster for their address
     modifier hasCluster() {
@@ -88,6 +87,20 @@ contract NameManager {
 
     constructor(address _pricing) {
         pricing = Pricing(_pricing);
+    }
+
+    /// VIEW FUNCTIONS ///
+
+    /// @notice Get all names owned by a cluster
+    /// @return names Array of names in bytes32 format
+    function getClusterNames(uint256 clusterId) external view returns (bytes32[] memory names) {
+        return clusterNames[clusterId].values();
+    }
+
+    /// @notice Get all bidIds for a specific name
+    /// @return bidIds Array of bidIds
+    function getBidsForName(bytes32 name) external view returns (uint256[] memory bidIds) {
+        return bidsForName[name].values();
     }
 
     /// ECONOMIC FUNCTIONS ///
@@ -117,7 +130,7 @@ contract NameManager {
         bytes32 name = _toBytes32(_name);
         if (name == bytes32("")) revert Invalid();
         uint256 currentCluster = addressLookup[msg.sender];
-        require(_clusterNames[currentCluster].contains(name), "not name owner");
+        require(clusterNames[currentCluster].contains(name), "not name owner");
         _transferName(name, currentCluster, toClusterId);
     }
 
@@ -213,7 +226,7 @@ contract NameManager {
             // Assign name to new cluster
             _assignName(name, toClusterId);
             // Remove from old cluster
-            _clusterNames[fromClusterId].remove(name);
+            clusterNames[fromClusterId].remove(name);
         } else {
             // Purge name assignment and remove from cluster
             _unassignName(name, fromClusterId);
@@ -347,12 +360,12 @@ contract NameManager {
 
     function _assignName(bytes32 name, uint256 clusterId) internal {
         nameLookup[name] = clusterId;
-        _clusterNames[clusterId].add(name);
+        clusterNames[clusterId].add(name);
     }
 
     function _unassignName(bytes32 name, uint256 clusterId) internal {
         nameLookup[name] = 0;
-        _clusterNames[clusterId].remove(name);
+        clusterNames[clusterId].remove(name);
     }
 
     /// STRING HELPERS ///
