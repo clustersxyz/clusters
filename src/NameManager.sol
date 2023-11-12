@@ -18,6 +18,14 @@ contract NameManager {
     error NoPayment();
     error TransferFailed();
 
+    event BuyName(string indexed _name, uint256 indexed clusterId);
+    event TransferName(bytes32 indexed name, uint256 indexed fromClusterId, uint256 indexed toClusterId);
+    event PokeName(string indexed _name, address indexed poker);
+    event BidPlaced(string indexed _name, address indexed bidder, uint256 indexed amount);
+    event BidIncreased(string indexed _name, address indexed bidder, uint256 indexed amount);
+    event BidReduced(string indexed _name, address indexed bidder, uint256 indexed amount);
+    event BidRevoked(string indexed _name, address indexed bidder, uint256 indexed amount);
+
     Pricing internal pricing;
 
     /// @notice Which cluster an address belongs to
@@ -115,6 +123,7 @@ contract NameManager {
             maxExpiry: block.timestamp + uint256(pricing.getMaxDuration(pricing.minAnnualPrice(), msg.value))
         });
         _assignName(name, clusterId);
+        emit BuyName(_name, clusterId);
     }
 
     /// @notice Move name from one cluster to another without payment
@@ -163,6 +172,7 @@ contract NameManager {
                 lastUpdatedPrice: newPrice,
                 maxExpiry: 0 // TODO: Correct this value
             });
+            emit PokeName(_name, msg.sender);
         }
     }
 
@@ -223,6 +233,7 @@ contract NameManager {
             // Purge name assignment and remove from cluster
             _unassignName(name, fromClusterId);
         }
+        emit TransferName(name, fromClusterId, toClusterId);
     }
 
     /// @notice Place bids on valid names. Subsequent calls increases existing bid. If name is expired, transfer to
@@ -254,6 +265,7 @@ contract NameManager {
                 _bidsForName[name].add(bidId);
                 // Log bidId under msg.sender
                 bidLookup[name][msg.sender] = bidId;
+                emit BidPlaced(_name, msg.sender, msg.value);
             }
             // If bid does exist, increment existing bid by msg.value and update timestamp
             else {
@@ -262,6 +274,7 @@ contract NameManager {
                     bidPool += msg.value;
                 }
                 _bids[bidId].createdTimestamp = block.timestamp;
+                emit BidIncreased(_name, msg.sender, msg.value);
             }
 
             // Update name status and transfer to highest sufficient bidder if expired
@@ -282,11 +295,13 @@ contract NameManager {
         // If reducing bid to 0, revoke altogether
         if (bid - amount == 0) {
             _deleteBid(bidId);
+            emit BidRevoked(_name, msg.sender, amount);
         }
         // Otherwise, decrease bid and update timestamp
         else {
             unchecked { _bids[bidId].ethAmount -= amount; }
             _bids[bidId].createdTimestamp = block.timestamp;
+            emit BidReduced(_name, msg.sender, amount);
         }
         // Reduce bidPool accordingly
         unchecked { bidPool -= amount; }
@@ -306,6 +321,7 @@ contract NameManager {
         uint256 bid = _bids[bidId].ethAmount;
         unchecked { bidPool -= bid; }
         _deleteBid(bidId);
+        emit BidRevoked(_name, msg.sender, bid);
         // Transfer revoked bid after all state is purged to prevent reentrancy
         (bool success, ) = payable(msg.sender).call{ value: bid }("");
         if (!success) revert TransferFailed();
