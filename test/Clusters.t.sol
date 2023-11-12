@@ -14,11 +14,18 @@ contract ClustersTest is Test {
     uint256 secondsAfterCreation = 1000 * 365 days;
     uint256 minPrice;
 
+    function _toBytes32(string memory smallString) internal pure returns (bytes32 result) {
+        bytes memory smallBytes = bytes(smallString);
+        require(smallBytes.length <= 32, "name too long");
+        return bytes32(smallBytes);
+    }
+
     function setUp() public {
         pricing = new Pricing();
         clusters = new Clusters(address(pricing));
         lambert = new Lambert();
         minPrice = pricing.minAnnualPrice();
+        vm.deal(address(this), 1 ether);
     }
 
     function testDecayMultiplier() public {
@@ -113,5 +120,25 @@ contract ClustersTest is Test {
 
         // W(10) ~= 1.7455, approx is 1.830768336445553094
         assertEq(lambert.W0(10e18), 1830768336445553094);
+    }
+
+    function createCluster() public {
+        clusters.create();
+    }
+
+    function buyName() public {
+        clusters.buyName{ value: 0.1 ether }("Test Name", 1);
+    }
+
+    function testBuyName() public {
+        createCluster();
+        buyName();
+        bytes32 name = _toBytes32("Test Name");
+        require(clusters.addressLookup(address(this)) == 1, "address(this) not assigned to cluster");
+        require(clusters.nameLookup(name) == 1, "name not assigned to cluster");
+        bytes32[] memory names = clusters.getClusterNames(1);
+        require(name == names[0], "cluster name array incorrect");
+        require(clusters.ethBacking(name) == 0.1 ether, "ethBacking incorrect");
+        require(clusters.ethBackingTotal() == 0.1 ether, "ethBackingTotal incorrect");
     }
 }
