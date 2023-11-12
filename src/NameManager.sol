@@ -247,12 +247,13 @@ contract NameManager {
                 // Log bidId under msg.sender
                 bidLookup[name][msg.sender] = bidId;
             }
-            // If bid does exist, increment existing bid by msg.value
+            // If bid does exist, increment existing bid by msg.value and update timestamp
             else {
                 unchecked {
                     bids[bidId].ethAmount += msg.value;
                     bidPool += msg.value;
                 }
+                bids[bidId].createdTimestamp = block.timestamp;
             }
             // Update name status and transfer to highest sufficient bidder if expired
             pokeName(_name);
@@ -273,9 +274,10 @@ contract NameManager {
         if (bid - amount == 0) {
             _deleteBid(bidId);
         }
-        // Otherwise, decrease bid
+        // Otherwise, decrease bid and update timestamp
         else {
             unchecked { bids[bidId].ethAmount -= amount; }
+            bids[bidId].createdTimestamp = block.timestamp;
         }
         // Reduce bidPool accordingly
         unchecked { bidPool -= amount; }
