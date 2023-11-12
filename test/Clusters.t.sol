@@ -141,4 +141,19 @@ contract ClustersTest is Test {
         require(clusters.ethBacking(name) == 0.1 ether, "ethBacking incorrect");
         require(clusters.ethBackingTotal() == 0.1 ether, "ethBackingTotal incorrect");
     }
+
+    function testTransferName() public {
+        createCluster();
+        buyName();
+        bytes32 name = _toBytes32("Test Name");
+        vm.prank(address(1));
+        createCluster();
+        clusters.transferName("Test Name", 2);
+        require(clusters.addressLookup(address(1)) == 2, "address(1) not assigned to cluster");
+        require(clusters.nameLookup(name) == 2, "name not assigned to proper cluster");
+        bytes32[] memory names = clusters.getClusterNames(1);
+        require(names.length == 0, "original cluster name array didn't get cleared");
+        names = clusters.getClusterNames(2);
+        require(name == names[0], "second cluster name array incorrect");
+    }
 }
