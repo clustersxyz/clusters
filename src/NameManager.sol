@@ -36,7 +36,7 @@ contract NameManager {
     mapping(address wallet => bytes32 walletName) public reverseLookup;
 
     /// @notice Enumerate all names owned by a cluster
-    mapping(uint256 clusterId => EnumerableSet.Bytes32Set names) internal clusterNames;
+    mapping(uint256 clusterId => EnumerableSet.Bytes32Set names) internal _clusterNames;
 
     /// @notice The amount of money backing each name registration
     mapping(bytes32 name => uint256 amount) public ethBacking;
@@ -50,13 +50,13 @@ contract NameManager {
     mapping(bytes32 name => ClusterData.PriceIntegral integral) public priceIntegral;
 
     /// @notice Bid info storage, all bidIds are incremental and are not sorted by name
-    mapping(uint256 bidId => ClusterData.Bid) internal bids;
+    mapping(uint256 bidId => ClusterData.Bid) internal _bids;
 
     /// @notice Counter for next bidId, always +1 over most recent bid
     uint256 public nextBidId = 1;
 
     /// @notice Set of bids per name allows for bid enumeration
-    mapping(bytes32 name => EnumerableSet.UintSet bidIds) internal bidsForName;
+    mapping(bytes32 name => EnumerableSet.UintSet bidIds) internal _bidsForName;
 
     /// @notice Since each address can only bid on a name once, this helps for bid lookup
     mapping(bytes32 name => mapping(address bidder => uint256 bidId)) public bidLookup;
@@ -80,19 +80,19 @@ contract NameManager {
     /// @notice Get all names owned by a cluster
     /// @return names Array of names in bytes32 format
     function getClusterNames(uint256 clusterId) external view returns (bytes32[] memory names) {
-        return clusterNames[clusterId].values();
+        return _clusterNames[clusterId].values();
     }
 
     /// @notice Get all bidIds for a specific name
     /// @return bidIds Array of bidIds
     function getBidsForName(bytes32 name) external view returns (uint256[] memory bidIds) {
-        return bidsForName[name].values();
+        return _bidsForName[name].values();
     }
 
     /// @notice Get Bid struct from storage
     /// @return bid Bid struct
     function getBid(uint256 bidId) external view returns (ClusterData.Bid memory bid) {
-        return bids[bidId];
+        return _bids[bidId];
     }
 
     /// ECONOMIC FUNCTIONS ///
@@ -122,7 +122,7 @@ contract NameManager {
         bytes32 name = _toBytes32(_name);
         if (name == bytes32("")) revert Invalid();
         uint256 currentCluster = addressLookup[msg.sender];
-        require(clusterNames[currentCluster].contains(name), "not name owner");
+        require(_clusterNames[currentCluster].contains(name), "not name owner");
         _transferName(name, currentCluster, toClusterId);
     }
 
@@ -171,12 +171,12 @@ contract NameManager {
     /// @return highestBidder Highest sufficient bidder
     function _processBids(bytes32 name) internal returns (address highestBidder) {
         // Cache all current bidIds
-        uint256[] memory bidIds = bidsForName[name].values();
+        uint256[] memory bidIds = _bidsForName[name].values();
         // Iterate through all bids looking for the highest one
         uint256 highestBidIndex;
         uint256 highestBid;
         for (uint256 i; i < bidIds.length;) {
-            uint256 bid = bids[bidIds[i]].ethAmount;
+            uint256 bid = _bids[bidIds[i]].ethAmount;
             if (bid > highestBid) {
                 highestBidIndex = i;
                 highestBid = bid;
@@ -187,7 +187,7 @@ contract NameManager {
         if (highestBid >= pricing.minAnnualPrice()) {
             // Retrieve highest bid info
             uint256 bidId = bidIds[highestBidIndex];
-            highestBidder = bids[bidId].bidder;
+            highestBidder = _bids[bidId].bidder;
             // Process internal accounting changes
             unchecked {
                 ethBacking[name] += highestBid;
@@ -218,7 +218,7 @@ contract NameManager {
             // Assign name to new cluster
             _assignName(name, toClusterId);
             // Remove from old cluster
-            clusterNames[fromClusterId].remove(name);
+            _clusterNames[fromClusterId].remove(name);
         } else {
             // Purge name assignment and remove from cluster
             _unassignName(name, fromClusterId);
@@ -244,24 +244,24 @@ contract NameManager {
                     bidPool += msg.value;
                 }
                 // Store bid information
-                bids[bidId] = ClusterData.Bid({
+                _bids[bidId] = ClusterData.Bid({
                     name: name,
                     ethAmount: msg.value,
                     createdTimestamp: block.timestamp,
                     bidder: msg.sender
                 });
                 // Log bidId under name
-                bidsForName[name].add(bidId);
+                _bidsForName[name].add(bidId);
                 // Log bidId under msg.sender
                 bidLookup[name][msg.sender] = bidId;
             }
             // If bid does exist, increment existing bid by msg.value and update timestamp
             else {
                 unchecked {
-                    bids[bidId].ethAmount += msg.value;
+                    _bids[bidId].ethAmount += msg.value;
                     bidPool += msg.value;
                 }
-                bids[bidId].createdTimestamp = block.timestamp;
+                _bids[bidId].createdTimestamp = block.timestamp;
             }
 
             // Update name status and transfer to highest sufficient bidder if expired
@@ -277,7 +277,7 @@ contract NameManager {
         // Revert if no bid exists
         if (bidId == 0) revert NoBid();
         // Retrieve bid value and confirm amount isn't larger than it
-        uint256 bid = bids[bidId].ethAmount;
+        uint256 bid = _bids[bidId].ethAmount;
         if (amount > bid) revert Invalid();
         // If reducing bid to 0, revoke altogether
         if (bid - amount == 0) {
@@ -285,8 +285,8 @@ contract NameManager {
         }
         // Otherwise, decrease bid and update timestamp
         else {
-            unchecked { bids[bidId].ethAmount -= amount; }
-            bids[bidId].createdTimestamp = block.timestamp;
+            unchecked { _bids[bidId].ethAmount -= amount; }
+            _bids[bidId].createdTimestamp = block.timestamp;
         }
         // Reduce bidPool accordingly
         unchecked { bidPool -= amount; }
@@ -303,7 +303,7 @@ contract NameManager {
         // Revert if no bid exists
         if (bidId == 0) revert NoBid();
         // Retrieve bid value and purge all bid state
-        uint256 bid = bids[bidId].ethAmount;
+        uint256 bid = _bids[bidId].ethAmount;
         unchecked { bidPool -= bid; }
         _deleteBid(bidId);
         // Transfer revoked bid after all state is purged to prevent reentrancy
@@ -314,12 +314,12 @@ contract NameManager {
     /// @notice Internal function to delete bid storage
     /// @dev Does not decrement bidPool!
     function _deleteBid(uint256 bidId) internal {
-        ClusterData.Bid memory bid = bids[bidId];
+        ClusterData.Bid memory bid = _bids[bidId];
         bytes32 name = bid.name;
         address bidder = bid.bidder;
         delete bidLookup[name][bidder];
-        bidsForName[name].remove(bidId);
-        delete bids[bidId];
+        _bidsForName[name].remove(bidId);
+        delete _bids[bidId];
     }
 
     /// LOCAL NAME MANAGEMENT ///
@@ -353,12 +353,12 @@ contract NameManager {
 
     function _assignName(bytes32 name, uint256 clusterId) internal {
         nameLookup[name] = clusterId;
-        clusterNames[clusterId].add(name);
+        _clusterNames[clusterId].add(name);
     }
 
     function _unassignName(bytes32 name, uint256 clusterId) internal {
         nameLookup[name] = 0;
-        clusterNames[clusterId].remove(name);
+        _clusterNames[clusterId].remove(name);
     }
 
     /// STRING HELPERS ///
