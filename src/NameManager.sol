@@ -163,13 +163,13 @@ contract NameManager {
             unchecked {
                 protocolRevenue += spent;
                 ethBacking[name] -= spent;
-                ethBackingTotal -= backing;
+                ethBackingTotal -= spent;
             }
             priceIntegral[name] = PriceIntegral({
                 name: name,
                 lastUpdatedTimestamp: block.timestamp,
                 lastUpdatedPrice: newPrice,
-                maxExpiry: 0
+                maxExpiry: 0 // TODO: Correct this value
             });
         }
     }

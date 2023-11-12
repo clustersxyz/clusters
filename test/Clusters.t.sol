@@ -156,4 +156,18 @@ contract ClustersTest is Test {
         names = clusters.getClusterNames(2);
         require(name == names[0], "second cluster name array incorrect");
     }
+
+    function testPokeName() public {
+        createCluster();
+        buyName();
+        vm.prank(address(1));
+        clusters.pokeName("Test Name");
+        bytes32 name = _toBytes32("Test Name");
+        require(clusters.addressLookup(address(this)) == 1, "address(this) not assigned to cluster");
+        require(clusters.nameLookup(name) == 1, "name not assigned to cluster");
+        bytes32[] memory names = clusters.getClusterNames(1);
+        require(name == names[0], "cluster name array incorrect");
+        require(clusters.ethBacking(name) == 0.1 ether, "ethBacking incorrect");
+        require(clusters.ethBackingTotal() == 0.1 ether, "ethBackingTotal incorrect");
+    }
 }
