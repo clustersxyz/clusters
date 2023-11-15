@@ -49,9 +49,6 @@ contract NameManager {
     /// @notice The amount of money backing each name registration
     mapping(bytes32 name => uint256 amount) public ethBacking;
 
-    /// @notice Total amount of ETH backing name registrations
-    uint256 public ethBackingTotal;
-
     /// @notice Amount of eth that's transferred from ethBacking to the protocol
     uint256 public protocolRevenue;
 
@@ -68,9 +65,6 @@ contract NameManager {
 
     /// @notice Since each address can only bid on a name once, this helps for bid lookup
     mapping(bytes32 name => mapping(address bidder => uint256 bidId)) public bidLookup;
-
-    /// @notice Internal accounting for all bid ETH held in contract
-    uint256 public bidPool;
 
     /// @notice Restrict certain functions to those who have created a cluster for their address
     modifier hasCluster() {
@@ -112,10 +106,7 @@ contract NameManager {
         if (name == bytes32("")) revert Invalid();
         // Check that name is unused
         require(nameLookup[name] == 0, "name already bought");
-        unchecked {
-            ethBacking[name] += msg.value;
-            ethBackingTotal += msg.value;
-        }
+        unchecked { ethBacking[name] += msg.value; }
         priceIntegral[name] = ClusterData.PriceIntegral({
             name: name,
             lastUpdatedTimestamp: block.timestamp,
@@ -151,10 +142,7 @@ contract NameManager {
         // If out of backing (expired), transfer to highest sufficient bidder or delete registration
         if (spent >= backing) {
             // Transfer backing to protocol and clear accounting
-            unchecked {
-                protocolRevenue += backing;
-                ethBackingTotal -= backing;
-            }
+            unchecked { protocolRevenue += backing; }
             delete ethBacking[name];
             // Check for and transfer to highest sufficient bidder, if no bids it will be address(0) which is cluster 0
             address highestBidder = _processBids(name);
@@ -164,7 +152,6 @@ contract NameManager {
             unchecked {
                 protocolRevenue += spent;
                 ethBacking[name] -= spent;
-                ethBackingTotal -= spent;
             }
             priceIntegral[name] = ClusterData.PriceIntegral({
                 name: name,
@@ -199,11 +186,7 @@ contract NameManager {
             uint256 bidId = bidIds[highestBidIndex];
             highestBidder = _bids[bidId].bidder;
             // Process internal accounting changes
-            unchecked {
-                ethBacking[name] += highestBid;
-                ethBackingTotal += highestBid;
-                bidPool -= highestBid;
-            }
+            unchecked { ethBacking[name] += highestBid; }
             // Purge highest bidder's bid
             _deleteBid(bidId);
             // Process name registration and transfer
@@ -250,10 +233,7 @@ contract NameManager {
             // If msg.sender hasn't placed a bid, process new bid
             if (bidId == 0) {
                 // Retrieve bidId, increment bidId pointer, and increment total bid accounting
-                unchecked {
-                    bidId = nextBidId++;
-                    bidPool += msg.value;
-                }
+                unchecked { bidId = nextBidId++; }
                 // Store bid information
                 _bids[bidId] = ClusterData.Bid({
                     name: name,
@@ -269,10 +249,7 @@ contract NameManager {
             }
             // If bid does exist, increment existing bid by msg.value and update timestamp
             else {
-                unchecked {
-                    _bids[bidId].ethAmount += msg.value;
-                    bidPool += msg.value;
-                }
+                unchecked { _bids[bidId].ethAmount += msg.value; }
                 _bids[bidId].createdTimestamp = block.timestamp;
                 emit BidIncreased(_name, msg.sender, msg.value);
             }
@@ -303,8 +280,6 @@ contract NameManager {
             _bids[bidId].createdTimestamp = block.timestamp;
             emit BidReduced(_name, msg.sender, amount);
         }
-        // Reduce bidPool accordingly
-        unchecked { bidPool -= amount; }
         // Transfer bid reduction after all state is purged to prevent reentrancy
         (bool success, ) = payable(msg.sender).call{ value: amount }("");
         if (!success) revert TransferFailed();
@@ -319,7 +294,6 @@ contract NameManager {
         if (bidId == 0) revert NoBid();
         // Retrieve bid value and purge all bid state
         uint256 bid = _bids[bidId].ethAmount;
-        unchecked { bidPool -= bid; }
         _deleteBid(bidId);
         emit BidRevoked(_name, msg.sender, bid);
         // Transfer revoked bid after all state is purged to prevent reentrancy
@@ -328,7 +302,6 @@ contract NameManager {
     }
 
     /// @notice Internal function to delete bid storage
-    /// @dev Does not decrement bidPool!
     function _deleteBid(uint256 bidId) internal {
         ClusterData.Bid memory bid = _bids[bidId];
         bytes32 name = bid.name;
