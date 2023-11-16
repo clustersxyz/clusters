@@ -11,7 +11,6 @@ library ClusterData {
 
     /// @notice All relevant information for an individual bid
     struct Bid {
-        bytes32 name;
         uint256 ethAmount;
         uint256 createdTimestamp;
         address bidder;

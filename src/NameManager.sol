@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {EnumerableSet} from "openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import {EnumerableSet} from "../lib/openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 
 import {Pricing} from "./Pricing.sol";
 import {ClusterData} from "./libraries/ClusterData.sol";
@@ -10,21 +10,27 @@ import {ClusterData} from "./libraries/ClusterData.sol";
 ///         to cluster ids and checks auth of cluster membership before acting on one of its names
 contract NameManager {
     using EnumerableSet for EnumerableSet.Bytes32Set;
-    using EnumerableSet for EnumerableSet.UintSet;
 
     error NoBid();
     error Invalid();
+    error Timelock();
     error NoCluster();
     error NoPayment();
+    error Registered();
+    error Unregistered();
     error TransferFailed();
+    error InsufficientBid();
 
     event BuyName(string indexed _name, uint256 indexed clusterId);
     event TransferName(bytes32 indexed name, uint256 indexed fromClusterId, uint256 indexed toClusterId);
     event PokeName(string indexed _name, address indexed poker);
     event BidPlaced(string indexed _name, address indexed bidder, uint256 indexed amount);
+    event BidRefunded(string indexed _name, address indexed bidder, uint256 indexed amount);
     event BidIncreased(string indexed _name, address indexed bidder, uint256 indexed amount);
     event BidReduced(string indexed _name, address indexed bidder, uint256 indexed amount);
     event BidRevoked(string indexed _name, address indexed bidder, uint256 indexed amount);
+
+    uint256 internal constant BID_TIMELOCK = 30 days;
 
     Pricing internal pricing;
 
@@ -55,16 +61,13 @@ contract NameManager {
     mapping(bytes32 name => ClusterData.PriceIntegral integral) public priceIntegral;
 
     /// @notice Bid info storage, all bidIds are incremental and are not sorted by name
-    mapping(uint256 bidId => ClusterData.Bid) internal _bids;
+    mapping(bytes32 name => ClusterData.Bid bidData) public bids;
+
+    /// @notice Failed bid refunds are pooled so we don't have to revert when the highest bid is outbid
+    mapping(address bidder => uint256 refund) public bidRefunds;
 
     /// @notice Counter for next bidId, always +1 over most recent bid
     uint256 public nextBidId = 1;
-
-    /// @notice Set of bids per name allows for bid enumeration
-    mapping(bytes32 name => EnumerableSet.UintSet bidIds) internal _bidsForName;
-
-    /// @notice Since each address can only bid on a name once, this helps for bid lookup
-    mapping(bytes32 name => mapping(address bidder => uint256 bidId)) public bidLookup;
 
     /// @notice Restrict certain functions to those who have created a cluster for their address
     modifier hasCluster() {
@@ -85,16 +88,10 @@ contract NameManager {
         return _clusterNames[clusterId].values();
     }
 
-    /// @notice Get all bidIds for a specific name
-    /// @return bidIds Array of bidIds
-    function getBidsForName(bytes32 name) external view returns (uint256[] memory bidIds) {
-        return _bidsForName[name].values();
-    }
-
     /// @notice Get Bid struct from storage
     /// @return bid Bid struct
-    function getBid(uint256 bidId) external view returns (ClusterData.Bid memory bid) {
-        return _bids[bidId];
+    function getBid(bytes32 name) external view returns (ClusterData.Bid memory bid) {
+        return bids[name];
     }
 
     /// ECONOMIC FUNCTIONS ///
@@ -105,7 +102,7 @@ contract NameManager {
         bytes32 name = _toBytes32(_name);
         if (name == bytes32("")) revert Invalid();
         // Check that name is unused
-        require(nameLookup[name] == 0, "name already bought");
+        if (nameLookup[name] != 0) revert Registered();
         unchecked { ethBacking[name] += msg.value; }
         priceIntegral[name] = ClusterData.PriceIntegral({
             name: name,
@@ -141,12 +138,19 @@ contract NameManager {
         uint256 backing = ethBacking[name];
         // If out of backing (expired), transfer to highest sufficient bidder or delete registration
         if (spent >= backing) {
-            // Transfer backing to protocol and clear accounting
-            unchecked { protocolRevenue += backing; }
+            // Transfer backing to protocol and clear name backing
             delete ethBacking[name];
-            // Check for and transfer to highest sufficient bidder, if no bids it will be address(0) which is cluster 0
-            address highestBidder = _processBids(name);
-            _transferName(name, nameLookup[name], addressLookup[highestBidder]);
+            unchecked { protocolRevenue += backing; }
+            // If there is a valid bid, transfer to the bidder
+            address bidder;
+            uint256 bid = bids[name].ethAmount;
+            if (bid > 0) {
+                bidder = bids[name].bidder;
+                unchecked { ethBacking[name] += bid; }
+                delete bids[name];
+            }
+            // If there isn't a highest bidder, name will expire and be deleted
+            _transferName(name, nameLookup[name], addressLookup[bidder]);
         } else {
             // Process price data update
             unchecked {
@@ -160,42 +164,6 @@ contract NameManager {
                 maxExpiry: 0 // TODO: Correct this value
             });
             emit PokeName(_name, msg.sender);
-        }
-    }
-
-    /// @notice Checks for highest sufficient (yearly minimum required) bid and returns the bidder, if any
-    /// @dev Returns address(0) if no bids are sufficient
-    /// @return highestBidder Highest sufficient bidder
-    function _processBids(bytes32 name) internal returns (address highestBidder) {
-        // Cache all current bidIds
-        uint256[] memory bidIds = _bidsForName[name].values();
-        // Iterate through all bids looking for the highest one
-        uint256 highestBidIndex;
-        uint256 highestBid;
-        for (uint256 i; i < bidIds.length;) {
-            uint256 bid = _bids[bidIds[i]].ethAmount;
-            if (bid > highestBid) {
-                highestBidIndex = i;
-                highestBid = bid;
-            }
-            unchecked { ++i; }
-        }
-        // Ensure highest bid is at least above minimum annual price before transferring name, address is 0x0 otherwise
-        if (highestBid >= pricing.minAnnualPrice()) {
-            // Retrieve highest bid info
-            uint256 bidId = bidIds[highestBidIndex];
-            highestBidder = _bids[bidId].bidder;
-            // Process internal accounting changes
-            unchecked { ethBacking[name] += highestBid; }
-            // Purge highest bidder's bid
-            _deleteBid(bidId);
-            // Process name registration and transfer
-            priceIntegral[name] = ClusterData.PriceIntegral({
-                name: name,
-                lastUpdatedTimestamp: block.timestamp,
-                lastUpdatedPrice: pricing.minAnnualPrice(),
-                maxExpiry: block.timestamp + uint256(pricing.getMaxDuration(pricing.minAnnualPrice(), highestBid))
-            });
         }
     }
 
@@ -219,96 +187,81 @@ contract NameManager {
         emit TransferName(name, fromClusterId, toClusterId);
     }
 
-    /// @notice Place bids on valid names. Subsequent calls increases existing bid. If name is expired, transfer to
-    ///         highest sufficient bidder or delete if none exist.
+    /// @notice Place bids on valid names. Subsequent calls increases existing bid. If name is expired update ownership.
+    ///         All bids timelocked for 30 days, unless they are outbid in which they are returned. Increasing a bid
+    ///         resets the timelock.
     /// @dev Should work smoothly for fully expired names and names partway through their duration
     /// @dev Needs to be onchain ETH bid escrowed in one place because otherwise prices shift
     function bidName(string memory _name) external payable hasCluster {
         bytes32 name = _toBytes32(_name);
         if (name == bytes32("")) revert Invalid();
-        // If name exists, process bid
-        if (nameLookup[name] != 0) {
-            // Retrieve existing bid, if any
-            uint256 bidId = bidLookup[name][msg.sender];
-            // If msg.sender hasn't placed a bid, process new bid
-            if (bidId == 0) {
-                // Retrieve bidId, increment bidId pointer, and increment total bid accounting
-                unchecked { bidId = nextBidId++; }
-                // Store bid information
-                _bids[bidId] = ClusterData.Bid({
-                    name: name,
-                    ethAmount: msg.value,
-                    createdTimestamp: block.timestamp,
-                    bidder: msg.sender
-                });
-                // Log bidId under name
-                _bidsForName[name].add(bidId);
-                // Log bidId under msg.sender
-                bidLookup[name][msg.sender] = bidId;
-                emit BidPlaced(_name, msg.sender, msg.value);
-            }
-            // If bid does exist, increment existing bid by msg.value and update timestamp
-            else {
-                unchecked { _bids[bidId].ethAmount += msg.value; }
-                _bids[bidId].createdTimestamp = block.timestamp;
-                emit BidIncreased(_name, msg.sender, msg.value);
-            }
-
-            // Update name status and transfer to highest sufficient bidder if expired
-            pokeName(_name);
+        // Revert if name doesn't exist
+        if (nameLookup[name] == 0) revert Unregistered();
+        // Retrieve bidder values to process refund in case they're outbid
+        uint256 prevBid = bids[name].ethAmount;
+        address prevBidder = bids[name].bidder;
+        // If the caller isn't the highest bidder and their bid doesn't outbid them, revert
+        if (prevBidder != msg.sender && msg.value <= prevBid) revert InsufficientBid();
+        // If the caller is the highest bidder, increase their bid and reset the timestamp
+        else if (prevBidder == msg.sender) {
+            unchecked { bids[name].ethAmount += msg.value; }
+            // TODO: Determine which way is best to handle bid update timestamps
+            // bids[name].createdTimestamp = block.timestamp;
+            emit BidIncreased(_name, msg.sender, prevBid + msg.value);
         }
+        // Process new highest bid
+        else {
+            // Overwrite previous bid
+            bids[name] = ClusterData.Bid(msg.value, block.timestamp, msg.sender);
+            emit BidPlaced(_name, msg.sender, msg.value);
+            // Process bid refund if there is one. Store balance for recipient if transfer fails instead of reverting.
+            if (prevBid > 0) {
+                (bool success, ) = payable(prevBidder).call{ value: prevBid }("");
+                if (!success) bidRefunds[prevBidder] += prevBid;
+                else emit BidRefunded(_name, prevBidder, msg.value);
+            }
+        }
+        // Update name status and transfer to highest bidder if expired
+        pokeName(_name);
     }
 
-    /// @notice Reduce bid and refund difference
-    function reduceBid(string memory _name, uint256 amount) external {
+    /// @notice Reduce bid and refund difference. Revoke if _amount is the total bid or is the max uint256 value.
+    function reduceBid(string memory _name, uint256 _amount) external {
         // Retrieve existing bid
         bytes32 name = _toBytes32(_name);
-        uint256 bidId = bidLookup[name][msg.sender];
-        // Revert if no bid exists
-        if (bidId == 0) revert NoBid();
-        // Retrieve bid value and confirm amount isn't larger than it
-        uint256 bid = _bids[bidId].ethAmount;
-        if (amount > bid) revert Invalid();
-        // If reducing bid to 0, revoke altogether
-        if (bid - amount == 0) {
-            _deleteBid(bidId);
-            emit BidRevoked(_name, msg.sender, amount);
+        // Prevent reducing or revoking a bid before the bid timelock is up
+        if (block.timestamp < bids[name].createdTimestamp + BID_TIMELOCK) revert Timelock();
+        // Ensure the caller is the highest bidder and that they aren't reducing it by too much
+        uint256 bid = bids[name].ethAmount;
+        if (bids[name].bidder != msg.sender) revert Invalid();
+        // Only revert if _amount is larger than the bid but isn't the max
+        // Bypassing this check for the max value eliminates the need for the frontend or bidder to find their bid prior
+        if (_amount > bid && _amount != type(uint256).max) revert InsufficientBid();
+        // If reducing bid to 0 or by maximum uint256 value, revoke altogether
+        if (bid - _amount == 0 || _amount == type(uint256).max) {
+            delete bids[name];
+            emit BidRevoked(_name, msg.sender, _amount);
         }
         // Otherwise, decrease bid and update timestamp
         else {
-            unchecked { _bids[bidId].ethAmount -= amount; }
-            _bids[bidId].createdTimestamp = block.timestamp;
-            emit BidReduced(_name, msg.sender, amount);
+            unchecked { bids[name].ethAmount -= _amount; }
+            // TODO: Determine which way is best to handle bid update timestamps
+            // bids[name].createdTimestamp = block.timestamp;
+            emit BidReduced(_name, msg.sender, _amount);
         }
         // Transfer bid reduction after all state is purged to prevent reentrancy
-        (bool success, ) = payable(msg.sender).call{ value: amount }("");
+        // This bid refund reverts upon failure because it isn't happening in a forced context such as being outbid
+        (bool success, ) = payable(msg.sender).call{ value: _amount }("");
         if (!success) revert TransferFailed();
     }
 
-    /// @notice Allow valid bidder to revoke bid and get refunded
-    function revokeBid(string memory _name) external {
-        // Retrieve existing bid
-        bytes32 name = _toBytes32(_name);
-        uint256 bidId = bidLookup[name][msg.sender];
-        // Revert if no bid exists
-        if (bidId == 0) revert NoBid();
-        // Retrieve bid value and purge all bid state
-        uint256 bid = _bids[bidId].ethAmount;
-        _deleteBid(bidId);
-        emit BidRevoked(_name, msg.sender, bid);
-        // Transfer revoked bid after all state is purged to prevent reentrancy
-        (bool success, ) = payable(msg.sender).call{ value: bid }("");
+    /// @notice Allow failed bid refunds to be withdrawn
+    function refundBid() external {
+        uint256 refund = bidRefunds[msg.sender];
+        if (refund == 0) revert NoBid();
+        delete bidRefunds[msg.sender];
+        (bool success, ) = payable(msg.sender).call{ value: refund }("");
         if (!success) revert TransferFailed();
-    }
-
-    /// @notice Internal function to delete bid storage
-    function _deleteBid(uint256 bidId) internal {
-        ClusterData.Bid memory bid = _bids[bidId];
-        bytes32 name = bid.name;
-        address bidder = bid.bidder;
-        delete bidLookup[name][bidder];
-        _bidsForName[name].remove(bidId);
-        delete _bids[bidId];
     }
 
     /// LOCAL NAME MANAGEMENT ///
@@ -319,7 +272,8 @@ contract NameManager {
         require(nameLookup[name] == currentCluster, "don't own name");
         canonicalClusterName[currentCluster] = name;
     }
-
+     
+    /// @dev Removal of canonical name allows a cluster to return to the state of not having a name
     function removeCanonicalName() external hasCluster {
         uint256 currentCluster = addressLookup[msg.sender];
         delete canonicalClusterName[currentCluster];
@@ -333,6 +287,7 @@ contract NameManager {
         forwardLookup[currentCluster][walletName] = msg.sender;
     }
 
+    /// @dev Allows for removal of a wallet name. This could be migrated to setWalletName() with an if statement though
     function removeWalletName() external hasCluster {
         uint256 currentCluster = addressLookup[msg.sender];
         bytes32 walletName = reverseLookup[msg.sender];

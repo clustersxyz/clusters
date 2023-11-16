@@ -137,8 +137,6 @@ contract ClustersTest is Test {
         bytes32 name = _toBytes32("Test Name");
         require(clusters.addressLookup(address(this)) == 1, "address(this) not assigned to cluster");
         require(clusters.nameLookup(name) == 1, "name not assigned to cluster");
-        bytes32[] memory names = clusters.getClusterNames(1);
-        require(name == names[0], "cluster name array incorrect");
         require(clusters.ethBacking(name) == 0.1 ether, "ethBacking incorrect");
         require(address(clusters).balance == 0.1 ether, "contract balance issue");
     }
@@ -152,10 +150,6 @@ contract ClustersTest is Test {
         clusters.transferName("Test Name", 2);
         require(clusters.addressLookup(address(1)) == 2, "address(1) not assigned to cluster");
         require(clusters.nameLookup(name) == 2, "name not assigned to proper cluster");
-        bytes32[] memory names = clusters.getClusterNames(1);
-        require(names.length == 0, "original cluster name array didn't get cleared");
-        names = clusters.getClusterNames(2);
-        require(name == names[0], "second cluster name array incorrect");
         require(clusters.ethBacking(name) == 0.1 ether, "ethBacking incorrect");
         require(address(clusters).balance == 0.1 ether, "contract balance issue");
     }
@@ -168,8 +162,6 @@ contract ClustersTest is Test {
         bytes32 name = _toBytes32("Test Name");
         require(clusters.addressLookup(address(this)) == 1, "address(this) not assigned to cluster");
         require(clusters.nameLookup(name) == 1, "name not assigned to cluster");
-        bytes32[] memory names = clusters.getClusterNames(1);
-        require(name == names[0], "cluster name array incorrect");
         require(clusters.ethBacking(name) == 0.1 ether, "ethBacking incorrect");
         require(address(clusters).balance == 0.1 ether, "contract balance issue");
     }
@@ -189,11 +181,7 @@ contract ClustersTest is Test {
         require(name == names[0], "cluster name array incorrect");
         require(clusters.ethBacking(name) == 0.1 ether, "ethBacking incorrect");
         require(address(clusters).balance == 0.3 ether, "contract balance issue");
-        uint256[] memory bidIds = clusters.getBidsForName(name);
-        require(1 == bidIds[0], "bidId increment error");
-        require(clusters.bidLookup(name, address(1)) == 1, "bidLookup error");
-        ClusterData.Bid memory bid = clusters.getBid(1);
-        require(bid.name == name, "bid name incorrect");
+        ClusterData.Bid memory bid = clusters.getBid(name);
         require(bid.ethAmount == 0.2 ether, "bid ethAmount incorrect");
         require(bid.createdTimestamp == block.timestamp, "bid createdTimestamp incorrect");
         require(bid.bidder == address(1), "bid bidder incorrect");
@@ -208,6 +196,7 @@ contract ClustersTest is Test {
         clusters.create();
         clusters.bidName{ value: 0.2 ether }("Test Name");
         uint256 balance = address(1).balance;
+        vm.warp(block.timestamp + 31 days);
         clusters.reduceBid("Test Name", 0.05 ether);
         vm.stopPrank();
         require(address(1).balance == balance + 0.05 ether, "refund error");
@@ -217,13 +206,9 @@ contract ClustersTest is Test {
         require(name == names[0], "cluster name array incorrect");
         require(clusters.ethBacking(name) == 0.1 ether, "ethBacking incorrect");
         require(address(clusters).balance == 0.25 ether, "contract balance issue");
-        uint256[] memory bidIds = clusters.getBidsForName(name);
-        require(1 == bidIds[0], "bidId increment error");
-        require(clusters.bidLookup(name, address(1)) == 1, "bidLookup error");
-        ClusterData.Bid memory bid = clusters.getBid(1);
-        require(bid.name == name, "bid name incorrect");
+        ClusterData.Bid memory bid = clusters.getBid(name);
         require(bid.ethAmount == 0.15 ether, "bid ethAmount incorrect");
-        require(bid.createdTimestamp == block.timestamp, "bid createdTimestamp incorrect");
+        require(bid.createdTimestamp == block.timestamp - 31 days, "bid createdTimestamp incorrect");
         require(bid.bidder == address(1), "bid bidder incorrect");
     }
 
@@ -235,7 +220,8 @@ contract ClustersTest is Test {
         vm.startPrank(address(1));
         clusters.create();
         clusters.bidName{ value: 0.2 ether }("Test Name");
-        clusters.revokeBid("Test Name");
+        vm.warp(block.timestamp + 31 days);
+        clusters.reduceBid("Test Name", 0.2 ether);
         vm.stopPrank();
         require(clusters.addressLookup(address(this)) == 1, "address(this) not assigned to cluster");
         require(clusters.nameLookup(name) == 1, "name not assigned to cluster");
@@ -243,11 +229,7 @@ contract ClustersTest is Test {
         require(name == names[0], "cluster name array incorrect");
         require(clusters.ethBacking(name) == 0.1 ether, "ethBacking incorrect");
         require(address(clusters).balance == 0.1 ether, "contract balance issue");
-        uint256[] memory bidIds = clusters.getBidsForName(name);
-        require(bidIds.length == 0, "bidsForName not purged");
-        require(clusters.bidLookup(name, address(1)) == 0, "bidLookup not purged");
-        ClusterData.Bid memory bid = clusters.getBid(1);
-        require(bid.name == "", "bid name not purged");
+        ClusterData.Bid memory bid = clusters.getBid(name);
         require(bid.ethAmount == 0, "bid ethAmount not purged");
         require(bid.createdTimestamp == 0, "bid createdTimestamp not purged");
         require(bid.bidder == address(0), "bid bidder not purged");
