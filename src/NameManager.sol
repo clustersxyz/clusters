@@ -17,6 +17,7 @@ contract NameManager {
     error NoCluster();
     error NoPayment();
     error Registered();
+    error Unauthorized();
     error Unregistered();
     error TransferFailed();
     error InsufficientBid();
@@ -43,22 +44,23 @@ contract NameManager {
     /// @notice Display name to be shown for a cluster, like ENS reverse records
     mapping(uint256 clusterId => bytes32 name) public canonicalClusterName;
 
+    /// @notice Enumerate all names owned by a cluster
+    mapping(uint256 clusterId => EnumerableSet.Bytes32Set names) internal _clusterNames;
+
     /// @notice For example lookup[17]["hot"] -> 0x123...
     mapping(uint256 clusterId => mapping(bytes32 walletName => address wallet)) public forwardLookup;
 
     /// @notice For example lookup[0x123...] -> "hot", then combine with cluster name in a diff method
     mapping(address wallet => bytes32 walletName) public reverseLookup;
 
-    /// @notice Enumerate all names owned by a cluster
-    mapping(uint256 clusterId => EnumerableSet.Bytes32Set names) internal _clusterNames;
-
-    /// @notice The amount of money backing each name registration
-    mapping(bytes32 name => uint256 amount) public ethBacking;
+    /// @notice Data required for proper harberger tax calculation when pokeName() is called
+    mapping(bytes32 name => ClusterData.PriceIntegral integral) public priceIntegral;
 
     /// @notice Amount of eth that's transferred from ethBacking to the protocol
     uint256 public protocolRevenue;
 
-    mapping(bytes32 name => ClusterData.PriceIntegral integral) public priceIntegral;
+    /// @notice The amount of money backing each name registration
+    mapping(bytes32 name => uint256 amount) public ethBacking;
 
     /// @notice Bid info storage, all bidIds are incremental and are not sorted by name
     mapping(bytes32 name => ClusterData.Bid bidData) public bids;
@@ -66,14 +68,18 @@ contract NameManager {
     /// @notice Failed bid refunds are pooled so we don't have to revert when the highest bid is outbid
     mapping(address bidder => uint256 refund) public bidRefunds;
 
-    /// @notice Counter for next bidId, always +1 over most recent bid
-    uint256 public nextBidId = 1;
-
-    /// @notice Restrict certain functions to those who have created a cluster for their address
-    modifier hasCluster() {
-        // Revert if msg.sender doesn't have a cluster
+    /// @notice Ensure msg.sender has a cluster or owns a name
+    modifier checkPrivileges(string memory _name) {
+        // Revert if msg.sender has no cluster in all cases
         if (addressLookup[msg.sender] == 0) revert NoCluster();
-        _;
+        // If empty _name parameter, only check cluster ownership
+        if (bytes(_name).length == 0) {
+            _;
+        } else {
+            // Otherwise make sure name belongs to msg.sender's clusterId
+            if (addressLookup[msg.sender] != nameLookup[_toBytes32(_name)]) revert Unauthorized();
+            _;
+        }
     }
 
     constructor(address _pricing) {
@@ -97,7 +103,7 @@ contract NameManager {
     /// ECONOMIC FUNCTIONS ///
 
     /// @notice Buy unregistered name. Must pay at least minimum yearly payment.
-    function buyName(string memory _name, uint256 clusterId) external payable hasCluster {
+    function buyName(string memory _name, uint256 clusterId) external payable checkPrivileges("") {
         if (msg.value < pricing.minAnnualPrice()) revert NoPayment();
         bytes32 name = _toBytes32(_name);
         if (name == bytes32("")) revert Invalid();
@@ -115,12 +121,34 @@ contract NameManager {
     }
 
     /// @notice Move name from one cluster to another without payment
-    function transferName(string memory _name, uint256 toClusterId) external {
+    function transferName(string memory _name, uint256 toClusterId) external checkPrivileges(_name) {
         bytes32 name = _toBytes32(_name);
         if (name == bytes32("")) revert Invalid();
         uint256 currentCluster = addressLookup[msg.sender];
         require(_clusterNames[currentCluster].contains(name), "not name owner");
         _transferName(name, currentCluster, toClusterId);
+    }
+
+    /// @dev Transfer cluster name or delete cluster name without checking auth
+    /// @dev Delete by transferring to cluster id 0
+    function _transferName(bytes32 name, uint256 fromClusterId, uint256 toClusterId) internal {
+        // If name is canonical cluster name for sending cluster, remove that assignment
+        if (canonicalClusterName[fromClusterId] == name) {
+            delete canonicalClusterName[fromClusterId];
+        }
+        // Assign name to new cluster, otherwise unassign
+        if (toClusterId != 0) {
+            // Assign name to new cluster, _unassignName() isn't used because it resets nameLookup
+            _assignName(name, toClusterId);
+            // Remove from old cluster
+            _clusterNames[fromClusterId].remove(name);
+            // Purge canonical name if necessary
+            if (canonicalClusterName[fromClusterId] == name) delete canonicalClusterName[fromClusterId];
+        } else {
+            // Purge name assignment and remove from cluster
+            _unassignName(name, fromClusterId);
+        }
+        emit TransferName(name, fromClusterId, toClusterId);
     }
 
     /// @notice Move accrued revenue from ethBacked to protocolRevenue, and transfer names upon expiry to highest
@@ -167,32 +195,12 @@ contract NameManager {
         }
     }
 
-    /// @dev Transfer cluster name or delete cluster name without checking auth
-    /// @dev Delete by transferring to cluster id 0
-    function _transferName(bytes32 name, uint256 fromClusterId, uint256 toClusterId) internal {
-        // If name is canonical cluster name for sending cluster, remove that assignment
-        if (canonicalClusterName[fromClusterId] == name) {
-            delete canonicalClusterName[fromClusterId];
-        }
-        // Assign name to new cluster, otherwise unassign
-        if (toClusterId != 0) {
-            // Assign name to new cluster
-            _assignName(name, toClusterId);
-            // Remove from old cluster
-            _clusterNames[fromClusterId].remove(name);
-        } else {
-            // Purge name assignment and remove from cluster
-            _unassignName(name, fromClusterId);
-        }
-        emit TransferName(name, fromClusterId, toClusterId);
-    }
-
     /// @notice Place bids on valid names. Subsequent calls increases existing bid. If name is expired update ownership.
     ///         All bids timelocked for 30 days, unless they are outbid in which they are returned. Increasing a bid
     ///         resets the timelock.
     /// @dev Should work smoothly for fully expired names and names partway through their duration
     /// @dev Needs to be onchain ETH bid escrowed in one place because otherwise prices shift
-    function bidName(string memory _name) external payable hasCluster {
+    function bidName(string memory _name) external payable checkPrivileges("") {
         bytes32 name = _toBytes32(_name);
         if (name == bytes32("")) revert Invalid();
         // Revert if name doesn't exist
@@ -227,13 +235,14 @@ contract NameManager {
 
     /// @notice Reduce bid and refund difference. Revoke if _amount is the total bid or is the max uint256 value.
     function reduceBid(string memory _name, uint256 _amount) external {
-        // Retrieve existing bid
         bytes32 name = _toBytes32(_name);
+        // Ensure the caller is the highest bidder
+        if (bids[name].bidder != msg.sender) revert Unauthorized();
+        // Ensure there is a bid
+        uint256 bid = bids[name].ethAmount;
+        if (bid == 0) revert NoBid();
         // Prevent reducing or revoking a bid before the bid timelock is up
         if (block.timestamp < bids[name].createdTimestamp + BID_TIMELOCK) revert Timelock();
-        // Ensure the caller is the highest bidder and that they aren't reducing it by too much
-        uint256 bid = bids[name].ethAmount;
-        if (bids[name].bidder != msg.sender) revert Invalid();
         // Only revert if _amount is larger than the bid but isn't the max
         // Bypassing this check for the max value eliminates the need for the frontend or bidder to find their bid prior
         if (_amount > bid && _amount != type(uint256).max) revert InsufficientBid();
@@ -266,7 +275,7 @@ contract NameManager {
 
     /// LOCAL NAME MANAGEMENT ///
 
-    function setCanonicalName(string memory _name) external hasCluster {
+    function setCanonicalName(string memory _name) external checkPrivileges(_name) {
         bytes32 name = _toBytes32(_name);
         uint256 currentCluster = addressLookup[msg.sender];
         require(nameLookup[name] == currentCluster, "don't own name");
@@ -274,12 +283,12 @@ contract NameManager {
     }
      
     /// @dev Removal of canonical name allows a cluster to return to the state of not having a name
-    function removeCanonicalName() external hasCluster {
+    function removeCanonicalName() external checkPrivileges("") {
         uint256 currentCluster = addressLookup[msg.sender];
         delete canonicalClusterName[currentCluster];
     }
 
-    function setWalletName(string memory _walletName) external hasCluster {
+    function setWalletName(string memory _walletName) external checkPrivileges("") {
         bytes32 walletName = _toBytes32(_walletName);
         uint256 currentCluster = addressLookup[msg.sender];
         require(forwardLookup[currentCluster][walletName] == address(0), "name already in use for cluster");
@@ -288,7 +297,7 @@ contract NameManager {
     }
 
     /// @dev Allows for removal of a wallet name. This could be migrated to setWalletName() with an if statement though
-    function removeWalletName() external hasCluster {
+    function removeWalletName() external checkPrivileges("") {
         uint256 currentCluster = addressLookup[msg.sender];
         bytes32 walletName = reverseLookup[msg.sender];
         delete reverseLookup[msg.sender];
@@ -302,6 +311,7 @@ contract NameManager {
 
     function _unassignName(bytes32 name, uint256 clusterId) internal {
         nameLookup[name] = 0;
+        if (canonicalClusterName[clusterId] == name) delete canonicalClusterName[clusterId];
         _clusterNames[clusterId].remove(name);
     }
 
