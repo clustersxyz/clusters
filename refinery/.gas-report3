@@ -1,0 +1,126 @@
+No files changed, compilation skipped
+
+Running 17 tests for test/Clusters.t.sol:ClustersTest
+[32m[PASS][0m testBidName() (gas: 490906)
+[32m[PASS][0m testBuyName() (gas: 325585)
+[32m[PASS][0m testDecayMultiplier() (gas: 6848)
+[32m[PASS][0m testIntegratedDecayPrice() (gas: 7684)
+[32m[PASS][0m testIntegratedPriceComplexDecay() (gas: 21388)
+[32m[PASS][0m testIntegratedPriceMaxToMiddleRange() (gas: 17561)
+[32m[PASS][0m testIntegratedPriceMaxToMinRange() (gas: 23542)
+[32m[PASS][0m testIntegratedPriceSimpleDecay() (gas: 19709)
+[32m[PASS][0m testIntegratedPriceSimpleDecay2() (gas: 19734)
+[32m[PASS][0m testIntegratedPriceSimpleMax() (gas: 18030)
+[32m[PASS][0m testIntegratedPriceSimpleMin() (gas: 12818)
+[32m[PASS][0m testLambert() (gas: 39706)
+[32m[PASS][0m testPokeName() (gas: 317339)
+[32m[PASS][0m testPriceAfterBid() (gas: 8361)
+[32m[PASS][0m testReduceBid() (gas: 506448)
+[32m[PASS][0m testRevokeBid() (gas: 446574)
+[32m[PASS][0m testTransferName() (gas: 436690)
+Test result: [32mok[0m. [32m17[0m passed; [31m0[0m failed; [33m0[0m skipped; finished in 699.82ms
+| src/Clusters.sol:Clusters contract |                 |        |        |        |         |
+|------------------------------------|-----------------|--------|--------|--------|---------|
+| Deployment Cost                    | Deployment Size |        |        |        |         |
+| 2342511                            | 11671           |        |        |        |         |
+| Function Name                      | min             | avg    | median | max    | # calls |
+| addressLookup                      | 505             | 505    | 505    | 505    | 6       |
+| bidName                            | 62365           | 62365  | 62365  | 62365  | 3       |
+| buyName                            | 212900          | 212900 | 212900 | 212900 | 6       |
+| create                             | 92008           | 94888  | 96808  | 96808  | 10      |
+| ethBacking                         | 495             | 495    | 495    | 495    | 6       |
+| getBid                             | 998             | 998    | 998    | 998    | 3       |
+| getClusterNames                    | 1290            | 1290   | 1290   | 1290   | 3       |
+| nameLookup                         | 472             | 472    | 472    | 472    | 6       |
+| pokeName                           | 6644            | 6644   | 6644   | 6644   | 1       |
+| reduceBid                          | 11496           | 12818  | 12818  | 14140  | 2       |
+| transferName                       | 59883           | 59883  | 59883  | 59883  | 1       |
+
+
+| src/Lambert.sol:Lambert contract |                 |      |        |      |         |
+|----------------------------------|-----------------|------|--------|------|---------|
+| Deployment Cost                  | Deployment Size |      |        |      |         |
+| 3190860                          | 3279            |      |        |      |         |
+| Function Name                    | min             | avg  | median | max  | # calls |
+| W0                               | 315             | 3758 | 5971   | 5971 | 7       |
+
+
+| src/Pricing.sol:Pricing contract |                 |      |        |       |         |
+|----------------------------------|-----------------|------|--------|-------|---------|
+| Deployment Cost                  | Deployment Size |      |        |       |         |
+| 3776294                          | 5905            |      |        |       |         |
+| Function Name                    | min             | avg  | median | max   | # calls |
+| getDecayMultiplier               | 1573            | 1573 | 1573   | 1573  | 1       |
+| getIntegratedDecayPrice          | 2434            | 2434 | 2434   | 2434  | 1       |
+| getIntegratedPrice               | 942             | 7106 | 8762   | 12655 | 12      |
+| getMaxDuration                   | 605             | 605  | 605    | 605   | 6       |
+| getPriceAfterBid                 | 457             | 669  | 775    | 775   | 3       |
+| minAnnualPrice                   | 351             | 693  | 351    | 2351  | 35      |
+
+
+
+ 
+Ran 1 test suites: [32m17[0m tests passed, [31m0[0m failed, [33m0[0m skipped (17 total tests)
+No files changed, compilation skipped
+
+Running 17 tests for test/Clusters.t.sol:ClustersTest
+[32m[PASS][0m testBidName() (gas: 491016)
+[32m[PASS][0m testBuyName() (gas: 325629)
+[32m[PASS][0m testDecayMultiplier() (gas: 6848)
+[32m[PASS][0m testIntegratedDecayPrice() (gas: 7684)
+[32m[PASS][0m testIntegratedPriceComplexDecay() (gas: 21388)
+[32m[PASS][0m testIntegratedPriceMaxToMiddleRange() (gas: 17561)
+[32m[PASS][0m testIntegratedPriceMaxToMinRange() (gas: 23542)
+[32m[PASS][0m testIntegratedPriceSimpleDecay() (gas: 19709)
+[32m[PASS][0m testIntegratedPriceSimpleDecay2() (gas: 19734)
+[32m[PASS][0m testIntegratedPriceSimpleMax() (gas: 18030)
+[32m[PASS][0m testIntegratedPriceSimpleMin() (gas: 12818)
+[32m[PASS][0m testLambert() (gas: 39706)
+[32m[PASS][0m testPokeName() (gas: 317383)
+[32m[PASS][0m testPriceAfterBid() (gas: 8361)
+[32m[PASS][0m testReduceBid() (gas: 506532)
+[32m[PASS][0m testRevokeBid() (gas: 446658)
+[32m[PASS][0m testTransferName() (gas: 436448)
+Test result: [32mok[0m. [32m17[0m passed; [31m0[0m failed; [33m0[0m skipped; finished in 581.72ms
+| src/Clusters.sol:Clusters contract |                 |        |        |        |         |
+|------------------------------------|-----------------|--------|--------|--------|---------|
+| Deployment Cost                    | Deployment Size |        |        |        |         |
+| 2106640                            | 10493           |        |        |        |         |
+| Function Name                      | min             | avg    | median | max    | # calls |
+| addressLookup                      | 505             | 505    | 505    | 505    | 6       |
+| bidName                            | 62418           | 62418  | 62418  | 62418  | 3       |
+| buyName                            | 212922          | 212922 | 212922 | 212922 | 6       |
+| create                             | 91986           | 94866  | 96786  | 96786  | 10      |
+| ethBacking                         | 517             | 517    | 517    | 517    | 6       |
+| getBid                             | 998             | 998    | 998    | 998    | 3       |
+| getClusterNames                    | 1312            | 1312   | 1312   | 1312   | 3       |
+| nameLookup                         | 494             | 494    | 494    | 494    | 6       |
+| pokeName                           | 6644            | 6644   | 6644   | 6644   | 1       |
+| reduceBid                          | 11475           | 12794  | 12794  | 14114  | 2       |
+| transferName                       | 59672           | 59672  | 59672  | 59672  | 1       |
+
+
+| src/Lambert.sol:Lambert contract |                 |      |        |      |         |
+|----------------------------------|-----------------|------|--------|------|---------|
+| Deployment Cost                  | Deployment Size |      |        |      |         |
+| 3190860                          | 3279            |      |        |      |         |
+| Function Name                    | min             | avg  | median | max  | # calls |
+| W0                               | 315             | 3758 | 5971   | 5971 | 7       |
+
+
+| src/Pricing.sol:Pricing contract |                 |      |        |       |         |
+|----------------------------------|-----------------|------|--------|-------|---------|
+| Deployment Cost                  | Deployment Size |      |        |       |         |
+| 3776294                          | 5905            |      |        |       |         |
+| Function Name                    | min             | avg  | median | max   | # calls |
+| getDecayMultiplier               | 1573            | 1573 | 1573   | 1573  | 1       |
+| getIntegratedDecayPrice          | 2434            | 2434 | 2434   | 2434  | 1       |
+| getIntegratedPrice               | 942             | 7106 | 8762   | 12655 | 12      |
+| getMaxDuration                   | 605             | 605  | 605    | 605   | 6       |
+| getPriceAfterBid                 | 457             | 669  | 775    | 775   | 3       |
+| minAnnualPrice                   | 351             | 693  | 351    | 2351  | 35      |
+
+
+
+ 
+Ran 1 test suites: [32m17[0m tests passed, [31m0[0m failed, [33m0[0m skipped (17 total tests)
