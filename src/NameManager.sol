@@ -19,8 +19,8 @@ contract NameManager {
     error Registered();
     error Unauthorized();
     error Unregistered();
+    error Insufficient();
     error TransferFailed();
-    error InsufficientBid();
 
     event BuyName(string indexed _name, uint256 indexed clusterId);
     event TransferName(bytes32 indexed name, uint256 indexed fromClusterId, uint256 indexed toClusterId);
@@ -204,7 +204,7 @@ contract NameManager {
         uint256 prevBid = bids[name].ethAmount;
         address prevBidder = bids[name].bidder;
         // If the caller isn't the highest bidder and their bid doesn't outbid them, revert
-        if (prevBidder != msg.sender && msg.value <= prevBid) revert InsufficientBid();
+        if (prevBidder != msg.sender && msg.value <= prevBid) revert Insufficient();
         // If the caller is the highest bidder, increase their bid and reset the timestamp
         else if (prevBidder == msg.sender) {
             unchecked { bids[name].ethAmount += msg.value; }
@@ -238,7 +238,7 @@ contract NameManager {
         // Only revert if _amount is larger than the bid but isn't the max
         // Bypassing this check for the max value eliminates the need for the frontend or bidder to find their bid prior
         uint256 bid = bids[name].ethAmount;
-        if (_amount > bid && _amount != type(uint256).max) revert InsufficientBid();
+        if (_amount > bid && _amount != type(uint256).max) revert Insufficient();
         // If reducing bid to 0 or by maximum uint256 value, revoke altogether
         if (bid - _amount == 0 || _amount == type(uint256).max) {
             delete bids[name];
