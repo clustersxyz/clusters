@@ -104,9 +104,9 @@ contract NameManager {
 
     /// @notice Buy unregistered name. Must pay at least minimum yearly payment.
     function buyName(string memory _name, uint256 clusterId) external payable checkPrivileges("") {
-        if (msg.value < pricing.minAnnualPrice()) revert NoPayment();
         bytes32 name = _toBytes32(_name);
         if (name == bytes32("")) revert Invalid();
+        if (msg.value < pricing.minAnnualPrice()) revert NoPayment();
         // Check that name is unused
         if (nameLookup[name] != 0) revert Registered();
         unchecked { ethBacking[name] += msg.value; }
@@ -125,7 +125,6 @@ contract NameManager {
         bytes32 name = _toBytes32(_name);
         if (name == bytes32("")) revert Invalid();
         uint256 currentCluster = addressLookup[msg.sender];
-        require(_clusterNames[currentCluster].contains(name), "not name owner");
         _transferName(name, currentCluster, toClusterId);
     }
 
@@ -140,7 +139,6 @@ contract NameManager {
         if (toClusterId != 0) {
             // Assign name to new cluster, _unassignName() isn't used because it resets nameLookup
             _assignName(name, toClusterId);
-            // Remove from old cluster
             _clusterNames[fromClusterId].remove(name);
             // Purge canonical name if necessary
             if (canonicalClusterName[fromClusterId] == name) delete canonicalClusterName[fromClusterId];
@@ -162,11 +160,9 @@ contract NameManager {
             block.timestamp - integral.lastUpdatedTimestamp,
             block.timestamp - integral.lastUpdatedTimestamp
         );
-        // Name expires only once out of eth
-        uint256 backing = ethBacking[name];
         // If out of backing (expired), transfer to highest sufficient bidder or delete registration
+        uint256 backing = ethBacking[name];
         if (spent >= backing) {
-            // Transfer backing to protocol and clear name backing
             delete ethBacking[name];
             unchecked { protocolRevenue += backing; }
             // If there is a valid bid, transfer to the bidder
@@ -177,7 +173,7 @@ contract NameManager {
                 unchecked { ethBacking[name] += bid; }
                 delete bids[name];
             }
-            // If there isn't a highest bidder, name will expire and be deleted
+            // If there isn't a highest bidder, name will expire and be deleted as bidder is address(0)
             _transferName(name, nameLookup[name], addressLookup[bidder]);
         } else {
             // Process price data update
@@ -203,7 +199,6 @@ contract NameManager {
     function bidName(string memory _name) external payable checkPrivileges("") {
         bytes32 name = _toBytes32(_name);
         if (name == bytes32("")) revert Invalid();
-        // Revert if name doesn't exist
         if (nameLookup[name] == 0) revert Unregistered();
         // Retrieve bidder values to process refund in case they're outbid
         uint256 prevBid = bids[name].ethAmount;
@@ -238,13 +233,11 @@ contract NameManager {
         bytes32 name = _toBytes32(_name);
         // Ensure the caller is the highest bidder
         if (bids[name].bidder != msg.sender) revert Unauthorized();
-        // Ensure there is a bid
-        uint256 bid = bids[name].ethAmount;
-        if (bid == 0) revert NoBid();
         // Prevent reducing or revoking a bid before the bid timelock is up
         if (block.timestamp < bids[name].createdTimestamp + BID_TIMELOCK) revert Timelock();
         // Only revert if _amount is larger than the bid but isn't the max
         // Bypassing this check for the max value eliminates the need for the frontend or bidder to find their bid prior
+        uint256 bid = bids[name].ethAmount;
         if (_amount > bid && _amount != type(uint256).max) revert InsufficientBid();
         // If reducing bid to 0 or by maximum uint256 value, revoke altogether
         if (bid - _amount == 0 || _amount == type(uint256).max) {
@@ -275,40 +268,34 @@ contract NameManager {
 
     /// LOCAL NAME MANAGEMENT ///
 
+    /// @notice Set canonical name or erase it by setting ""
     function setCanonicalName(string memory _name) external checkPrivileges(_name) {
         bytes32 name = _toBytes32(_name);
-        uint256 currentCluster = addressLookup[msg.sender];
-        require(nameLookup[name] == currentCluster, "don't own name");
-        canonicalClusterName[currentCluster] = name;
-    }
-     
-    /// @dev Removal of canonical name allows a cluster to return to the state of not having a name
-    function removeCanonicalName() external checkPrivileges("") {
-        uint256 currentCluster = addressLookup[msg.sender];
-        delete canonicalClusterName[currentCluster];
+        uint256 clusterId = addressLookup[msg.sender];
+        if (bytes(_name).length == 0) delete canonicalClusterName[clusterId];
+        else canonicalClusterName[clusterId] = name;
     }
 
+    /// @notice Set wallet name for msg.sender or erase it by setting ""
     function setWalletName(string memory _walletName) external checkPrivileges("") {
         bytes32 walletName = _toBytes32(_walletName);
-        uint256 currentCluster = addressLookup[msg.sender];
-        require(forwardLookup[currentCluster][walletName] == address(0), "name already in use for cluster");
-        reverseLookup[msg.sender] = walletName;
-        forwardLookup[currentCluster][walletName] = msg.sender;
+        uint256 clusterId = addressLookup[msg.sender];
+        if (bytes(_walletName).length == 0) {
+            delete forwardLookup[clusterId][walletName];
+            delete reverseLookup[msg.sender];
+        } else {
+            forwardLookup[clusterId][walletName] = msg.sender;
+            reverseLookup[msg.sender] = walletName;
+        }
     }
 
-    /// @dev Allows for removal of a wallet name. This could be migrated to setWalletName() with an if statement though
-    function removeWalletName() external checkPrivileges("") {
-        uint256 currentCluster = addressLookup[msg.sender];
-        bytes32 walletName = reverseLookup[msg.sender];
-        delete reverseLookup[msg.sender];
-        delete forwardLookup[currentCluster][walletName];
-    }
-
+    /// @dev Set name-related state variables
     function _assignName(bytes32 name, uint256 clusterId) internal {
         nameLookup[name] = clusterId;
         _clusterNames[clusterId].add(name);
     }
 
+    /// @dev Purge name-related state variables
     function _unassignName(bytes32 name, uint256 clusterId) internal {
         nameLookup[name] = 0;
         if (canonicalClusterName[clusterId] == name) delete canonicalClusterName[clusterId];
@@ -317,9 +304,11 @@ contract NameManager {
 
     /// STRING HELPERS ///
 
+    /// @dev Returns bytes32 representation of string < 32 characters, used in name-related state vars and functions
     function _toBytes32(string memory smallString) internal pure returns (bytes32 result) {
         bytes memory smallBytes = bytes(smallString);
-        require(smallBytes.length <= 32, "name too long");
+        // Revert if longer than 32 characters
+        if (smallBytes.length > 32) revert Invalid();
         return bytes32(smallBytes);
     }
 
