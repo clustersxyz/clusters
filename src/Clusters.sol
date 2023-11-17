@@ -21,13 +21,13 @@ import {NameManager} from "./NameManager.sol";
 contract Clusters is NameManager {
     using EnumerableSet for EnumerableSet.AddressSet;
 
-    uint256 internal nextClusterId = 1;
+    uint256 public nextClusterId = 1;
 
     /// @notice Enumerate all addresses in a cluster
     mapping(uint256 clusterId => EnumerableSet.AddressSet addrs) internal _clusterAddresses;
 
     /// @notice Outstanding invitations to join a cluster
-    mapping(uint256 clusterId => mapping(address addr => bool invited)) internal invited;
+    mapping(uint256 clusterId => mapping(address addr => bool invited)) public invited;
 
     error MulticallFailed();
 
