@@ -34,7 +34,8 @@ contract Clusters is NameManager {
     constructor(address _pricing) NameManager(_pricing) {}
 
     // TODO: Make this payable and pass along msg.value? As it stands insecure to make payable because of msg.value
-    // reuse
+    // reuse (I don't think this is a good idea because all payable NameManager functions would need a value param, or
+    // we would have to externalize NameManager so TXs to it can be individually payable)
     function multicall(bytes[] calldata data) external returns (bytes[] memory results) {
         results = new bytes[](data.length);
         bool success;
@@ -59,17 +60,20 @@ contract Clusters is NameManager {
     }
 
     function join(uint256 clusterId) external {
-        require(invited[clusterId][msg.sender], "not invited");
+        if(!invited[clusterId][msg.sender]) revert Unauthorized();
         _add(msg.sender, clusterId);
+    }
+
+    // NOTE: What do we do about preventing someone from removing all of their addresses from a cluster? We will need
+    // to enumerate cluster addresses if we are to know if addr is the last assigned to the cluster.
+
+    function remove(address addr) external {
+        if(addressLookup[msg.sender] != addressLookup[addr]) revert Unauthorized();
+        _remove(addr);
     }
 
     function leave() external {
         _remove(msg.sender);
-    }
-
-    function remove(address addr) external {
-        require(addressLookup[msg.sender] == addressLookup[addr], "not in same cluster");
-        _remove(addr);
     }
 
     function clusterAddresses(uint256 clusterId) external view returns (address[] memory) {
@@ -78,16 +82,22 @@ contract Clusters is NameManager {
 
     /// INTERNAL FUNCTIONS ///
 
-    function _add(address addr, uint256 clusterId) internal {
-        require(addressLookup[addr] == 0, "already in cluster");
-        invited[clusterId][addr] = false;
-        addressLookup[addr] = clusterId;
-        _clusterAddresses[clusterId].add(addr);
+    function _add(address _addr, uint256 clusterId) internal {
+        if(addressLookup[_addr] != 0) revert Registered();
+        delete invited[clusterId][_addr];
+        addressLookup[_addr] = clusterId;
+        _clusterAddresses[clusterId].add(_addr);
     }
 
-    function _remove(address addr) internal {
-        uint256 currentCluster = addressLookup[addr];
-        _clusterAddresses[currentCluster].remove(addr);
-        invited[currentCluster][addr] = false;
+    function _remove(address _addr) internal {
+        uint256 clusterId = addressLookup[_addr];
+        delete invited[clusterId][_addr];
+        delete addressLookup[_addr];
+        _clusterAddresses[clusterId].remove(_addr);
+        bytes32 walletName = reverseLookup[_addr];
+        if (walletName != bytes32("")) {
+            delete forwardLookup[clusterId][walletName];
+            delete reverseLookup[_addr];
+        }
     }
 }
