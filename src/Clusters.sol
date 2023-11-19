@@ -24,8 +24,11 @@ contract Clusters is NameManager {
 
     uint256 public nextClusterId = 1;
 
-    /// @notice Enumerate all addresses in a cluster
+    /// @dev Enumerate all addresses in a cluster
     mapping(uint256 clusterId => EnumerableSet.AddressSet addrs) internal _clusterAddresses;
+
+    /// @dev Resolver per cluster, returned by clusterResolver() so we can override result for empty resolver
+    mapping(uint256 clusterId => address resolver) internal _clusterResolvers;
 
     /// @notice Outstanding invitations to join a cluster
     mapping(uint256 clusterId => mapping(address addr => bool invited)) public invited;
@@ -76,6 +79,13 @@ contract Clusters is NameManager {
 
     function clusterAddresses(uint256 clusterId) external view returns (address[] memory) {
         return _clusterAddresses[clusterId].values();
+    }
+
+    function clusterResolver(uint256 _clusterId) external view returns (address resolver) {
+        resolver = _clusterResolvers[_clusterId];
+        if (resolver == address(0)) {
+            // TODO: Determine what happens with an empty/default resolver
+        }
     }
 
     /// INTERNAL FUNCTIONS ///
