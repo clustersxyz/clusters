@@ -20,6 +20,7 @@ import {NameManager} from "./NameManager.sol";
 
 contract Clusters is NameManager {
     using EnumerableSet for EnumerableSet.AddressSet;
+    using EnumerableSet for EnumerableSet.Bytes32Set;
 
     uint256 public nextClusterId = 1;
 
@@ -64,9 +65,6 @@ contract Clusters is NameManager {
         _add(msg.sender, clusterId);
     }
 
-    // NOTE: What do we do about preventing someone from removing all of their addresses from a cluster? We will need
-    // to enumerate cluster addresses if we are to know if addr is the last assigned to the cluster.
-
     function remove(address addr) external {
         if(addressLookup[msg.sender] != addressLookup[addr]) revert Unauthorized();
         _remove(addr);
@@ -91,6 +89,8 @@ contract Clusters is NameManager {
 
     function _remove(address _addr) internal {
         uint256 clusterId = addressLookup[_addr];
+        // If the cluster has valid names, prevent removing final address, regardless of what is supplied for _addr
+        if (_clusterNames[clusterId].length() > 0 && _clusterAddresses[clusterId].length() == 1) revert Invalid();
         delete invited[clusterId][_addr];
         delete addressLookup[_addr];
         _clusterAddresses[clusterId].remove(_addr);
