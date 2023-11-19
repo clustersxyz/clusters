@@ -233,28 +233,37 @@ contract NameManager {
         bytes32 name = _toBytes32(_name);
         // Ensure the caller is the highest bidder
         if (bids[name].bidder != msg.sender) revert Unauthorized();
+
         // Prevent reducing or revoking a bid before the bid timelock is up
         if (block.timestamp < bids[name].createdTimestamp + BID_TIMELOCK) revert Timelock();
-        // Only revert if _amount is larger than the bid but isn't the max
-        // Bypassing this check for the max value eliminates the need for the frontend or bidder to find their bid prior
+
+        // Poke name to update backing and ownership (if required) prior to bid adjustment
+        pokeName(_name);
+
+        // Only process bid if it's still present after the poke, which implies name wasn't transferred
         uint256 bid = bids[name].ethAmount;
-        if (_amount > bid && _amount != type(uint256).max) revert Insufficient();
-        // If reducing bid to 0 or by maximum uint256 value, revoke altogether
-        if (bid - _amount == 0 || _amount == type(uint256).max) {
-            delete bids[name];
-            emit BidRevoked(_name, msg.sender, _amount);
+        if (bid != 0) {
+            // Revert if _amount is larger than the bid but isn't the max
+            // Bypassing this check for the max value eliminates the need for the frontend or bidder to find their bid prior
+            if (_amount > bid && _amount != type(uint256).max) revert Insufficient();
+
+            // If reducing bid to 0 or by maximum uint256 value, revoke altogether
+            if (bid - _amount == 0 || _amount == type(uint256).max) {
+                delete bids[name];
+                emit BidRevoked(_name, msg.sender, _amount);
+            }
+            // Otherwise, decrease bid and update timestamp
+            else {
+                unchecked { bids[name].ethAmount -= _amount; }
+                // TODO: Determine which way is best to handle bid update timestamps
+                // bids[name].createdTimestamp = block.timestamp;
+                emit BidReduced(_name, msg.sender, _amount);
+            }
+            // Transfer bid reduction after all state is purged to prevent reentrancy
+            // This bid refund reverts upon failure because it isn't happening in a forced context such as being outbid
+            (bool success, ) = payable(msg.sender).call{ value: _amount }("");
+            if (!success) revert TransferFailed();
         }
-        // Otherwise, decrease bid and update timestamp
-        else {
-            unchecked { bids[name].ethAmount -= _amount; }
-            // TODO: Determine which way is best to handle bid update timestamps
-            // bids[name].createdTimestamp = block.timestamp;
-            emit BidReduced(_name, msg.sender, _amount);
-        }
-        // Transfer bid reduction after all state is purged to prevent reentrancy
-        // This bid refund reverts upon failure because it isn't happening in a forced context such as being outbid
-        (bool success, ) = payable(msg.sender).call{ value: _amount }("");
-        if (!success) revert TransferFailed();
     }
 
     /// @notice Allow failed bid refunds to be withdrawn
