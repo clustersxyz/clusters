@@ -12,6 +12,7 @@ contract NameManager {
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
     error NoBid();
+    error SelfBid();
     error Invalid();
     error Timelock();
     error NoCluster();
@@ -203,12 +204,17 @@ contract NameManager {
     function bidName(string memory _name) external payable checkPrivileges("") {
         bytes32 name = _toBytes32(_name);
         if (name == bytes32("")) revert Invalid();
-        if (nameLookup[name] == 0) revert Unregistered();
+        if (msg.value == 0) revert NoBid();
+        uint256 clusterId = nameLookup[name];
+        if (clusterId == 0) revert Unregistered();
+        // Prevent name owner from bidding on their own name
+        if (clusterId == addressLookup[msg.sender]) revert SelfBid();
         // Retrieve bidder values to process refund in case they're outbid
         uint256 prevBid = bids[name].ethAmount;
         address prevBidder = bids[name].bidder;
-        // If the caller isn't the highest bidder and their bid doesn't outbid them, revert
-        if (prevBidder != msg.sender && msg.value <= prevBid) revert Insufficient();
+        // Revert if bid isn't sufficient or greater than the highest bid, bypass for highest bidder
+        if (prevBidder != msg.sender
+            && (msg.value <= prevBid || msg.value < pricing.minAnnualPrice())) revert Insufficient();
         // If the caller is the highest bidder, increase their bid and reset the timestamp
         else if (prevBidder == msg.sender) {
             unchecked { bids[name].ethAmount += msg.value; }
