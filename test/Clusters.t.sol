@@ -29,6 +29,8 @@ contract ClustersTest is Test {
         vm.deal(address(this), 1 ether);
     }
 
+    receive() external payable {}
+
     /*\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\
                 Pricing.sol
     \\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\*/
@@ -703,6 +705,159 @@ contract ClustersTest is Test {
         require(bid.ethAmount == 0.15 ether, "bid ethAmount incorrect");
         require(bid.createdTimestamp == block.timestamp - 31 days, "bid createdTimestamp incorrect");
         require(bid.bidder == address(1), "bid bidder incorrect");
+    }
+
+    function testReduceBid(string memory _name, address _bidder, uint256 _ethAmount1, uint256 _ethAmount2) public {
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
+        vm.assume(_bidder != address(this));
+        vm.assume(_bidder != address(clusters));
+        vm.assume(_bidder != address(0));
+        vm.assume(_ethAmount1 >= 0.05 ether);
+        vm.assume(_ethAmount1 <= 10 ether);
+        vm.assume(_ethAmount2 > 0);
+        vm.assume(_ethAmount2 < 0.04 ether);
+        vm.deal(_bidder, 10 ether);
+        bytes32 name = _toBytes32(_name);
+        clusters.create();
+        clusters.buyName{ value: 0.01 ether }(_name, 1);
+        vm.startPrank(_bidder);
+        clusters.create();
+        clusters.bidName{ value: _ethAmount1 }(_name);
+        uint256 balance = address(_bidder).balance;
+        vm.warp(block.timestamp + 31 days);
+        clusters.reduceBid(_name, _ethAmount2);
+        vm.stopPrank();
+        require(address(_bidder).balance == balance + _ethAmount2, "bidder balance error");
+        require(address(clusters).balance == 0.01 ether + _ethAmount1 - _ethAmount2, "contract balance issue");
+        ClusterData.Bid memory bid = clusters.getBid(name);
+        require(bid.ethAmount == _ethAmount1 - _ethAmount2, "bid ethAmount incorrect");
+        // TODO: Update implementation once bid update timestamp handling is added
+        require(bid.createdTimestamp == block.timestamp - 31 days, "bid createdTimestamp incorrect");
+        require(bid.bidder == _bidder, "bid bidder incorrect");
+    }
+
+    function testReduceBidRevertUnauthorized(string memory _name, address _bidder, uint256 _ethAmount1, uint256 _ethAmount2) public {
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
+        vm.assume(_bidder != address(this));
+        vm.assume(_bidder != address(clusters));
+        vm.assume(_bidder != address(0));
+        vm.assume(_bidder != address(1));
+        vm.assume(_ethAmount1 >= 0.05 ether);
+        vm.assume(_ethAmount1 <= 10 ether);
+        vm.assume(_ethAmount2 > 0);
+        vm.assume(_ethAmount2 < 0.04 ether);
+        vm.deal(_bidder, 10 ether);
+        clusters.create();
+        clusters.buyName{ value: 0.01 ether }(_name, 1);
+        vm.startPrank(_bidder);
+        clusters.create();
+        clusters.bidName{ value: _ethAmount1 }(_name);
+        vm.stopPrank();
+        vm.prank(address(1));
+        vm.expectRevert(NameManager.Unauthorized.selector);
+        clusters.reduceBid(_name, _ethAmount2);
+    }
+
+    function testReduceBidRevertTimelock(string memory _name, address _bidder, uint256 _ethAmount, uint256 _timeSkew) public {
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
+        vm.assume(_bidder != address(this));
+        vm.assume(_bidder != address(clusters));
+        vm.assume(_bidder != address(0));
+        vm.assume(_ethAmount >= 0.02 ether);
+        vm.assume(_ethAmount <= 10 ether);
+        vm.assume(_timeSkew < 30 days);
+        vm.deal(_bidder, 10 ether);
+        clusters.create();
+        clusters.buyName{ value: 0.01 ether }(_name, 1);
+        vm.startPrank(_bidder);
+        clusters.create();
+        clusters.bidName{ value: _ethAmount }(_name);
+        vm.warp(block.timestamp + _timeSkew);
+        vm.expectRevert(NameManager.Timelock.selector);
+        clusters.reduceBid(_name, _ethAmount / 2);
+        vm.stopPrank();
+    }
+
+    // TODO: Test once acceptBid is implemented
+    //function testReduceBidRevertNoBid
+
+    function testReduceBidRevertInsufficient(string memory _name, address _bidder, uint256 _ethAmount1, uint256 _ethAmount2) public {
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
+        vm.assume(_bidder != address(this));
+        vm.assume(_bidder != address(clusters));
+        vm.assume(_bidder != address(0));
+        vm.assume(_ethAmount1 >= 0.02 ether);
+        vm.assume(_ethAmount1 <= 1 ether);
+        vm.assume(_ethAmount2 > 1 ether);
+        vm.assume(_ethAmount2 < type(uint256).max);
+        vm.deal(_bidder, 10 ether);
+        clusters.create();
+        clusters.buyName{ value: 0.01 ether }(_name, 1);
+        vm.startPrank(_bidder);
+        clusters.create();
+        clusters.bidName{ value: _ethAmount1 }(_name);
+        vm.warp(block.timestamp + 31 days);
+        vm.expectRevert(NameManager.Insufficient.selector);
+        clusters.reduceBid(_name, _ethAmount2);
+        vm.stopPrank();
+    }
+
+    function testReduceBidUint256Max(string memory _name, address _bidder, uint256 _ethAmount) public {
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
+        vm.assume(_bidder != address(this));
+        vm.assume(_bidder != address(clusters));
+        vm.assume(_bidder != address(0));
+        vm.assume(_ethAmount >= 0.01 ether);
+        vm.assume(_ethAmount <= 10 ether);
+        vm.deal(_bidder, 10 ether);
+        bytes32 name = _toBytes32(_name);
+        clusters.create();
+        clusters.buyName{ value: 0.01 ether }(_name, 1);
+        vm.startPrank(_bidder);
+        clusters.create();
+        clusters.bidName{ value: _ethAmount }(_name);
+        uint256 balance = address(_bidder).balance;
+        vm.warp(block.timestamp + 31 days);
+        clusters.reduceBid(_name, type(uint256).max);
+        vm.stopPrank();
+        require(address(_bidder).balance == balance + _ethAmount, "bid refund balance error");
+        require(address(clusters).balance == 0.01 ether, "contract balance issue");
+        ClusterData.Bid memory bid = clusters.getBid(name);
+        require(bid.ethAmount == 0, "bid ethAmount not purged");
+        require(bid.createdTimestamp == 0, "bid createdTimestamp not purged");
+        require(bid.bidder == address(0), "bid bidder not purged");
+    }
+
+    function testReduceBidTotalBid(string memory _name, address _bidder, uint256 _ethAmount) public {
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
+        vm.assume(_bidder != address(this));
+        vm.assume(_bidder != address(clusters));
+        vm.assume(_bidder != address(0));
+        vm.assume(_ethAmount >= 0.01 ether);
+        vm.assume(_ethAmount <= 10 ether);
+        vm.deal(_bidder, 10 ether);
+        bytes32 name = _toBytes32(_name);
+        clusters.create();
+        clusters.buyName{ value: 0.01 ether }(_name, 1);
+        vm.startPrank(_bidder);
+        clusters.create();
+        clusters.bidName{ value: _ethAmount }(_name);
+        uint256 balance = address(_bidder).balance;
+        vm.warp(block.timestamp + 31 days);
+        clusters.reduceBid(_name, _ethAmount);
+        vm.stopPrank();
+        require(address(_bidder).balance == balance + _ethAmount, "bid refund balance error");
+        require(address(clusters).balance == 0.01 ether, "contract balance issue");
+        ClusterData.Bid memory bid = clusters.getBid(name);
+        require(bid.ethAmount == 0, "bid ethAmount not purged");
+        require(bid.createdTimestamp == 0, "bid createdTimestamp not purged");
+        require(bid.bidder == address(0), "bid bidder not purged");
     }
 
     function testRevokeBid() public {
