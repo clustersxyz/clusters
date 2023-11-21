@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 import {Test, console2} from "forge-std/Test.sol";
-import {Clusters} from "../src/Clusters.sol";
+import {Clusters, NameManager} from "../src/Clusters.sol";
 import {Pricing} from "../src/Pricing.sol";
 import {Lambert} from "../src/Lambert.sol";
 import {ClusterData} from "../src/libraries/ClusterData.sol";
@@ -123,8 +123,148 @@ contract ClustersTest is Test {
         assertEq(lambert.W0(10e18), 1830768336445553094);
     }
 
-    function createCluster() public {
+    function testCreateCluster() public {
         clusters.create();
+        require(clusters.nextClusterId() == 2, "nextClusterId not incremented");
+        address[] memory addresses = clusters.clusterAddresses(1);
+        require(addresses.length == 1, "addresses array length error");
+        require(addresses[0] == address(this), "clusterAddresses error");
+        require(clusters.addressLookup(address(this)) == 1, "addressLookup error");
+    }
+
+    function testCreateClusterRevertRegistered() public {
+        clusters.create();
+        vm.expectRevert(NameManager.Registered.selector);
+        clusters.create();
+    }
+
+    function testInviteCluster(address _invitee) public {
+        vm.assume(_invitee != address(this));
+        vm.assume(_invitee != address(clusters));
+        vm.assume(_invitee != address(0));
+        clusters.create();
+        clusters.invite(_invitee);
+        require(clusters.invited(1, _invitee), "invite error");
+    }
+
+    function testInviteClusterRevertNoCluster(address _invitee) public {
+        vm.assume(_invitee != address(this));
+        vm.assume(_invitee != address(clusters));
+        vm.assume(_invitee != address(0));
+        vm.expectRevert(NameManager.NoCluster.selector);
+        clusters.invite(_invitee);
+    }
+
+    function testJoinCluster(address _invitee) public {
+        vm.assume(_invitee != address(this));
+        vm.assume(_invitee != address(clusters));
+        vm.assume(_invitee != address(0));
+        clusters.create();
+        clusters.invite(_invitee);
+        vm.prank(_invitee);
+        clusters.join(1);
+        address[] memory addresses = clusters.clusterAddresses(1);
+        require(addresses.length == 2, "addresses array length error");
+        require(addresses[0] == address(this), "clusterAddresses error");
+        require(addresses[1] == _invitee, "clusterAddresses error");
+        require(clusters.addressLookup(address(this)) == 1, "addressLookup error");
+        require(clusters.addressLookup(_invitee) == 1, "addressLookup error");
+    }
+
+    function testJoinClusterRevertUnauthorized(address _invitee) public {
+        vm.assume(_invitee != address(this));
+        vm.assume(_invitee != address(clusters));
+        vm.assume(_invitee != address(0));
+        vm.assume(_invitee != address(1));
+        clusters.create();
+        clusters.invite(_invitee);
+        vm.prank(address(1));
+        vm.expectRevert(NameManager.Unauthorized.selector);
+        clusters.join(1);
+    }
+
+    function testRemoveCluster(address _invitee) public {
+        vm.assume(_invitee != address(this));
+        vm.assume(_invitee != address(clusters));
+        vm.assume(_invitee != address(0));
+        clusters.create();
+        clusters.invite(_invitee);
+        vm.prank(_invitee);
+        clusters.join(1);
+        clusters.remove(_invitee);
+        address[] memory addresses = clusters.clusterAddresses(1);
+        require(addresses.length == 1, "addresses array length error");
+        require(addresses[0] == address(this), "clusterAddresses error");
+        require(clusters.addressLookup(address(this)) == 1, "addressLookup error");
+        require(clusters.addressLookup(_invitee) == 0, "addressLookup error");
+    }
+
+    function testRemoveClusterRevertUnauthorized(address _invitee) public {
+        vm.assume(_invitee != address(this));
+        vm.assume(_invitee != address(clusters));
+        vm.assume(_invitee != address(0));
+        vm.assume(_invitee != address(1));
+        clusters.create();
+        clusters.invite(_invitee);
+        vm.prank(_invitee);
+        clusters.join(1);
+        vm.startPrank(address(1));
+        clusters.create();
+        vm.expectRevert(NameManager.Unauthorized.selector);
+        clusters.remove(_invitee);
+        vm.stopPrank();
+    }
+
+    function testRemoveClusterRevertNoCluster(address _invitee) public {
+        vm.assume(_invitee != address(this));
+        vm.assume(_invitee != address(clusters));
+        vm.assume(_invitee != address(0));
+        vm.assume(_invitee != address(1));
+        clusters.create();
+        clusters.invite(_invitee);
+        vm.prank(_invitee);
+        clusters.join(1);
+        vm.prank(address(1));
+        vm.expectRevert(NameManager.NoCluster.selector);
+        clusters.remove(_invitee);
+    }
+
+    function testLeaveCluster(address _invitee) public {
+        vm.assume(_invitee != address(this));
+        vm.assume(_invitee != address(clusters));
+        vm.assume(_invitee != address(0));
+        clusters.create();
+        clusters.invite(_invitee);
+        vm.startPrank(_invitee);
+        clusters.join(1);
+        clusters.leave();
+        vm.stopPrank();
+        address[] memory addresses = clusters.clusterAddresses(1);
+        require(addresses.length == 1, "addresses array length error");
+        require(addresses[0] == address(this), "clusterAddresses error");
+        require(clusters.addressLookup(address(this)) == 1, "addressLookup error");
+        require(clusters.addressLookup(_invitee) == 0, "addressLookup error");
+    }
+
+    function testLeaveClusterRevertNoCluster(address _invitee) public {
+        vm.assume(_invitee != address(this));
+        vm.assume(_invitee != address(clusters));
+        vm.assume(_invitee != address(0));
+        vm.assume(_invitee != address(1));
+        clusters.create();
+        clusters.invite(_invitee);
+        vm.prank(_invitee);
+        clusters.join(1);
+        vm.prank(address(1));
+        vm.expectRevert(NameManager.NoCluster.selector);
+        clusters.leave();
+    }
+
+    function testLeaveClusterRevertInvalid() public {
+        clusters.create();
+        clusters.buyName{ value: 0.25 ether }("Test Name", 1);
+        vm.expectRevert(NameManager.Invalid.selector);
+        clusters.leave();
     }
 
     function buyName() public {
@@ -132,7 +272,7 @@ contract ClustersTest is Test {
     }
 
     function testBuyName() public {
-        createCluster();
+        clusters.create();
         buyName();
         bytes32 name = _toBytes32("Test Name");
         require(clusters.addressLookup(address(this)) == 1, "address(this) not assigned to cluster");
@@ -142,11 +282,11 @@ contract ClustersTest is Test {
     }
 
     function testTransferName() public {
-        createCluster();
+        clusters.create();
         buyName();
         bytes32 name = _toBytes32("Test Name");
         vm.prank(address(1));
-        createCluster();
+        clusters.create();
         clusters.transferName("Test Name", 2);
         require(clusters.addressLookup(address(1)) == 2, "address(1) not assigned to cluster");
         require(clusters.nameLookup(name) == 2, "name not assigned to proper cluster");
@@ -155,7 +295,7 @@ contract ClustersTest is Test {
     }
 
     function testPokeName() public {
-        createCluster();
+        clusters.create();
         buyName();
         vm.prank(address(1));
         clusters.pokeName("Test Name");
@@ -167,7 +307,7 @@ contract ClustersTest is Test {
     }
 
     function testBidName() public {
-        createCluster();
+        clusters.create();
         buyName();
         bytes32 name = _toBytes32("Test Name");
         vm.deal(address(1), 1 ether);
@@ -188,7 +328,7 @@ contract ClustersTest is Test {
     }
 
     function testReduceBid() public {
-        createCluster();
+        clusters.create();
         buyName();
         bytes32 name = _toBytes32("Test Name");
         vm.deal(address(1), 1 ether);
@@ -213,7 +353,7 @@ contract ClustersTest is Test {
     }
 
     function testRevokeBid() public {
-        createCluster();
+        clusters.create();
         buyName();
         bytes32 name = _toBytes32("Test Name");
         vm.deal(address(1), 1 ether);
