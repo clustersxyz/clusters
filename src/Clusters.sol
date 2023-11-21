@@ -22,8 +22,6 @@ contract Clusters is NameManager {
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
-    uint256 public nextClusterId = 1;
-
     /// @dev Enumerate all addresses in a cluster
     mapping(uint256 clusterId => EnumerableSet.AddressSet addrs) internal _clusterAddresses;
 

@@ -29,6 +29,10 @@ contract ClustersTest is Test {
         vm.deal(address(this), 1 ether);
     }
 
+    /*\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\
+                Pricing.sol
+    \\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\*/
+
     function testDecayMultiplier() public {
         int256 decay = pricing.getDecayMultiplier(730 days);
         assertEq(decay, int256(0.25e18 - 1)); // Tiny error tolerance is okay
@@ -122,6 +126,10 @@ contract ClustersTest is Test {
         // W(10) ~= 1.7455, approx is 1.830768336445553094
         assertEq(lambert.W0(10e18), 1830768336445553094);
     }
+
+    /*\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\
+                Clusters.sol
+    \\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\*/
 
     function testCreateCluster() public {
         clusters.create();
@@ -267,6 +275,10 @@ contract ClustersTest is Test {
         clusters.leave();
     }
 
+    /*\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\
+                NameManager.sol
+    \\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\*/
+
     function buyName() public {
         clusters.buyName{ value: 0.1 ether }("Test Name", 1);
     }
@@ -275,10 +287,89 @@ contract ClustersTest is Test {
         clusters.create();
         buyName();
         bytes32 name = _toBytes32("Test Name");
-        require(clusters.addressLookup(address(this)) == 1, "address(this) not assigned to cluster");
+        bytes32[] memory names = clusters.getClusterNames(1);
+        require(names.length == 1, "names array length error");
+        require(names[0] == name, "name array error");
         require(clusters.nameLookup(name) == 1, "name not assigned to cluster");
         require(clusters.ethBacking(name) == 0.1 ether, "ethBacking incorrect");
         require(address(clusters).balance == 0.1 ether, "contract balance issue");
+    }
+
+    function testBuyName(string memory _name, uint256 _ethAmount) public {
+        vm.deal(address(this), 10 ether);
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
+        vm.assume(_ethAmount >= 0.1 ether);
+        vm.assume(_ethAmount <= 10 ether);
+        clusters.create();
+        clusters.buyName{ value: _ethAmount }(_name, 1);
+        bytes32 name = _toBytes32(_name);
+        bytes32[] memory names = clusters.getClusterNames(1);
+        require(names.length == 1, "names array length error");
+        require(names[0] == name, "name array error");
+        require(clusters.nameLookup(name) == 1, "name not assigned to cluster");
+        require(clusters.ethBacking(name) == _ethAmount, "ethBacking incorrect");
+        require(address(clusters).balance == _ethAmount, "contract balance issue");
+    }
+
+    function testBuyNameForAnother(string memory _name, uint256 _ethAmount) public {
+        vm.deal(address(this), 10 ether);
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
+        vm.assume(_ethAmount >= 0.1 ether);
+        vm.assume(_ethAmount <= 10 ether);
+        clusters.create();
+        vm.prank(address(1));
+        clusters.create();
+        clusters.buyName{ value: _ethAmount }(_name, 2);
+        bytes32 name = _toBytes32(_name);
+        bytes32[] memory names = clusters.getClusterNames(2);
+        require(names.length == 1, "names array length error");
+        require(names[0] == name, "name array error");
+        require(clusters.nameLookup(name) == 2, "name not assigned to cluster");
+        require(clusters.ethBacking(name) == _ethAmount, "ethBacking incorrect");
+        require(address(clusters).balance == _ethAmount, "contract balance issue");
+    }
+
+    function testBuyNameRevertNoCluster(string memory _name) public {
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
+        vm.expectRevert(NameManager.NoCluster.selector);
+        clusters.buyName{ value: 0.1 ether }(_name, 1);
+    }
+
+    function testBuyNameRevertInvalid() public {
+        clusters.create();
+        vm.expectRevert(NameManager.Invalid.selector);
+        clusters.buyName{ value: 0.1 ether }("", 1);
+    }
+
+    function testBuyNameRevertInvalidTooLong(string memory _name) public {
+        vm.assume(bytes(_name).length > 32);
+        clusters.create();
+        vm.expectRevert(NameManager.Invalid.selector);
+        clusters.buyName{ value: 0.1 ether }(_name, 1);
+    }
+
+    function testBuyNameRevertInsufficient(string memory _name, uint256 _ethAmount) public {
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
+        vm.assume(_ethAmount < 0.01 ether);
+        clusters.create();
+        vm.expectRevert(NameManager.Insufficient.selector);
+        clusters.buyName{ value: _ethAmount }(_name, 1);
+    }
+
+    function testBuyNameRevertRegistered(string memory _name, uint256 _ethAmount) public {
+        vm.deal(address(this), 20 ether);
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
+        vm.assume(_ethAmount >= 0.1 ether);
+        vm.assume(_ethAmount <= 10 ether);
+        clusters.create();
+        clusters.buyName{ value: _ethAmount }(_name, 1);
+        vm.expectRevert(NameManager.Registered.selector);
+        clusters.buyName{ value: _ethAmount }(_name, 1);
     }
 
     function testTransferName() public {
@@ -288,10 +379,91 @@ contract ClustersTest is Test {
         vm.prank(address(1));
         clusters.create();
         clusters.transferName("Test Name", 2);
-        require(clusters.addressLookup(address(1)) == 2, "address(1) not assigned to cluster");
+        bytes32[] memory names = clusters.getClusterNames(2);
+        require(names.length == 1, "names array length error");
+        require(names[0] == name, "name array error");
         require(clusters.nameLookup(name) == 2, "name not assigned to proper cluster");
         require(clusters.ethBacking(name) == 0.1 ether, "ethBacking incorrect");
         require(address(clusters).balance == 0.1 ether, "contract balance issue");
+    }
+
+    function testTransferName(string memory _name, address _recipient, uint256 _ethAmount) public {
+        vm.deal(address(this), 20 ether);
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
+        vm.assume(_recipient != address(this));
+        vm.assume(_recipient != address(clusters));
+        vm.assume(_recipient != address(0));
+        vm.assume(_ethAmount >= 0.1 ether);
+        vm.assume(_ethAmount <= 10 ether);
+        clusters.create();
+        clusters.buyName{ value: _ethAmount }(_name, 1);
+        vm.prank(_recipient);
+        clusters.create();
+        clusters.transferName(_name, 2);
+        bytes32 name = _toBytes32(_name);
+        bytes32[] memory names = clusters.getClusterNames(2);
+        require(names.length == 1, "names array length error");
+        require(names[0] == name, "name array error");
+        require(clusters.nameLookup(name) == 2, "name not assigned to proper cluster");
+        require(clusters.ethBacking(name) == _ethAmount, "ethBacking incorrect");
+        require(address(clusters).balance == _ethAmount, "contract balance issue");
+    }
+
+    function testTransferNameRevertNoCluster(string memory _name) public {
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
+        clusters.create();
+        clusters.buyName{ value: 0.1 ether }(_name, 1);
+        vm.prank(address(1));
+        vm.expectRevert(NameManager.NoCluster.selector);
+        clusters.transferName(_name, 2);
+    }
+
+    function testTransferNameRevertUnauthorized(string memory _name) public {
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
+        clusters.create();
+        clusters.buyName{ value: 0.1 ether }(_name, 1);
+        vm.startPrank(address(1));
+        clusters.create();
+        vm.expectRevert(NameManager.Unauthorized.selector);
+        clusters.transferName(_name, 2);
+        vm.stopPrank();
+    }
+
+    function testTransferNameRevertInvalid() public {
+        clusters.create();
+        vm.expectRevert(NameManager.Invalid.selector);
+        clusters.buyName{ value: 0.1 ether }("", 1);
+    }
+
+    function testTransferNameRevertUnregistered(string memory _name, uint256 _toClusterId) public {
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
+        vm.assume(_toClusterId > 1);
+        clusters.create();
+        clusters.buyName{ value: 0.1 ether }(_name, 1);
+        vm.expectRevert(NameManager.Unregistered.selector);
+        clusters.transferName(_name, _toClusterId);
+    }
+
+    function testTransferNameCanonicalName(string memory _name, address _recipient) public {
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
+        vm.assume(_recipient != address(this));
+        vm.assume(_recipient != address(clusters));
+        vm.assume(_recipient != address(0));
+        clusters.create();
+        clusters.buyName{ value: 0.1 ether }(_name, 1);
+        clusters.setCanonicalName(_name);
+        bytes32 name = _toBytes32(_name);
+        require(clusters.canonicalClusterName(1) == name, "canonicalClusterName error");
+        vm.prank(_recipient);
+        clusters.create();
+        clusters.transferName(_name, 2);
+        require(clusters.canonicalClusterName(1) == bytes32(""), "canonicalClusterName wasn't cleared");
+        require(clusters.canonicalClusterName(2) == bytes32(""), "canonicalClusterName possibly transferred");
     }
 
     function testPokeName() public {

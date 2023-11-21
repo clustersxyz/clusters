@@ -15,7 +15,6 @@ contract NameManager {
     error Invalid();
     error Timelock();
     error NoCluster();
-    error NoPayment();
     error Registered();
     error Unauthorized();
     error Unregistered();
@@ -34,6 +33,8 @@ contract NameManager {
     uint256 internal constant BID_TIMELOCK = 30 days;
 
     Pricing internal pricing;
+
+    uint256 public nextClusterId = 1;
 
     /// @notice Which cluster an address belongs to
     mapping(address addr => uint256 clusterId) public addressLookup;
@@ -106,9 +107,10 @@ contract NameManager {
     function buyName(string memory _name, uint256 clusterId) external payable checkPrivileges("") {
         bytes32 name = _toBytes32(_name);
         if (name == bytes32("")) revert Invalid();
-        if (msg.value < pricing.minAnnualPrice()) revert NoPayment();
-        // Check that name is unused
+        // Check that name is unused and sufficient payment is made
         if (nameLookup[name] != 0) revert Registered();
+        if (msg.value < pricing.minAnnualPrice()) revert Insufficient();
+        // Process price accounting updates
         unchecked { ethBacking[name] += msg.value; }
         priceIntegral[name] = ClusterData.PriceIntegral({
             name: name,
@@ -121,9 +123,11 @@ contract NameManager {
     }
 
     /// @notice Move name from one cluster to another without payment
+    // TODO: Determine if transfers to nonexistent clusters should be blocked
     function transferName(string memory _name, uint256 toClusterId) external checkPrivileges(_name) {
         bytes32 name = _toBytes32(_name);
         if (name == bytes32("")) revert Invalid();
+        if (toClusterId >= nextClusterId) revert Unregistered();
         uint256 currentCluster = addressLookup[msg.sender];
         _transferName(name, currentCluster, toClusterId);
     }
