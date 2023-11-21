@@ -55,7 +55,7 @@ contract Clusters is NameManager {
         _add(msg.sender, nextClusterId++);
     }
 
-    function invite(address invitee) external {
+    function invite(address invitee) external checkPrivileges("") {
         uint256 currentCluster = addressLookup[msg.sender];
         invited[currentCluster][invitee] = true;
     }
@@ -65,12 +65,12 @@ contract Clusters is NameManager {
         _add(msg.sender, clusterId);
     }
 
-    function remove(address addr) external {
+    function remove(address addr) external checkPrivileges("") {
         if(addressLookup[msg.sender] != addressLookup[addr]) revert Unauthorized();
         _remove(addr);
     }
 
-    function leave() external {
+    function leave() external checkPrivileges("") {
         _remove(msg.sender);
     }
 
