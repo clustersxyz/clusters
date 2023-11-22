@@ -480,6 +480,37 @@ contract ClustersTest is Test {
         require(address(clusters).balance == 0.1 ether, "contract balance issue");
     }
 
+    function testPokeName(string memory _name, uint256 _timeSkew) public {
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
+        vm.assume(_timeSkew > 0);
+        vm.assume(_timeSkew < 24 weeks);
+        bytes32 name = _toBytes32(_name);
+        clusters.create();
+        clusters.buyName{ value: 0.01 ether }(_name, 1);
+        uint256 ethBacking = clusters.ethBacking(name);
+        vm.warp(block.timestamp + _timeSkew);
+        clusters.pokeName(_name);
+        require(clusters.addressLookup(address(this)) == 1, "address(this) not assigned to cluster");
+        require(clusters.nameLookup(name) == 1, "name not assigned to cluster");
+        require(ethBacking > clusters.ethBacking(name), "ethBacking not adjusting");
+        require(address(clusters).balance == 0.01 ether, "contract balance issue");
+    }
+
+    function testPokeNameRevertInvalid() public {
+        clusters.create();
+        vm.expectRevert(NameManager.Invalid.selector);
+        clusters.pokeName("");
+    }
+
+    function testPokeNameRevertUnregistered(string memory _name) public {
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
+        clusters.create();
+        vm.expectRevert(NameManager.Unregistered.selector);
+        clusters.pokeName(_name);
+    }
+
     function testBidName() public {
         clusters.create();
         buyName();
@@ -713,6 +744,7 @@ contract ClustersTest is Test {
         vm.assume(_bidder != address(this));
         vm.assume(_bidder != address(clusters));
         vm.assume(_bidder != address(0));
+        vm.assume(_bidder != address(vm));
         vm.assume(_ethAmount1 >= 0.05 ether);
         vm.assume(_ethAmount1 <= 10 ether);
         vm.assume(_ethAmount2 > 0);
@@ -812,6 +844,7 @@ contract ClustersTest is Test {
         vm.assume(_bidder != address(this));
         vm.assume(_bidder != address(clusters));
         vm.assume(_bidder != address(0));
+        vm.assume(_bidder != address(vm));
         vm.assume(_ethAmount >= 0.01 ether);
         vm.assume(_ethAmount <= 10 ether);
         vm.deal(_bidder, 10 ether);
@@ -839,6 +872,7 @@ contract ClustersTest is Test {
         vm.assume(_bidder != address(this));
         vm.assume(_bidder != address(clusters));
         vm.assume(_bidder != address(0));
+        vm.assume(_bidder != address(vm));
         vm.assume(_ethAmount >= 0.01 ether);
         vm.assume(_ethAmount <= 10 ether);
         vm.deal(_bidder, 10 ether);
@@ -881,5 +915,138 @@ contract ClustersTest is Test {
         require(bid.ethAmount == 0, "bid ethAmount not purged");
         require(bid.createdTimestamp == 0, "bid createdTimestamp not purged");
         require(bid.bidder == address(0), "bid bidder not purged");
+    }
+
+    function testSetCanonicalName(string memory _name) public {
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
+        bytes32 name = _toBytes32(_name);
+        clusters.create();
+        clusters.buyName{ value: 0.01 ether }(_name, 1);
+        clusters.setCanonicalName(_name);
+        require(clusters.nameLookup(name) == 1, "clusterId error");
+        require(clusters.canonicalClusterName(1) == name, "canonicalClusterName error");
+        bytes32[] memory names = clusters.getClusterNames(1);
+        require(names.length == 1, "names array length error");
+        require(names[0] == name, "name array error");
+    }
+
+    function testSetCanonicalNameUpdate(string memory _name1, string memory _name2) public {
+        vm.assume(bytes(_name1).length > 0);
+        vm.assume(bytes(_name1).length <= 32);
+        vm.assume(bytes(_name2).length > 0);
+        vm.assume(bytes(_name2).length <= 32);
+        bytes32 name1 = _toBytes32(_name1);
+        bytes32 name2 = _toBytes32(_name2);
+        clusters.create();
+        clusters.buyName{ value: 0.01 ether }(_name1, 1);
+        clusters.buyName{ value: 0.01 ether }(_name2, 1);
+        clusters.setCanonicalName(_name1);
+        clusters.setCanonicalName(_name2);
+        require(clusters.nameLookup(name1) == 1, "clusterId error");
+        require(clusters.nameLookup(name2) == 1, "clusterId error");
+        require(clusters.canonicalClusterName(1) == name2, "canonicalClusterName error");
+        bytes32[] memory names = clusters.getClusterNames(1);
+        require(names.length == 2, "names array length error");
+        require(names[0] == name1, "name array error");
+        require(names[1] == name2, "name array error");
+    }
+
+    function testSetCanonicalNameDelete(string memory _name) public {
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
+        bytes32 name = _toBytes32(_name);
+        clusters.create();
+        clusters.buyName{ value: 0.01 ether }(_name, 1);
+        clusters.setCanonicalName(_name);
+        clusters.setCanonicalName("");
+        require(clusters.nameLookup(name) == 1, "clusterId error");
+        require(clusters.canonicalClusterName(1) == bytes32(""), "canonicalClusterName error");
+        bytes32[] memory names = clusters.getClusterNames(1);
+        require(names.length == 1, "names array length error");
+        require(names[0] == name, "name array error");
+    }
+
+    function testSetCanonicalNameRevertUnauthorized(string memory _name, address _notOwner) public {
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
+        vm.assume(_notOwner != address(this));
+        vm.assume(_notOwner != address(clusters));
+        vm.assume(_notOwner != address(0));
+        clusters.create();
+        clusters.buyName{ value: 0.01 ether }(_name, 1);
+        vm.startPrank(_notOwner);
+        clusters.create();
+        vm.expectRevert(NameManager.Unauthorized.selector);
+        clusters.setCanonicalName(_name);
+        vm.stopPrank();
+    }
+
+    function testSetCanonicalNameRevertNoCluster(string memory _name, address _notOwner) public {
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
+        vm.assume(_notOwner != address(this));
+        vm.assume(_notOwner != address(clusters));
+        vm.assume(_notOwner != address(0));
+        vm.assume(_notOwner != address(vm));
+        clusters.create();
+        clusters.buyName{ value: 0.01 ether }(_name, 1);
+        vm.prank(_notOwner);
+        vm.expectRevert(NameManager.NoCluster.selector);
+        clusters.setCanonicalName(_name);
+    }
+
+    function testSetWalletName(address _invitee, string memory _walletName1, string memory _walletName2) public {
+        vm.assume(_invitee != address(this));
+        vm.assume(_invitee != address(clusters));
+        vm.assume(_invitee != address(0));
+        vm.assume(_invitee != address(vm));
+        vm.assume(bytes(_walletName1).length > 0);
+        vm.assume(bytes(_walletName1).length <= 32);
+        vm.assume(bytes(_walletName2).length > 0);
+        vm.assume(bytes(_walletName2).length <= 32);
+        bytes32 walletName1 = _toBytes32(_walletName1);
+        bytes32 walletName2 = _toBytes32(_walletName2);
+        clusters.create();
+        clusters.setWalletName(_walletName1);
+        clusters.invite(_invitee);
+        vm.startPrank(_invitee);
+        clusters.join(1);
+        clusters.setWalletName(_walletName2);
+        vm.stopPrank();
+        require(clusters.addressLookup(address(this)) == 1, "clusterId error");
+        require(clusters.addressLookup(_invitee) == 1, "clusterId error");
+        require(clusters.forwardLookup(1, walletName1) == address(this), "forwardLookup error");
+        require(clusters.forwardLookup(1, walletName2) == _invitee, "forwardLookup error");
+        require(clusters.reverseLookup(address(this)) == walletName1, "reverseLookup error");
+        require(clusters.reverseLookup(_invitee) == walletName2, "reverseLookup error");
+    }
+
+    function testSetWalletNameDelete(address _invitee, string memory _walletName1, string memory _walletName2) public {
+        vm.assume(_invitee != address(this));
+        vm.assume(_invitee != address(clusters));
+        vm.assume(_invitee != address(0));
+        vm.assume(_invitee != address(vm));
+        vm.assume(bytes(_walletName1).length > 0);
+        vm.assume(bytes(_walletName1).length <= 32);
+        vm.assume(bytes(_walletName2).length > 0);
+        vm.assume(bytes(_walletName2).length <= 32);
+        bytes32 walletName1 = _toBytes32(_walletName1);
+        bytes32 walletName2 = _toBytes32(_walletName2);
+        clusters.create();
+        clusters.setWalletName(_walletName1);
+        clusters.setWalletName("");
+        clusters.invite(_invitee);
+        vm.startPrank(_invitee);
+        clusters.join(1);
+        clusters.setWalletName(_walletName2);
+        clusters.setWalletName("");
+        vm.stopPrank();
+        require(clusters.addressLookup(address(this)) == 1, "clusterId error");
+        require(clusters.addressLookup(_invitee) == 1, "clusterId error");
+        require(clusters.forwardLookup(1, walletName1) == address(0), "forwardLookup not purged");
+        require(clusters.forwardLookup(1, walletName2) == address(0), "forwardLookup not purged");
+        require(clusters.reverseLookup(address(this)) == bytes32(""), "reverseLookup not purged");
+        require(clusters.reverseLookup(_invitee) == bytes32(""), "reverseLookup not purged");
     }
 }

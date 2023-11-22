@@ -159,6 +159,7 @@ contract NameManager {
     function pokeName(string memory _name) public {
         bytes32 name = _toBytes32(_name);
         if (name == bytes32("")) revert Invalid();
+        if (nameLookup[name] == 0) revert Unregistered();
         ClusterData.PriceIntegral memory integral = priceIntegral[name];
         (uint256 spent, uint256 newPrice) = pricing.getIntegratedPrice(
             integral.lastUpdatedPrice,
@@ -304,6 +305,7 @@ contract NameManager {
         bytes32 walletName = _toBytes32(_walletName);
         uint256 clusterId = addressLookup[msg.sender];
         if (bytes(_walletName).length == 0) {
+            walletName = reverseLookup[msg.sender];
             delete forwardLookup[clusterId][walletName];
             delete reverseLookup[msg.sender];
         } else {
