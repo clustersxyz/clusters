@@ -437,7 +437,7 @@ contract ClustersTest is Test {
     function testTransferNameRevertInvalid() public {
         clusters.create();
         vm.expectRevert(NameManager.Invalid.selector);
-        clusters.buyName{ value: 0.1 ether }("", 1);
+        clusters.transferName("", 1);
     }
 
     function testTransferNameRevertUnregistered(string memory _name, uint256 _toClusterId) public {
@@ -711,6 +711,96 @@ contract ClustersTest is Test {
         require(bid.ethAmount == _ethAmount + 0.25 ether, "bid ethAmount incorrect");
         require(bid.createdTimestamp == block.timestamp, "bid createdTimestamp incorrect");
         require(bid.bidder == _bidder2, "bid bidder incorrect");
+    }
+
+    function testAcceptBid(string memory _name, address _bidder, uint256 _ethAmount) public {
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
+        vm.assume(_bidder != address(this));
+        vm.assume(_bidder != address(clusters));
+        vm.assume(_bidder != address(0));
+        vm.assume(_bidder != address(vm));
+        vm.assume(_ethAmount >= 0.01 ether);
+        vm.assume(_ethAmount <= 10 ether);
+        vm.deal(_bidder, 10 ether);
+        bytes32 name = _toBytes32(_name);
+        clusters.create();
+        clusters.buyName{ value: 0.01 ether }(_name, 1);
+        vm.startPrank(_bidder);
+        clusters.create();
+        clusters.bidName{ value: _ethAmount }(_name);
+        vm.stopPrank();
+        uint256 balance = address(this).balance;
+        clusters.acceptBid(_name);
+        require(address(this).balance == balance + _ethAmount, "bid payment error");
+        require(address(clusters).balance == 0.01 ether, "contract balance issue");
+        require(clusters.nameLookup(name) == 2, "name not assigned to proper cluster");
+        require(clusters.ethBacking(name) == 0.01 ether, "ethBacking incorrect");
+        bytes32[] memory names = clusters.getClusterNames(1);
+        require(names.length == 0, "names array length error");
+        names = clusters.getClusterNames(2);
+        require(names.length == 1, "names array length error");
+        require(names[0] == name, "name array error");
+        ClusterData.Bid memory bid = clusters.getBid(name);
+        require(bid.ethAmount == 0, "bid ethAmount not purged");
+        require(bid.createdTimestamp == 0, "bid createdTimestamp not purged");
+        require(bid.bidder == address(0), "bid bidder not purged");
+    }
+
+    function testAcceptBidRevertNoCluster(string memory _name, address _addr) public {
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
+        vm.assume(_addr != address(this));
+        vm.assume(_addr != address(clusters));
+        vm.assume(_addr != address(0));
+        vm.assume(_addr != address(vm));
+        clusters.create();
+        clusters.buyName{ value: 0.01 ether }(_name, 1);
+        vm.prank(_addr);
+        vm.expectRevert(NameManager.NoCluster.selector);
+        clusters.acceptBid(_name);
+    }
+
+    function testAcceptBidRevertUnauthorized(string memory _name, address _addr) public {
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
+        vm.assume(_addr != address(this));
+        vm.assume(_addr != address(clusters));
+        vm.assume(_addr != address(0));
+        vm.assume(_addr != address(vm));
+        clusters.create();
+        clusters.buyName{ value: 0.01 ether }(_name, 1);
+        vm.startPrank(_addr);
+        clusters.create();
+        vm.expectRevert(NameManager.Unauthorized.selector);
+        clusters.acceptBid(_name);
+        vm.stopPrank();
+    }
+
+    function testAcceptBidRevertInvalid(string memory _name, address _addr) public {
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
+        vm.assume(_addr != address(this));
+        vm.assume(_addr != address(clusters));
+        vm.assume(_addr != address(0));
+        vm.assume(_addr != address(vm));
+        clusters.create();
+        clusters.buyName{ value: 0.01 ether }(_name, 1);
+        vm.expectRevert(NameManager.Invalid.selector);
+        clusters.acceptBid("");
+    }
+
+    function testAcceptBidRevertNoBid(string memory _name, address _addr) public {
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
+        vm.assume(_addr != address(this));
+        vm.assume(_addr != address(clusters));
+        vm.assume(_addr != address(0));
+        vm.assume(_addr != address(vm));
+        clusters.create();
+        clusters.buyName{ value: 0.01 ether }(_name, 1);
+        vm.expectRevert(NameManager.NoBid.selector);
+        clusters.acceptBid(_name);
     }
 
     function testReduceBid() public {
