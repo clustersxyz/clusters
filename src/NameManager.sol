@@ -26,7 +26,6 @@ contract NameManager {
     event TransferName(bytes32 indexed name, uint256 indexed fromClusterId, uint256 indexed toClusterId);
     event PokeName(string indexed _name, address indexed poker);
     event BidPlaced(string indexed _name, address indexed bidder, uint256 indexed amount);
-    event BidAccepted(string indexed _name, address indexed bidder, uint256 indexed amount);
     event BidRefunded(string indexed _name, address indexed bidder, uint256 indexed amount);
     event BidIncreased(string indexed _name, address indexed bidder, uint256 indexed amount);
     event BidReduced(string indexed _name, address indexed bidder, uint256 indexed amount);
@@ -238,19 +237,6 @@ contract NameManager {
         }
         // Update name status and transfer to highest bidder if expired
         pokeName(_name);
-    }
-
-    function acceptBid(string memory _name) external checkPrivileges(_name) {
-        bytes32 name = _toBytes32(_name);
-        if (name == bytes32("")) revert Invalid();
-        uint256 bid = bids[name].ethAmount;
-        if (bid == 0) revert NoBid();
-        address bidder = bids[name].bidder;
-        delete bids[name];
-        (bool success, ) = payable(msg.sender).call{ value: bid }("");
-        if (!success) revert TransferFailed();
-        _transferName(name, addressLookup[msg.sender], addressLookup[bidder]);
-        emit BidAccepted(_name, bidder, bid);
     }
 
     /// @notice Reduce bid and refund difference. Revoke if _amount is the total bid or is the max uint256 value.
