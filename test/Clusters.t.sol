@@ -148,123 +148,101 @@ contract ClustersTest is Test {
         clusters.create();
     }
 
-    function testInviteCluster(address _invitee) public {
-        vm.assume(_invitee != address(this));
-        vm.assume(_invitee != address(clusters));
-        vm.assume(_invitee != address(0));
+    function testAddCluster(address _addr) public {
+        vm.assume(_addr != address(this));
+        vm.assume(_addr != address(clusters));
+        vm.assume(_addr != address(0));
         clusters.create();
-        clusters.invite(_invitee);
-        require(clusters.invited(1, _invitee), "invite error");
-    }
-
-    function testInviteClusterRevertNoCluster(address _invitee) public {
-        vm.assume(_invitee != address(this));
-        vm.assume(_invitee != address(clusters));
-        vm.assume(_invitee != address(0));
-        vm.expectRevert(NameManager.NoCluster.selector);
-        clusters.invite(_invitee);
-    }
-
-    function testJoinCluster(address _invitee) public {
-        vm.assume(_invitee != address(this));
-        vm.assume(_invitee != address(clusters));
-        vm.assume(_invitee != address(0));
-        clusters.create();
-        clusters.invite(_invitee);
-        vm.prank(_invitee);
-        clusters.join(1);
+        clusters.add(_addr);
         address[] memory addresses = clusters.clusterAddresses(1);
         require(addresses.length == 2, "addresses array length error");
         require(addresses[0] == address(this), "clusterAddresses error");
-        require(addresses[1] == _invitee, "clusterAddresses error");
+        require(addresses[1] == _addr, "clusterAddresses error");
         require(clusters.addressLookup(address(this)) == 1, "addressLookup error");
-        require(clusters.addressLookup(_invitee) == 1, "addressLookup error");
+        require(clusters.addressLookup(_addr) == 1, "addressLookup error");
     }
 
-    function testJoinClusterRevertUnauthorized(address _invitee) public {
-        vm.assume(_invitee != address(this));
-        vm.assume(_invitee != address(clusters));
-        vm.assume(_invitee != address(0));
-        vm.assume(_invitee != address(1));
-        clusters.create();
-        clusters.invite(_invitee);
-        vm.prank(address(1));
-        vm.expectRevert(NameManager.Unauthorized.selector);
-        clusters.join(1);
+    function testAddClusterRevertNoCluster(address _addr) public {
+        vm.assume(_addr != address(this));
+        vm.assume(_addr != address(clusters));
+        vm.assume(_addr != address(0));
+        vm.expectRevert(NameManager.NoCluster.selector);
+        clusters.add(_addr);
     }
 
-    function testRemoveCluster(address _invitee) public {
-        vm.assume(_invitee != address(this));
-        vm.assume(_invitee != address(clusters));
-        vm.assume(_invitee != address(0));
+    function testAddClusterRevertRegistered(address _addr) public {
+        vm.assume(_addr != address(this));
+        vm.assume(_addr != address(clusters));
+        vm.assume(_addr != address(0));
         clusters.create();
-        clusters.invite(_invitee);
-        vm.prank(_invitee);
-        clusters.join(1);
-        clusters.remove(_invitee);
+        vm.prank(_addr);
+        clusters.create();
+        vm.expectRevert(NameManager.Registered.selector);
+        clusters.add(_addr);
+    }
+
+    function testRemoveCluster(address _addr) public {
+        vm.assume(_addr != address(this));
+        vm.assume(_addr != address(clusters));
+        vm.assume(_addr != address(0));
+        clusters.create();
+        clusters.add(_addr);
+        clusters.remove(_addr);
         address[] memory addresses = clusters.clusterAddresses(1);
         require(addresses.length == 1, "addresses array length error");
         require(addresses[0] == address(this), "clusterAddresses error");
         require(clusters.addressLookup(address(this)) == 1, "addressLookup error");
-        require(clusters.addressLookup(_invitee) == 0, "addressLookup error");
+        require(clusters.addressLookup(_addr) == 0, "addressLookup error");
     }
 
-    function testRemoveClusterRevertUnauthorized(address _invitee) public {
-        vm.assume(_invitee != address(this));
-        vm.assume(_invitee != address(clusters));
-        vm.assume(_invitee != address(0));
-        vm.assume(_invitee != address(1));
+    function testRemoveClusterRevertUnauthorized(address _addr) public {
+        vm.assume(_addr != address(this));
+        vm.assume(_addr != address(clusters));
+        vm.assume(_addr != address(0));
+        vm.assume(_addr != address(1));
         clusters.create();
-        clusters.invite(_invitee);
-        vm.prank(_invitee);
-        clusters.join(1);
+        clusters.add(_addr);
         vm.startPrank(address(1));
         clusters.create();
         vm.expectRevert(NameManager.Unauthorized.selector);
-        clusters.remove(_invitee);
+        clusters.remove(_addr);
         vm.stopPrank();
     }
 
-    function testRemoveClusterRevertNoCluster(address _invitee) public {
-        vm.assume(_invitee != address(this));
-        vm.assume(_invitee != address(clusters));
-        vm.assume(_invitee != address(0));
-        vm.assume(_invitee != address(1));
+    function testRemoveClusterRevertNoCluster(address _addr) public {
+        vm.assume(_addr != address(this));
+        vm.assume(_addr != address(clusters));
+        vm.assume(_addr != address(0));
+        vm.assume(_addr != address(1));
         clusters.create();
-        clusters.invite(_invitee);
-        vm.prank(_invitee);
-        clusters.join(1);
+        clusters.add(_addr);
         vm.prank(address(1));
         vm.expectRevert(NameManager.NoCluster.selector);
-        clusters.remove(_invitee);
+        clusters.remove(_addr);
     }
 
-    function testLeaveCluster(address _invitee) public {
-        vm.assume(_invitee != address(this));
-        vm.assume(_invitee != address(clusters));
-        vm.assume(_invitee != address(0));
+    function testLeaveCluster(address _addr) public {
+        vm.assume(_addr != address(this));
+        vm.assume(_addr != address(clusters));
+        vm.assume(_addr != address(0));
         clusters.create();
-        clusters.invite(_invitee);
-        vm.startPrank(_invitee);
-        clusters.join(1);
+        clusters.add(_addr);
+        vm.prank(_addr);
         clusters.leave();
-        vm.stopPrank();
         address[] memory addresses = clusters.clusterAddresses(1);
         require(addresses.length == 1, "addresses array length error");
         require(addresses[0] == address(this), "clusterAddresses error");
         require(clusters.addressLookup(address(this)) == 1, "addressLookup error");
-        require(clusters.addressLookup(_invitee) == 0, "addressLookup error");
+        require(clusters.addressLookup(_addr) == 0, "addressLookup error");
     }
 
-    function testLeaveClusterRevertNoCluster(address _invitee) public {
-        vm.assume(_invitee != address(this));
-        vm.assume(_invitee != address(clusters));
-        vm.assume(_invitee != address(0));
-        vm.assume(_invitee != address(1));
+    function testLeaveClusterRevertNoCluster(address _addr) public {
+        vm.assume(_addr != address(this));
+        vm.assume(_addr != address(clusters));
+        vm.assume(_addr != address(0));
+        vm.assume(_addr != address(1));
         clusters.create();
-        clusters.invite(_invitee);
-        vm.prank(_invitee);
-        clusters.join(1);
+        clusters.add(_addr);
         vm.prank(address(1));
         vm.expectRevert(NameManager.NoCluster.selector);
         clusters.leave();
@@ -996,11 +974,11 @@ contract ClustersTest is Test {
         clusters.setCanonicalName(_name);
     }
 
-    function testSetWalletName(address _invitee, string memory _walletName1, string memory _walletName2) public {
-        vm.assume(_invitee != address(this));
-        vm.assume(_invitee != address(clusters));
-        vm.assume(_invitee != address(0));
-        vm.assume(_invitee != address(vm));
+    function testSetWalletName(address _addr, string memory _walletName1, string memory _walletName2) public {
+        vm.assume(_addr != address(this));
+        vm.assume(_addr != address(clusters));
+        vm.assume(_addr != address(0));
+        vm.assume(_addr != address(vm));
         vm.assume(bytes(_walletName1).length > 0);
         vm.assume(bytes(_walletName1).length <= 32);
         vm.assume(bytes(_walletName2).length > 0);
@@ -1009,24 +987,22 @@ contract ClustersTest is Test {
         bytes32 walletName2 = _toBytes32(_walletName2);
         clusters.create();
         clusters.setWalletName(_walletName1);
-        clusters.invite(_invitee);
-        vm.startPrank(_invitee);
-        clusters.join(1);
+        clusters.add(_addr);
+        vm.prank(_addr);
         clusters.setWalletName(_walletName2);
-        vm.stopPrank();
         require(clusters.addressLookup(address(this)) == 1, "clusterId error");
-        require(clusters.addressLookup(_invitee) == 1, "clusterId error");
+        require(clusters.addressLookup(_addr) == 1, "clusterId error");
         require(clusters.forwardLookup(1, walletName1) == address(this), "forwardLookup error");
-        require(clusters.forwardLookup(1, walletName2) == _invitee, "forwardLookup error");
+        require(clusters.forwardLookup(1, walletName2) == _addr, "forwardLookup error");
         require(clusters.reverseLookup(address(this)) == walletName1, "reverseLookup error");
-        require(clusters.reverseLookup(_invitee) == walletName2, "reverseLookup error");
+        require(clusters.reverseLookup(_addr) == walletName2, "reverseLookup error");
     }
 
-    function testSetWalletNameDelete(address _invitee, string memory _walletName1, string memory _walletName2) public {
-        vm.assume(_invitee != address(this));
-        vm.assume(_invitee != address(clusters));
-        vm.assume(_invitee != address(0));
-        vm.assume(_invitee != address(vm));
+    function testSetWalletNameDelete(address _addr, string memory _walletName1, string memory _walletName2) public {
+        vm.assume(_addr != address(this));
+        vm.assume(_addr != address(clusters));
+        vm.assume(_addr != address(0));
+        vm.assume(_addr != address(vm));
         vm.assume(bytes(_walletName1).length > 0);
         vm.assume(bytes(_walletName1).length <= 32);
         vm.assume(bytes(_walletName2).length > 0);
@@ -1036,17 +1012,16 @@ contract ClustersTest is Test {
         clusters.create();
         clusters.setWalletName(_walletName1);
         clusters.setWalletName("");
-        clusters.invite(_invitee);
-        vm.startPrank(_invitee);
-        clusters.join(1);
+        clusters.add(_addr);
+        vm.startPrank(_addr);
         clusters.setWalletName(_walletName2);
         clusters.setWalletName("");
         vm.stopPrank();
         require(clusters.addressLookup(address(this)) == 1, "clusterId error");
-        require(clusters.addressLookup(_invitee) == 1, "clusterId error");
+        require(clusters.addressLookup(_addr) == 1, "clusterId error");
         require(clusters.forwardLookup(1, walletName1) == address(0), "forwardLookup not purged");
         require(clusters.forwardLookup(1, walletName2) == address(0), "forwardLookup not purged");
         require(clusters.reverseLookup(address(this)) == bytes32(""), "reverseLookup not purged");
-        require(clusters.reverseLookup(_invitee) == bytes32(""), "reverseLookup not purged");
+        require(clusters.reverseLookup(_addr) == bytes32(""), "reverseLookup not purged");
     }
 }

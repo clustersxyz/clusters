@@ -25,9 +25,6 @@ contract Clusters is NameManager {
     /// @dev Enumerate all addresses in a cluster
     mapping(uint256 clusterId => EnumerableSet.AddressSet addrs) internal _clusterAddresses;
 
-    /// @notice Outstanding invitations to join a cluster
-    mapping(uint256 clusterId => mapping(address addr => bool invited)) public invited;
-
     error MulticallFailed();
 
     constructor(address _pricing) NameManager(_pricing) {}
@@ -35,13 +32,13 @@ contract Clusters is NameManager {
     // TODO: Make this payable and pass along msg.value? As it stands insecure to make payable because of msg.value
     // reuse (I don't think this is a good idea because all payable NameManager functions would need a value param, or
     // we would have to externalize NameManager so TXs to it can be individually payable)
-    function multicall(bytes[] calldata data) external returns (bytes[] memory results) {
-        results = new bytes[](data.length);
+    function multicall(bytes[] calldata _data) external returns (bytes[] memory results) {
+        results = new bytes[](_data.length);
         bool success;
         unchecked {
-            for (uint256 i = 0; i < data.length; ++i) {
+            for (uint256 i = 0; i < _data.length; ++i) {
                 //slither-disable-next-line calls-loop,delegatecall-loop
-                (success, results[i]) = address(this).delegatecall(data[i]);
+                (success, results[i]) = address(this).delegatecall(_data[i]);
                 if (!success) revert MulticallFailed();
             }
         }
@@ -53,34 +50,28 @@ contract Clusters is NameManager {
         _add(msg.sender, nextClusterId++);
     }
 
-    function invite(address invitee) external checkPrivileges("") {
-        uint256 currentCluster = addressLookup[msg.sender];
-        invited[currentCluster][invitee] = true;
+    function add(address _addr) external checkPrivileges("") {
+        if (addressLookup[_addr] != 0) revert Registered();
+        _add(_addr, addressLookup[msg.sender]);
     }
 
-    function join(uint256 clusterId) external {
-        if(!invited[clusterId][msg.sender]) revert Unauthorized();
-        _add(msg.sender, clusterId);
-    }
-
-    function remove(address addr) external checkPrivileges("") {
-        if(addressLookup[msg.sender] != addressLookup[addr]) revert Unauthorized();
-        _remove(addr);
+    function remove(address _addr) external checkPrivileges("") {
+        if(addressLookup[msg.sender] != addressLookup[_addr]) revert Unauthorized();
+        _remove(_addr);
     }
 
     function leave() external checkPrivileges("") {
         _remove(msg.sender);
     }
 
-    function clusterAddresses(uint256 clusterId) external view returns (address[] memory) {
-        return _clusterAddresses[clusterId].values();
+    function clusterAddresses(uint256 _clusterId) external view returns (address[] memory) {
+        return _clusterAddresses[_clusterId].values();
     }
 
     /// INTERNAL FUNCTIONS ///
 
     function _add(address _addr, uint256 clusterId) internal {
         if(addressLookup[_addr] != 0) revert Registered();
-        delete invited[clusterId][_addr];
         addressLookup[_addr] = clusterId;
         _clusterAddresses[clusterId].add(_addr);
     }
@@ -89,7 +80,6 @@ contract Clusters is NameManager {
         uint256 clusterId = addressLookup[_addr];
         // If the cluster has valid names, prevent removing final address, regardless of what is supplied for _addr
         if (_clusterNames[clusterId].length() > 0 && _clusterAddresses[clusterId].length() == 1) revert Invalid();
-        delete invited[clusterId][_addr];
         delete addressLookup[_addr];
         _clusterAddresses[clusterId].remove(_addr);
         bytes32 walletName = reverseLookup[_addr];
