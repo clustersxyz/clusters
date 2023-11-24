@@ -23,8 +23,12 @@ contract NameManager {
     error TransferFailed();
 
     event BuyName(string indexed _name, uint256 indexed clusterId);
+    event FundName(string indexed _name, address indexed funder, uint256 indexed amount);
     event TransferName(bytes32 indexed name, uint256 indexed fromClusterId, uint256 indexed toClusterId);
     event PokeName(string indexed _name, address indexed poker);
+    event CanonicalName(string indexed _name, uint256 indexed clusterId);
+    event WalletName(string indexed _walletName, address indexed wallet);
+
     event BidPlaced(string indexed _name, address indexed bidder, uint256 indexed amount);
     event BidRefunded(string indexed _name, address indexed bidder, uint256 indexed amount);
     event BidIncreased(string indexed _name, address indexed bidder, uint256 indexed amount);
@@ -123,8 +127,16 @@ contract NameManager {
         emit BuyName(_name, clusterId);
     }
 
+    /// @notice Fund an existing and specific name, callable by anyone
+    function fundName(string memory _name) external payable {
+        bytes32 name = _toBytes32(_name);
+        if (name == bytes32("")) revert Invalid();
+        if (nameLookup[name] == 0) revert Unregistered();
+        unchecked { ethBacking[name] += msg.value; }
+        emit FundName(_name, msg.sender, msg.value);
+    }
+
     /// @notice Move name from one cluster to another without payment
-    // TODO: Determine if transfers to nonexistent clusters should be blocked
     function transferName(string memory _name, uint256 toClusterId) external checkPrivileges(_name) {
         bytes32 name = _toBytes32(_name);
         if (name == bytes32("")) revert Invalid();
@@ -296,8 +308,13 @@ contract NameManager {
     function setCanonicalName(string memory _name) external checkPrivileges(_name) {
         bytes32 name = _toBytes32(_name);
         uint256 clusterId = addressLookup[msg.sender];
-        if (bytes(_name).length == 0) delete canonicalClusterName[clusterId];
-        else canonicalClusterName[clusterId] = name;
+        if (bytes(_name).length == 0) {
+            delete canonicalClusterName[clusterId];
+            emit CanonicalName("", clusterId);
+        } else {
+            canonicalClusterName[clusterId] = name;
+            emit CanonicalName(_name, clusterId);
+        }
     }
 
     /// @notice Set wallet name for msg.sender or erase it by setting ""
@@ -308,9 +325,11 @@ contract NameManager {
             walletName = reverseLookup[msg.sender];
             delete forwardLookup[clusterId][walletName];
             delete reverseLookup[msg.sender];
+            emit WalletName("", msg.sender);
         } else {
             forwardLookup[clusterId][walletName] = msg.sender;
             reverseLookup[msg.sender] = walletName;
+            emit WalletName(_walletName, msg.sender);
         }
     }
 
@@ -323,7 +342,10 @@ contract NameManager {
     /// @dev Purge name-related state variables
     function _unassignName(bytes32 name, uint256 clusterId) internal {
         nameLookup[name] = 0;
-        if (canonicalClusterName[clusterId] == name) delete canonicalClusterName[clusterId];
+        if (canonicalClusterName[clusterId] == name) {
+            delete canonicalClusterName[clusterId];
+            emit CanonicalName("", clusterId);
+        }
         _clusterNames[clusterId].remove(name);
     }
 
