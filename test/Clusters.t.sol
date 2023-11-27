@@ -254,8 +254,7 @@ contract ClustersTest is Test {
         vm.deal(address(this), 10 ether);
         vm.assume(bytes(_name).length > 0);
         vm.assume(bytes(_name).length <= 32);
-        vm.assume(_ethAmount >= 0.1 ether);
-        vm.assume(_ethAmount <= 10 ether);
+        _ethAmount = bound(_ethAmount, 0.1 ether, 10 ether);
         clusters.create();
         clusters.buyName{value: _ethAmount}(_name, 1);
         bytes32 name = _toBytes32(_name);
@@ -271,8 +270,7 @@ contract ClustersTest is Test {
         vm.deal(address(this), 10 ether);
         vm.assume(bytes(_name).length > 0);
         vm.assume(bytes(_name).length <= 32);
-        vm.assume(_ethAmount >= 0.1 ether);
-        vm.assume(_ethAmount <= 10 ether);
+        _ethAmount = bound(_ethAmount, 0.1 ether, 10 ether);
         clusters.create();
         vm.prank(address(1));
         clusters.create();
@@ -309,7 +307,7 @@ contract ClustersTest is Test {
     function testBuyNameRevertInsufficient(string memory _name, uint256 _ethAmount) public {
         vm.assume(bytes(_name).length > 0);
         vm.assume(bytes(_name).length <= 32);
-        vm.assume(_ethAmount < 0.01 ether);
+        _ethAmount = bound(_ethAmount, 0, 0.01 ether - 1);
         clusters.create();
         vm.expectRevert(NameManager.Insufficient.selector);
         clusters.buyName{value: _ethAmount}(_name, 1);
@@ -319,8 +317,7 @@ contract ClustersTest is Test {
         vm.deal(address(this), 20 ether);
         vm.assume(bytes(_name).length > 0);
         vm.assume(bytes(_name).length <= 32);
-        vm.assume(_ethAmount >= 0.1 ether);
-        vm.assume(_ethAmount <= 10 ether);
+        _ethAmount = bound(_ethAmount, 0.1 ether, 10 ether);
         clusters.create();
         clusters.buyName{value: _ethAmount}(_name, 1);
         vm.expectRevert(NameManager.Registered.selector);
@@ -349,8 +346,7 @@ contract ClustersTest is Test {
         vm.assume(_recipient != address(this));
         vm.assume(_recipient != address(clusters));
         vm.assume(_recipient != address(0));
-        vm.assume(_ethAmount >= 0.1 ether);
-        vm.assume(_ethAmount <= 10 ether);
+        _ethAmount = bound(_ethAmount, 0.1 ether, 10 ether);
         clusters.create();
         clusters.buyName{value: _ethAmount}(_name, 1);
         vm.prank(_recipient);
@@ -436,8 +432,7 @@ contract ClustersTest is Test {
     function testPokeName(string memory _name, uint256 _timeSkew) public {
         vm.assume(bytes(_name).length > 0);
         vm.assume(bytes(_name).length <= 32);
-        vm.assume(_timeSkew > 0);
-        vm.assume(_timeSkew < 24 weeks);
+        _timeSkew = bound(_timeSkew, 1, 24 weeks);
         bytes32 name = _toBytes32(_name);
         clusters.create();
         clusters.buyName{value: 0.01 ether}(_name, 1);
@@ -491,8 +486,7 @@ contract ClustersTest is Test {
         vm.assume(_bidder != address(this));
         vm.assume(_bidder != address(clusters));
         vm.assume(_bidder != address(0));
-        vm.assume(_ethAmount >= 0.1 ether);
-        vm.assume(_ethAmount <= 10 ether);
+        _ethAmount = _bound(_ethAmount, 0.1 ether, 10 ether);
         vm.deal(_bidder, 10 ether);
         clusters.create();
         clusters.buyName{value: 0.1 ether}(_name, 1);
@@ -515,8 +509,7 @@ contract ClustersTest is Test {
         vm.assume(_bidder != address(this));
         vm.assume(_bidder != address(clusters));
         vm.assume(_bidder != address(0));
-        vm.assume(_ethAmount >= 0.1 ether);
-        vm.assume(_ethAmount <= 10 ether);
+        _ethAmount = bound(_ethAmount, 0.1 ether, 10 ether);
         vm.deal(_bidder, 10 ether);
         clusters.create();
         clusters.buyName{value: 0.1 ether}(_name, 1);
@@ -526,8 +519,7 @@ contract ClustersTest is Test {
     }
 
     function testBidNameRevertInvalid(uint256 _ethAmount) public {
-        vm.assume(_ethAmount >= 0.1 ether);
-        vm.assume(_ethAmount <= 10 ether);
+        _ethAmount = bound(_ethAmount, 0.1 ether, 10 ether);
         vm.deal(address(this), 10 ether);
         clusters.create();
         vm.expectRevert(NameManager.Invalid.selector);
@@ -575,8 +567,7 @@ contract ClustersTest is Test {
         vm.assume(_bidder != address(clusters));
         vm.assume(_bidder != address(0));
         vm.assume(_bidder != address(1));
-        vm.assume(_ethAmount > 0);
-        vm.assume(_ethAmount < 0.01 ether);
+        _ethAmount = bound(_ethAmount, 1, 0.01 ether);
         vm.deal(_bidder, 1 ether);
         vm.deal(address(1), 0.25 ether);
         bytes32 name = _toBytes32(_name);
@@ -609,10 +600,8 @@ contract ClustersTest is Test {
         vm.assume(_bidder != address(this));
         vm.assume(_bidder != address(clusters));
         vm.assume(_bidder != address(0));
-        vm.assume(_ethAmount1 >= 0.01 ether);
-        vm.assume(_ethAmount1 <= 10 ether);
-        vm.assume(_ethAmount2 > 0);
-        vm.assume(_ethAmount2 <= 10 ether);
+        _ethAmount1 = bound(_ethAmount1, 0.01 ether, 10 ether);
+        _ethAmount2 = bound(_ethAmount2, 1 wei, 10 ether);
         vm.deal(_bidder, 20 ether);
         bytes32 name = _toBytes32(_name);
         clusters.create();
@@ -644,8 +633,7 @@ contract ClustersTest is Test {
         vm.assume(_bidder2 != address(clusters));
         vm.assume(_bidder2 != address(0));
         vm.assume(_bidder1 != _bidder2);
-        vm.assume(_ethAmount >= 0.01 ether);
-        vm.assume(_ethAmount <= 10 ether);
+        _ethAmount = bound(_ethAmount, 0.01 ether, 10 ether);
         vm.deal(_bidder1, 10 ether);
         vm.deal(_bidder2, 11 ether);
         bytes32 name = _toBytes32(_name);
@@ -700,10 +688,8 @@ contract ClustersTest is Test {
         vm.assume(_bidder != address(clusters));
         vm.assume(_bidder != address(0));
         vm.assume(_bidder != address(vm));
-        vm.assume(_ethAmount1 >= 0.05 ether);
-        vm.assume(_ethAmount1 <= 10 ether);
-        vm.assume(_ethAmount2 > 0);
-        vm.assume(_ethAmount2 < 0.04 ether);
+        _ethAmount1 = bound(_ethAmount1, 0.05 ether, 10 ether);
+        _ethAmount2 = bound(_ethAmount2, 1 wei, 0.04 ether);
         vm.deal(_bidder, 10 ether);
         bytes32 name = _toBytes32(_name);
         clusters.create();
@@ -736,10 +722,8 @@ contract ClustersTest is Test {
         vm.assume(_bidder != address(clusters));
         vm.assume(_bidder != address(0));
         vm.assume(_bidder != address(1));
-        vm.assume(_ethAmount1 >= 0.05 ether);
-        vm.assume(_ethAmount1 <= 10 ether);
-        vm.assume(_ethAmount2 > 0);
-        vm.assume(_ethAmount2 < 0.04 ether);
+        _ethAmount1 = bound(_ethAmount1, 0.05 ether, 10 ether);
+        _ethAmount2 = bound(_ethAmount2, 1 wei, 0.04 ether);
         vm.deal(_bidder, 10 ether);
         clusters.create();
         clusters.buyName{value: 0.01 ether}(_name, 1);
@@ -760,8 +744,7 @@ contract ClustersTest is Test {
         vm.assume(_bidder != address(this));
         vm.assume(_bidder != address(clusters));
         vm.assume(_bidder != address(0));
-        vm.assume(_ethAmount >= 0.02 ether);
-        vm.assume(_ethAmount <= 10 ether);
+        _ethAmount = bound(_ethAmount, 0.02 ether, 10 ether);
         vm.assume(_timeSkew < 30 days);
         vm.deal(_bidder, 10 ether);
         clusters.create();
@@ -789,10 +772,8 @@ contract ClustersTest is Test {
         vm.assume(_bidder != address(this));
         vm.assume(_bidder != address(clusters));
         vm.assume(_bidder != address(0));
-        vm.assume(_ethAmount1 >= 0.02 ether);
-        vm.assume(_ethAmount1 <= 1 ether);
-        vm.assume(_ethAmount2 > 1 ether);
-        vm.assume(_ethAmount2 < type(uint256).max);
+        _ethAmount1 = bound(_ethAmount1, 0.02 ether, 1 ether);
+        _ethAmount2 = bound(_ethAmount2, 1 ether, type(uint256).max);
         vm.deal(_bidder, 10 ether);
         clusters.create();
         clusters.buyName{value: 0.01 ether}(_name, 1);
@@ -812,8 +793,7 @@ contract ClustersTest is Test {
         vm.assume(_bidder != address(clusters));
         vm.assume(_bidder != address(0));
         vm.assume(_bidder != address(vm));
-        vm.assume(_ethAmount >= 0.01 ether);
-        vm.assume(_ethAmount <= 10 ether);
+        _ethAmount = bound(_ethAmount, 0.01 ether, 10 ether);
         vm.deal(_bidder, 10 ether);
         bytes32 name = _toBytes32(_name);
         clusters.create();
@@ -840,8 +820,7 @@ contract ClustersTest is Test {
         vm.assume(_bidder != address(clusters));
         vm.assume(_bidder != address(0));
         vm.assume(_bidder != address(vm));
-        vm.assume(_ethAmount >= 0.01 ether);
-        vm.assume(_ethAmount <= 10 ether);
+        _ethAmount = bound(_ethAmount, 0.01 ether, 10 ether);
         vm.deal(_bidder, 10 ether);
         bytes32 name = _toBytes32(_name);
         clusters.create();

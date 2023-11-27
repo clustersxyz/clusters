@@ -67,7 +67,10 @@ contract Pricing {
             // https://www.wolframalpha.com/input?i=plot+1.4427+*+lambert+w+function%280.49e%5E%280.49x%29%29+-+2x%2F30+for+x+in+%5B0%2C+10%5D
             // uint256 secondsBeforeUpdate = secondsAfterCreation - secondsAfterUpdate;
             int256 numYearsUntilMaxPrice = unsafeWadMul(
-                1.4427e18, FixedPointMathLib.lambertW0Wad(unsafeWadMul(69.314e18, wadExp(unsafeWadMul(69.314e18, int256(lastUpdatedPrice)))))
+                1.4427e18,
+                FixedPointMathLib.lambertW0Wad(
+                    unsafeWadMul(69.314e18, wadExp(unsafeWadMul(69.314e18, int256(lastUpdatedPrice))))
+                )
             ) - 100 * int256(lastUpdatedPrice);
             uint256 numSecondsUntilMaxPrice =
                 uint256(unsafeWadMul(numYearsUntilMaxPrice, toWadUnsafe(SECONDS_IN_YEAR)) / 1e18);
