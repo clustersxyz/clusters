@@ -250,7 +250,7 @@ contract ClustersTest is Test {
 
     function testLeaveClusterRevertInvalid() public {
         clusters.create();
-        clusters.buyName{ value: 0.25 ether }("Test Name", 1);
+        clusters.buyName{value: 0.25 ether}("Test Name", 1);
         vm.expectRevert(NameManager.Invalid.selector);
         clusters.leave();
     }
@@ -260,7 +260,7 @@ contract ClustersTest is Test {
     \\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\*/
 
     function buyName() public {
-        clusters.buyName{ value: 0.1 ether }("Test Name", 1);
+        clusters.buyName{value: 0.1 ether}("Test Name", 1);
     }
 
     function testBuyName() public {
@@ -282,7 +282,7 @@ contract ClustersTest is Test {
         vm.assume(_ethAmount >= 0.1 ether);
         vm.assume(_ethAmount <= 10 ether);
         clusters.create();
-        clusters.buyName{ value: _ethAmount }(_name, 1);
+        clusters.buyName{value: _ethAmount}(_name, 1);
         bytes32 name = _toBytes32(_name);
         bytes32[] memory names = clusters.getClusterNames(1);
         require(names.length == 1, "names array length error");
@@ -301,7 +301,7 @@ contract ClustersTest is Test {
         clusters.create();
         vm.prank(address(1));
         clusters.create();
-        clusters.buyName{ value: _ethAmount }(_name, 2);
+        clusters.buyName{value: _ethAmount}(_name, 2);
         bytes32 name = _toBytes32(_name);
         bytes32[] memory names = clusters.getClusterNames(2);
         require(names.length == 1, "names array length error");
@@ -315,20 +315,20 @@ contract ClustersTest is Test {
         vm.assume(bytes(_name).length > 0);
         vm.assume(bytes(_name).length <= 32);
         vm.expectRevert(NameManager.NoCluster.selector);
-        clusters.buyName{ value: 0.1 ether }(_name, 1);
+        clusters.buyName{value: 0.1 ether}(_name, 1);
     }
 
     function testBuyNameRevertInvalid() public {
         clusters.create();
         vm.expectRevert(NameManager.Invalid.selector);
-        clusters.buyName{ value: 0.1 ether }("", 1);
+        clusters.buyName{value: 0.1 ether}("", 1);
     }
 
     function testBuyNameRevertInvalidTooLong(string memory _name) public {
         vm.assume(bytes(_name).length > 32);
         clusters.create();
         vm.expectRevert(NameManager.Invalid.selector);
-        clusters.buyName{ value: 0.1 ether }(_name, 1);
+        clusters.buyName{value: 0.1 ether}(_name, 1);
     }
 
     function testBuyNameRevertInsufficient(string memory _name, uint256 _ethAmount) public {
@@ -337,7 +337,7 @@ contract ClustersTest is Test {
         vm.assume(_ethAmount < 0.01 ether);
         clusters.create();
         vm.expectRevert(NameManager.Insufficient.selector);
-        clusters.buyName{ value: _ethAmount }(_name, 1);
+        clusters.buyName{value: _ethAmount}(_name, 1);
     }
 
     function testBuyNameRevertRegistered(string memory _name, uint256 _ethAmount) public {
@@ -347,9 +347,9 @@ contract ClustersTest is Test {
         vm.assume(_ethAmount >= 0.1 ether);
         vm.assume(_ethAmount <= 10 ether);
         clusters.create();
-        clusters.buyName{ value: _ethAmount }(_name, 1);
+        clusters.buyName{value: _ethAmount}(_name, 1);
         vm.expectRevert(NameManager.Registered.selector);
-        clusters.buyName{ value: _ethAmount }(_name, 1);
+        clusters.buyName{value: _ethAmount}(_name, 1);
     }
 
     function testTransferName() public {
@@ -377,7 +377,7 @@ contract ClustersTest is Test {
         vm.assume(_ethAmount >= 0.1 ether);
         vm.assume(_ethAmount <= 10 ether);
         clusters.create();
-        clusters.buyName{ value: _ethAmount }(_name, 1);
+        clusters.buyName{value: _ethAmount}(_name, 1);
         vm.prank(_recipient);
         clusters.create();
         clusters.transferName(_name, 2);
@@ -394,7 +394,7 @@ contract ClustersTest is Test {
         vm.assume(bytes(_name).length > 0);
         vm.assume(bytes(_name).length <= 32);
         clusters.create();
-        clusters.buyName{ value: 0.1 ether }(_name, 1);
+        clusters.buyName{value: 0.1 ether}(_name, 1);
         vm.prank(address(1));
         vm.expectRevert(NameManager.NoCluster.selector);
         clusters.transferName(_name, 2);
@@ -404,7 +404,7 @@ contract ClustersTest is Test {
         vm.assume(bytes(_name).length > 0);
         vm.assume(bytes(_name).length <= 32);
         clusters.create();
-        clusters.buyName{ value: 0.1 ether }(_name, 1);
+        clusters.buyName{value: 0.1 ether}(_name, 1);
         vm.startPrank(address(1));
         clusters.create();
         vm.expectRevert(NameManager.Unauthorized.selector);
@@ -415,7 +415,7 @@ contract ClustersTest is Test {
     function testTransferNameRevertInvalid() public {
         clusters.create();
         vm.expectRevert(NameManager.Invalid.selector);
-        clusters.buyName{ value: 0.1 ether }("", 1);
+        clusters.buyName{value: 0.1 ether}("", 1);
     }
 
     function testTransferNameRevertUnregistered(string memory _name, uint256 _toClusterId) public {
@@ -423,7 +423,7 @@ contract ClustersTest is Test {
         vm.assume(bytes(_name).length <= 32);
         vm.assume(_toClusterId > 1);
         clusters.create();
-        clusters.buyName{ value: 0.1 ether }(_name, 1);
+        clusters.buyName{value: 0.1 ether}(_name, 1);
         vm.expectRevert(NameManager.Unregistered.selector);
         clusters.transferName(_name, _toClusterId);
     }
@@ -435,7 +435,7 @@ contract ClustersTest is Test {
         vm.assume(_recipient != address(clusters));
         vm.assume(_recipient != address(0));
         clusters.create();
-        clusters.buyName{ value: 0.1 ether }(_name, 1);
+        clusters.buyName{value: 0.1 ether}(_name, 1);
         clusters.setCanonicalName(_name);
         bytes32 name = _toBytes32(_name);
         require(clusters.canonicalClusterName(1) == name, "canonicalClusterName error");
@@ -465,7 +465,7 @@ contract ClustersTest is Test {
         vm.assume(_timeSkew < 24 weeks);
         bytes32 name = _toBytes32(_name);
         clusters.create();
-        clusters.buyName{ value: 0.01 ether }(_name, 1);
+        clusters.buyName{value: 0.01 ether}(_name, 1);
         uint256 ethBacking = clusters.ethBacking(name);
         vm.warp(block.timestamp + _timeSkew);
         clusters.pokeName(_name);
@@ -496,7 +496,7 @@ contract ClustersTest is Test {
         vm.deal(address(1), 1 ether);
         vm.startPrank(address(1));
         clusters.create();
-        clusters.bidName{ value: 0.2 ether }("Test Name");
+        clusters.bidName{value: 0.2 ether}("Test Name");
         vm.stopPrank();
         require(clusters.addressLookup(address(this)) == 1, "address(this) not assigned to cluster");
         require(clusters.nameLookup(name) == 1, "name not assigned to cluster");
@@ -520,10 +520,10 @@ contract ClustersTest is Test {
         vm.assume(_ethAmount <= 10 ether);
         vm.deal(_bidder, 10 ether);
         clusters.create();
-        clusters.buyName{ value: 0.1 ether }(_name, 1);
+        clusters.buyName{value: 0.1 ether}(_name, 1);
         vm.startPrank(_bidder);
         clusters.create();
-        clusters.bidName{ value: _ethAmount }(_name);
+        clusters.bidName{value: _ethAmount}(_name);
         vm.stopPrank();
         bytes32 name = _toBytes32(_name);
         ClusterData.Bid memory bid = clusters.getBid(name);
@@ -544,10 +544,10 @@ contract ClustersTest is Test {
         vm.assume(_ethAmount <= 10 ether);
         vm.deal(_bidder, 10 ether);
         clusters.create();
-        clusters.buyName{ value: 0.1 ether }(_name, 1);
+        clusters.buyName{value: 0.1 ether}(_name, 1);
         vm.prank(_bidder);
         vm.expectRevert(NameManager.NoCluster.selector);
-        clusters.bidName{ value: _ethAmount }(_name);
+        clusters.bidName{value: _ethAmount}(_name);
     }
 
     function testBidNameRevertInvalid(uint256 _ethAmount) public {
@@ -556,7 +556,7 @@ contract ClustersTest is Test {
         vm.deal(address(this), 10 ether);
         clusters.create();
         vm.expectRevert(NameManager.Invalid.selector);
-        clusters.bidName{ value: _ethAmount }("");
+        clusters.bidName{value: _ethAmount}("");
     }
 
     function testBidNameRevertNoBid(string memory _name, address _bidder) public {
@@ -566,11 +566,11 @@ contract ClustersTest is Test {
         vm.assume(_bidder != address(clusters));
         vm.assume(_bidder != address(0));
         clusters.create();
-        clusters.buyName{ value: 0.01 ether }(_name, 1);
+        clusters.buyName{value: 0.01 ether}(_name, 1);
         vm.startPrank(_bidder);
         clusters.create();
         vm.expectRevert(NameManager.NoBid.selector);
-        clusters.bidName{ value: 0 }(_name);
+        clusters.bidName{value: 0}(_name);
     }
 
     function testBidNameRevertUnregistered(string memory _name, uint256 _ethAmount) public {
@@ -581,16 +581,16 @@ contract ClustersTest is Test {
         vm.deal(address(this), 10 ether);
         clusters.create();
         vm.expectRevert(NameManager.Unregistered.selector);
-        clusters.bidName{ value: _ethAmount }(_name);
+        clusters.bidName{value: _ethAmount}(_name);
     }
 
     function testBidNameRevertSelfBid(string memory _name) public {
         vm.assume(bytes(_name).length > 0);
         vm.assume(bytes(_name).length <= 32);
         clusters.create();
-        clusters.buyName{ value: 0.1 ether }(_name, 1);
+        clusters.buyName{value: 0.1 ether}(_name, 1);
         vm.expectRevert(NameManager.SelfBid.selector);
-        clusters.bidName{ value: 0.1 ether }(_name);
+        clusters.bidName{value: 0.1 ether}(_name);
     }
 
     function testBidNameRevertInsufficient(string memory _name, address _bidder, uint256 _ethAmount) public {
@@ -606,15 +606,15 @@ contract ClustersTest is Test {
         vm.deal(address(1), 0.25 ether);
         bytes32 name = _toBytes32(_name);
         clusters.create();
-        clusters.buyName{ value: 0.1 ether }(_name, 1);
+        clusters.buyName{value: 0.1 ether}(_name, 1);
         vm.startPrank(_bidder);
         clusters.create();
         vm.expectRevert(NameManager.Insufficient.selector);
-        clusters.bidName{ value: _ethAmount }(_name);
+        clusters.bidName{value: _ethAmount}(_name);
         vm.stopPrank();
         vm.startPrank(address(1));
         clusters.create();
-        clusters.bidName{ value: 0.25 ether }(_name);
+        clusters.bidName{value: 0.25 ether}(_name);
         vm.stopPrank();
         ClusterData.Bid memory bid = clusters.getBid(name);
         require(bid.ethAmount == 0.25 ether, "bid ethAmount incorrect");
@@ -623,10 +623,12 @@ contract ClustersTest is Test {
         require(address(clusters).balance == 0.35 ether, "contract balance issue");
         vm.prank(_bidder);
         vm.expectRevert(NameManager.Insufficient.selector);
-        clusters.bidName{ value: 0.25 ether - _ethAmount }(_name);
+        clusters.bidName{value: 0.25 ether - _ethAmount}(_name);
     }
 
-    function testBidNameIncreaseBid(string memory _name, address _bidder, uint256 _ethAmount1, uint256 _ethAmount2) public {
+    function testBidNameIncreaseBid(string memory _name, address _bidder, uint256 _ethAmount1, uint256 _ethAmount2)
+        public
+    {
         vm.assume(bytes(_name).length > 0);
         vm.assume(bytes(_name).length <= 32);
         vm.assume(_bidder != address(this));
@@ -639,16 +641,16 @@ contract ClustersTest is Test {
         vm.deal(_bidder, 20 ether);
         bytes32 name = _toBytes32(_name);
         clusters.create();
-        clusters.buyName{ value: 0.01 ether }(_name, 1);
+        clusters.buyName{value: 0.01 ether}(_name, 1);
         vm.startPrank(_bidder);
         clusters.create();
-        clusters.bidName{ value: _ethAmount1 }(_name);
+        clusters.bidName{value: _ethAmount1}(_name);
         ClusterData.Bid memory bid = clusters.getBid(name);
         require(bid.ethAmount == _ethAmount1, "bid ethAmount incorrect");
         require(bid.createdTimestamp == block.timestamp, "bid createdTimestamp incorrect");
         require(bid.bidder == _bidder, "bid bidder incorrect");
         require(address(clusters).balance == 0.01 ether + _ethAmount1, "contract balance issue");
-        clusters.bidName{ value: _ethAmount2 }(_name);
+        clusters.bidName{value: _ethAmount2}(_name);
         vm.stopPrank();
         bid = clusters.getBid(name);
         require(bid.ethAmount == _ethAmount1 + _ethAmount2, "bid ethAmount incorrect");
@@ -673,15 +675,15 @@ contract ClustersTest is Test {
         vm.deal(_bidder2, 11 ether);
         bytes32 name = _toBytes32(_name);
         clusters.create();
-        clusters.buyName{ value: 0.01 ether }(_name, 1);
+        clusters.buyName{value: 0.01 ether}(_name, 1);
         vm.startPrank(_bidder1);
         clusters.create();
-        clusters.bidName{ value: _ethAmount }(_name);
+        clusters.bidName{value: _ethAmount}(_name);
         vm.stopPrank();
         uint256 balance = address(_bidder1).balance;
         vm.startPrank(_bidder2);
         clusters.create();
-        clusters.bidName{ value: _ethAmount + 0.25 ether }(_name);
+        clusters.bidName{value: _ethAmount + 0.25 ether}(_name);
         vm.stopPrank();
         require(address(_bidder1).balance == balance + _ethAmount, "_bidder1 balance error");
         require(address(clusters).balance == 0.01 ether + _ethAmount + 0.25 ether, "contract balance issue");
@@ -698,7 +700,7 @@ contract ClustersTest is Test {
         vm.deal(address(1), 1 ether);
         vm.startPrank(address(1));
         clusters.create();
-        clusters.bidName{ value: 0.2 ether }("Test Name");
+        clusters.bidName{value: 0.2 ether}("Test Name");
         uint256 balance = address(1).balance;
         vm.warp(block.timestamp + 31 days);
         clusters.reduceBid("Test Name", 0.05 ether);
@@ -730,10 +732,10 @@ contract ClustersTest is Test {
         vm.deal(_bidder, 10 ether);
         bytes32 name = _toBytes32(_name);
         clusters.create();
-        clusters.buyName{ value: 0.01 ether }(_name, 1);
+        clusters.buyName{value: 0.01 ether}(_name, 1);
         vm.startPrank(_bidder);
         clusters.create();
-        clusters.bidName{ value: _ethAmount1 }(_name);
+        clusters.bidName{value: _ethAmount1}(_name);
         uint256 balance = address(_bidder).balance;
         vm.warp(block.timestamp + 31 days);
         clusters.reduceBid(_name, _ethAmount2);
@@ -747,7 +749,12 @@ contract ClustersTest is Test {
         require(bid.bidder == _bidder, "bid bidder incorrect");
     }
 
-    function testReduceBidRevertUnauthorized(string memory _name, address _bidder, uint256 _ethAmount1, uint256 _ethAmount2) public {
+    function testReduceBidRevertUnauthorized(
+        string memory _name,
+        address _bidder,
+        uint256 _ethAmount1,
+        uint256 _ethAmount2
+    ) public {
         vm.assume(bytes(_name).length > 0);
         vm.assume(bytes(_name).length <= 32);
         vm.assume(_bidder != address(this));
@@ -760,17 +767,19 @@ contract ClustersTest is Test {
         vm.assume(_ethAmount2 < 0.04 ether);
         vm.deal(_bidder, 10 ether);
         clusters.create();
-        clusters.buyName{ value: 0.01 ether }(_name, 1);
+        clusters.buyName{value: 0.01 ether}(_name, 1);
         vm.startPrank(_bidder);
         clusters.create();
-        clusters.bidName{ value: _ethAmount1 }(_name);
+        clusters.bidName{value: _ethAmount1}(_name);
         vm.stopPrank();
         vm.prank(address(1));
         vm.expectRevert(NameManager.Unauthorized.selector);
         clusters.reduceBid(_name, _ethAmount2);
     }
 
-    function testReduceBidRevertTimelock(string memory _name, address _bidder, uint256 _ethAmount, uint256 _timeSkew) public {
+    function testReduceBidRevertTimelock(string memory _name, address _bidder, uint256 _ethAmount, uint256 _timeSkew)
+        public
+    {
         vm.assume(bytes(_name).length > 0);
         vm.assume(bytes(_name).length <= 32);
         vm.assume(_bidder != address(this));
@@ -781,10 +790,10 @@ contract ClustersTest is Test {
         vm.assume(_timeSkew < 30 days);
         vm.deal(_bidder, 10 ether);
         clusters.create();
-        clusters.buyName{ value: 0.01 ether }(_name, 1);
+        clusters.buyName{value: 0.01 ether}(_name, 1);
         vm.startPrank(_bidder);
         clusters.create();
-        clusters.bidName{ value: _ethAmount }(_name);
+        clusters.bidName{value: _ethAmount}(_name);
         vm.warp(block.timestamp + _timeSkew);
         vm.expectRevert(NameManager.Timelock.selector);
         clusters.reduceBid(_name, _ethAmount / 2);
@@ -794,7 +803,12 @@ contract ClustersTest is Test {
     // TODO: Test once acceptBid is implemented
     //function testReduceBidRevertNoBid
 
-    function testReduceBidRevertInsufficient(string memory _name, address _bidder, uint256 _ethAmount1, uint256 _ethAmount2) public {
+    function testReduceBidRevertInsufficient(
+        string memory _name,
+        address _bidder,
+        uint256 _ethAmount1,
+        uint256 _ethAmount2
+    ) public {
         vm.assume(bytes(_name).length > 0);
         vm.assume(bytes(_name).length <= 32);
         vm.assume(_bidder != address(this));
@@ -806,10 +820,10 @@ contract ClustersTest is Test {
         vm.assume(_ethAmount2 < type(uint256).max);
         vm.deal(_bidder, 10 ether);
         clusters.create();
-        clusters.buyName{ value: 0.01 ether }(_name, 1);
+        clusters.buyName{value: 0.01 ether}(_name, 1);
         vm.startPrank(_bidder);
         clusters.create();
-        clusters.bidName{ value: _ethAmount1 }(_name);
+        clusters.bidName{value: _ethAmount1}(_name);
         vm.warp(block.timestamp + 31 days);
         vm.expectRevert(NameManager.Insufficient.selector);
         clusters.reduceBid(_name, _ethAmount2);
@@ -828,10 +842,10 @@ contract ClustersTest is Test {
         vm.deal(_bidder, 10 ether);
         bytes32 name = _toBytes32(_name);
         clusters.create();
-        clusters.buyName{ value: 0.01 ether }(_name, 1);
+        clusters.buyName{value: 0.01 ether}(_name, 1);
         vm.startPrank(_bidder);
         clusters.create();
-        clusters.bidName{ value: _ethAmount }(_name);
+        clusters.bidName{value: _ethAmount}(_name);
         uint256 balance = address(_bidder).balance;
         vm.warp(block.timestamp + 31 days);
         clusters.reduceBid(_name, type(uint256).max);
@@ -856,10 +870,10 @@ contract ClustersTest is Test {
         vm.deal(_bidder, 10 ether);
         bytes32 name = _toBytes32(_name);
         clusters.create();
-        clusters.buyName{ value: 0.01 ether }(_name, 1);
+        clusters.buyName{value: 0.01 ether}(_name, 1);
         vm.startPrank(_bidder);
         clusters.create();
-        clusters.bidName{ value: _ethAmount }(_name);
+        clusters.bidName{value: _ethAmount}(_name);
         uint256 balance = address(_bidder).balance;
         vm.warp(block.timestamp + 31 days);
         clusters.reduceBid(_name, _ethAmount);
@@ -879,7 +893,7 @@ contract ClustersTest is Test {
         vm.deal(address(1), 1 ether);
         vm.startPrank(address(1));
         clusters.create();
-        clusters.bidName{ value: 0.2 ether }("Test Name");
+        clusters.bidName{value: 0.2 ether}("Test Name");
         vm.warp(block.timestamp + 31 days);
         clusters.reduceBid("Test Name", 0.2 ether);
         vm.stopPrank();
@@ -900,7 +914,7 @@ contract ClustersTest is Test {
         vm.assume(bytes(_name).length <= 32);
         bytes32 name = _toBytes32(_name);
         clusters.create();
-        clusters.buyName{ value: 0.01 ether }(_name, 1);
+        clusters.buyName{value: 0.01 ether}(_name, 1);
         clusters.setCanonicalName(_name);
         require(clusters.nameLookup(name) == 1, "clusterId error");
         require(clusters.canonicalClusterName(1) == name, "canonicalClusterName error");
@@ -917,8 +931,8 @@ contract ClustersTest is Test {
         bytes32 name1 = _toBytes32(_name1);
         bytes32 name2 = _toBytes32(_name2);
         clusters.create();
-        clusters.buyName{ value: 0.01 ether }(_name1, 1);
-        clusters.buyName{ value: 0.01 ether }(_name2, 1);
+        clusters.buyName{value: 0.01 ether}(_name1, 1);
+        clusters.buyName{value: 0.01 ether}(_name2, 1);
         clusters.setCanonicalName(_name1);
         clusters.setCanonicalName(_name2);
         require(clusters.nameLookup(name1) == 1, "clusterId error");
@@ -935,7 +949,7 @@ contract ClustersTest is Test {
         vm.assume(bytes(_name).length <= 32);
         bytes32 name = _toBytes32(_name);
         clusters.create();
-        clusters.buyName{ value: 0.01 ether }(_name, 1);
+        clusters.buyName{value: 0.01 ether}(_name, 1);
         clusters.setCanonicalName(_name);
         clusters.setCanonicalName("");
         require(clusters.nameLookup(name) == 1, "clusterId error");
@@ -952,7 +966,7 @@ contract ClustersTest is Test {
         vm.assume(_notOwner != address(clusters));
         vm.assume(_notOwner != address(0));
         clusters.create();
-        clusters.buyName{ value: 0.01 ether }(_name, 1);
+        clusters.buyName{value: 0.01 ether}(_name, 1);
         vm.startPrank(_notOwner);
         clusters.create();
         vm.expectRevert(NameManager.Unauthorized.selector);
@@ -968,7 +982,7 @@ contract ClustersTest is Test {
         vm.assume(_notOwner != address(0));
         vm.assume(_notOwner != address(vm));
         clusters.create();
-        clusters.buyName{ value: 0.01 ether }(_name, 1);
+        clusters.buyName{value: 0.01 ether}(_name, 1);
         vm.prank(_notOwner);
         vm.expectRevert(NameManager.NoCluster.selector);
         clusters.setCanonicalName(_name);
