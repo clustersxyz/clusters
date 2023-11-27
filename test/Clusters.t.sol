@@ -688,13 +688,10 @@ contract ClustersTest is Test {
         require(bid.bidder == PRANKED_ADDRESS, "bid bidder incorrect");
     }
 
-    function testReduceBid(string memory _name, address _bidder, uint256 _ethAmount1, uint256 _ethAmount2) public {
+    function testReduceBid(string memory _name, bytes32 _bidderSalt, uint256 _ethAmount1, uint256 _ethAmount2) public {
         vm.assume(bytes(_name).length > 0);
         vm.assume(bytes(_name).length <= 32);
-        vm.assume(_bidder != address(this));
-        vm.assume(_bidder != address(clusters));
-        vm.assume(_bidder != address(0));
-        vm.assume(_bidder != address(vm));
+        address _bidder = bytesToAddress(_bidderSalt);
         _ethAmount1 = bound(_ethAmount1, 0.05 ether, 10 ether);
         _ethAmount2 = bound(_ethAmount2, 1 wei, 0.04 ether - 1 wei);
         vm.deal(_bidder, 10 ether);
