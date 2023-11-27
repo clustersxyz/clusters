@@ -867,6 +867,7 @@ contract ClustersTest is Test {
         vm.assume(bytes(_name2).length <= 32);
         bytes32 name1 = _toBytes32(_name1);
         bytes32 name2 = _toBytes32(_name2);
+        vm.assume(name1 != name2);
         clusters.create();
         clusters.buyName{value: 0.01 ether}(_name1, 1);
         clusters.buyName{value: 0.01 ether}(_name2, 1);
