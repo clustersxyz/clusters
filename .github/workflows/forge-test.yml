@@ -1,5 +1,8 @@
 name: Forge Tests
 
+env:
+  FOUNDRY_PROFILE: "ci"
+
 on: [push, pull_request]
 
 jobs:
