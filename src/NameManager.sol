@@ -20,7 +20,7 @@ contract NameManager {
     error Unauthorized();
     error Unregistered();
     error Insufficient();
-    error TransferFailed();
+    error NativeTokenTransferFailed();
 
     event BuyName(string indexed _name, uint256 indexed clusterId);
     event FundName(string indexed _name, address indexed funder, uint256 indexed amount);
@@ -116,7 +116,9 @@ contract NameManager {
         if (nameLookup[name] != 0) revert Registered();
         if (msg.value < pricing.minAnnualPrice()) revert Insufficient();
         // Process price accounting updates
-        unchecked { ethBacking[name] += msg.value; }
+        unchecked {
+            ethBacking[name] += msg.value;
+        }
         priceIntegral[name] = ClusterData.PriceIntegral({
             name: name,
             lastUpdatedTimestamp: block.timestamp,
@@ -132,7 +134,9 @@ contract NameManager {
         bytes32 name = _toBytes32(_name);
         if (name == bytes32("")) revert Invalid();
         if (nameLookup[name] == 0) revert Unregistered();
-        unchecked { ethBacking[name] += msg.value; }
+        unchecked {
+            ethBacking[name] += msg.value;
+        }
         emit FundName(_name, msg.sender, msg.value);
     }
 
@@ -182,13 +186,17 @@ contract NameManager {
         uint256 backing = ethBacking[name];
         if (spent >= backing) {
             delete ethBacking[name];
-            unchecked { protocolRevenue += backing; }
+            unchecked {
+                protocolRevenue += backing;
+            }
             // If there is a valid bid, transfer to the bidder
             address bidder;
             uint256 bid = bids[name].ethAmount;
             if (bid > 0) {
                 bidder = bids[name].bidder;
-                unchecked { ethBacking[name] += bid; }
+                unchecked {
+                    ethBacking[name] += bid;
+                }
                 delete bids[name];
             }
             // If there isn't a highest bidder, name will expire and be deleted as bidder is address(0)
@@ -226,11 +234,14 @@ contract NameManager {
         uint256 prevBid = bids[name].ethAmount;
         address prevBidder = bids[name].bidder;
         // Revert if bid isn't sufficient or greater than the highest bid, bypass for highest bidder
-        if (prevBidder != msg.sender
-            && (msg.value <= prevBid || msg.value < pricing.minAnnualPrice())) revert Insufficient();
+        if (prevBidder != msg.sender && (msg.value <= prevBid || msg.value < pricing.minAnnualPrice())) {
+            revert Insufficient();
+        }
         // If the caller is the highest bidder, increase their bid and reset the timestamp
         else if (prevBidder == msg.sender) {
-            unchecked { bids[name].ethAmount += msg.value; }
+            unchecked {
+                bids[name].ethAmount += msg.value;
+            }
             // TODO: Determine which way is best to handle bid update timestamps
             // bids[name].createdTimestamp = block.timestamp;
             emit BidIncreased(_name, msg.sender, prevBid + msg.value);
@@ -242,7 +253,7 @@ contract NameManager {
             emit BidPlaced(_name, msg.sender, msg.value);
             // Process bid refund if there is one. Store balance for recipient if transfer fails instead of reverting.
             if (prevBid > 0) {
-                (bool success, ) = payable(prevBidder).call{ value: prevBid }("");
+                (bool success,) = payable(prevBidder).call{value: prevBid}("");
                 if (!success) bidRefunds[prevBidder] += prevBid;
                 else emit BidRefunded(_name, prevBidder, msg.value);
             }
@@ -272,7 +283,9 @@ contract NameManager {
 
         // Calculate difference in unchecked block to allow underflow when using type(uint256).max
         uint256 diff;
-        unchecked { diff = bid - _amount; }
+        unchecked {
+            diff = bid - _amount;
+        }
         // If reducing bid to 0 or by maximum uint256 value, revoke altogether
         if (diff == 0 || _amount == type(uint256).max) {
             delete bids[name];
@@ -280,7 +293,9 @@ contract NameManager {
         }
         // Otherwise, decrease bid and update timestamp
         else {
-            unchecked { bids[name].ethAmount -= _amount; }
+            unchecked {
+                bids[name].ethAmount -= _amount;
+            }
             // TODO: Determine which way is best to handle bid update timestamps
             // bids[name].createdTimestamp = block.timestamp;
             emit BidReduced(_name, msg.sender, _amount);
@@ -289,8 +304,8 @@ contract NameManager {
         if (_amount == type(uint256).max) _amount = bid;
         // Transfer bid reduction after all state is purged to prevent reentrancy
         // This bid refund reverts upon failure because it isn't happening in a forced context such as being outbid
-        (bool success, ) = payable(msg.sender).call{ value: _amount }("");
-        if (!success) revert TransferFailed();
+        (bool success,) = payable(msg.sender).call{value: _amount}("");
+        if (!success) revert NativeTokenTransferFailed();
     }
 
     /// @notice Allow failed bid refunds to be withdrawn
@@ -298,8 +313,8 @@ contract NameManager {
         uint256 refund = bidRefunds[msg.sender];
         if (refund == 0) revert NoBid();
         delete bidRefunds[msg.sender];
-        (bool success, ) = payable(msg.sender).call{ value: refund }("");
-        if (!success) revert TransferFailed();
+        (bool success,) = payable(msg.sender).call{value: refund}("");
+        if (!success) revert NativeTokenTransferFailed();
     }
 
     /// LOCAL NAME MANAGEMENT ///

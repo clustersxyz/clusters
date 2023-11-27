@@ -2,8 +2,7 @@
 pragma solidity ^0.8.23;
 
 import {toWadUnsafe, wadExp, wadLn, unsafeWadMul, unsafeWadDiv} from "solmate/utils/SignedWadMath.sol";
-
-import {Lambert} from "./Lambert.sol";
+import {FixedPointMathLib} from "lib/solady/src/utils/FixedPointMathLib.sol";
 
 import {console2} from "forge-std/Test.sol";
 
@@ -23,7 +22,7 @@ for months >= 1
 /// @notice A stateless computation library for price, bids, decays, etc
 /// @dev All state is stored in clusters so we can replace the Pricing module while providing guarantees to existing
 /// holders
-contract Pricing is Lambert {
+contract Pricing {
     uint256 internal constant SECONDS_IN_MONTH = 30 days;
     uint256 internal constant SECONDS_IN_YEAR = 365 days;
     uint256 internal constant DENOMINATOR = 10_000;
@@ -68,7 +67,10 @@ contract Pricing is Lambert {
             // https://www.wolframalpha.com/input?i=plot+1.4427+*+lambert+w+function%280.49e%5E%280.49x%29%29+-+2x%2F30+for+x+in+%5B0%2C+10%5D
             // uint256 secondsBeforeUpdate = secondsAfterCreation - secondsAfterUpdate;
             int256 numYearsUntilMaxPrice = unsafeWadMul(
-                1.4427e18, W0(unsafeWadMul(69.314e18, wadExp(unsafeWadMul(69.314e18, int256(lastUpdatedPrice)))))
+                1.4427e18,
+                FixedPointMathLib.lambertW0Wad(
+                    unsafeWadMul(69.314e18, wadExp(unsafeWadMul(69.314e18, int256(lastUpdatedPrice))))
+                )
             ) - 100 * int256(lastUpdatedPrice);
             uint256 numSecondsUntilMaxPrice =
                 uint256(unsafeWadMul(numYearsUntilMaxPrice, toWadUnsafe(SECONDS_IN_YEAR)) / 1e18);
