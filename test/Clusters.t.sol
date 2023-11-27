@@ -543,8 +543,7 @@ contract ClustersTest is Test {
     function testBidNameRevertUnregistered(string memory _name, uint256 _ethAmount) public {
         vm.assume(bytes(_name).length > 0);
         vm.assume(bytes(_name).length <= 32);
-        vm.assume(_ethAmount >= 0.1 ether);
-        vm.assume(_ethAmount <= 10 ether);
+        _ethAmount = bound(_ethAmount, 0.1 ether, 10 ether);
         vm.deal(address(this), 10 ether);
         clusters.create();
         vm.expectRevert(NameManager.Unregistered.selector);
@@ -745,7 +744,7 @@ contract ClustersTest is Test {
         vm.assume(_bidder != address(clusters));
         vm.assume(_bidder != address(0));
         _ethAmount = bound(_ethAmount, 0.02 ether, 10 ether);
-        vm.assume(_timeSkew < 30 days);
+        _timeSkew = bound(_timeSkew, 1, 30 days - 1);
         vm.deal(_bidder, 10 ether);
         clusters.create();
         clusters.buyName{value: 0.01 ether}(_name, 1);

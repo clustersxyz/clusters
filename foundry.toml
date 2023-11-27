@@ -15,6 +15,7 @@ bytecode_hash = "none"
 # Disable ir optimizer, minimal gas savings not worth the potential for bugs
 via_ir = false
 
+fuzz = { runs = 10_000 }
 
 [fmt]
 line_length = 120
