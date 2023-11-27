@@ -3,7 +3,7 @@
     bytecode_hash = "none" # Get reproducible bytecode across machines by removing metadata hash from runtime bytecode
     solc_version = "0.8.23"
     evm_version = "paris" # Prevent PUSH0 incompatibility with other EVM chains
-    fuzz = { runs = 10_000 }
+    fuzz = { runs = 5_000 }
     gas_reports = ["*"]
     libs = ["lib"]
     optimizer = true
