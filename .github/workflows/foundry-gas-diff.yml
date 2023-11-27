@@ -1,4 +1,4 @@
-name: Report gas diff 
+name: Report gas diff
 
 on:
   push:
@@ -16,12 +16,10 @@ on:
 jobs:
   compare_gas_reports:
     runs-on: ubuntu-latest
-    permissions:
-      pull-requests: write
     steps:
-      - uses: actions/checkout@v4
-        # with:
-        #   submodules: recursive
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
 
       - name: Install Foundry
         uses: onbjerg/foundry-toolchain@v1
@@ -39,7 +37,7 @@ jobs:
       - name: Compare gas reports
         uses: Rubilmax/foundry-gas-diff@v3.16
         with:
-          summaryQuantile: 0.0 # display all the most significant gas diffs in the summary (defaults to 20%)
+          summaryQuantile: 0.9 # only display the 10% most significant gas diffs in the summary (defaults to 20%)
           sortCriteria: avg,max # sort diff rows by criteria
           sortOrders: desc,asc # and directions
           ignore: test-foundry/**/* # filter out gas reports from specific paths (test/ is included by default)
