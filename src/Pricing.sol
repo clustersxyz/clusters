@@ -2,8 +2,10 @@
 pragma solidity ^0.8.23;
 
 import {toWadUnsafe, wadExp, wadLn, unsafeWadMul, unsafeWadDiv} from "solmate/utils/SignedWadMath.sol";
+import {lambertW0Wad} from "solady/utils/FixedPointMath.sol";
 
 import {Lambert} from "./Lambert.sol";
+
 
 import {console2} from "forge-std/Test.sol";
 
