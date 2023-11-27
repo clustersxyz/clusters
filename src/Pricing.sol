@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {toWadUnsafe, wadExp, wadLn, unsafeWadMul, unsafeWadDiv} from "solmate/utils/SignedWadMath.sol";
-import {FixedPointMathLib} from "lib/solady/src/utils/FixedPointMathLib.sol";
+import {toWadUnsafe, wadExp, wadLn, unsafeWadMul, unsafeWadDiv} from "../lib/solmate/src/utils/SignedWadMath.sol";
+import {FixedPointMathLib} from "../lib/solady/src/utils/FixedPointMathLib.sol";
 
 import {console2} from "forge-std/Test.sol";
 
