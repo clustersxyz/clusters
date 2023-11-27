@@ -20,7 +20,7 @@ contract NameManager {
     error Unauthorized();
     error Unregistered();
     error Insufficient();
-    error TransferFailed();
+    error NativeTokenTransferFailed();
 
     event BuyName(string indexed _name, uint256 indexed clusterId);
     event FundName(string indexed _name, address indexed funder, uint256 indexed amount);
@@ -305,7 +305,7 @@ contract NameManager {
         // Transfer bid reduction after all state is purged to prevent reentrancy
         // This bid refund reverts upon failure because it isn't happening in a forced context such as being outbid
         (bool success,) = payable(msg.sender).call{value: _amount}("");
-        if (!success) revert TransferFailed();
+        if (!success) revert NativeTokenTransferFailed();
     }
 
     /// @notice Allow failed bid refunds to be withdrawn
@@ -314,7 +314,7 @@ contract NameManager {
         if (refund == 0) revert NoBid();
         delete bidRefunds[msg.sender];
         (bool success,) = payable(msg.sender).call{value: refund}("");
-        if (!success) revert TransferFailed();
+        if (!success) revert NativeTokenTransferFailed();
     }
 
     /// LOCAL NAME MANAGEMENT ///

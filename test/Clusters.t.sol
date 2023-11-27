@@ -28,6 +28,12 @@ contract ClustersTest is Test {
 
     receive() external payable {}
 
+    fallback() external payable {}
+
+    function bytesToAddress(bytes32 _fuzzedBytes) internal pure returns (address) {
+        return address(uint160(uint256(keccak256(abi.encode(_fuzzedBytes)))));
+    }
+
     /*\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\
                 Pricing.sol
     \\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\*/
@@ -785,13 +791,10 @@ contract ClustersTest is Test {
         vm.stopPrank();
     }
 
-    function testReduceBidUint256Max(string memory _name, address _bidder, uint256 _ethAmount) public {
+    function testReduceBidUint256Max(string memory _name, bytes32 _bidderBytes, uint256 _ethAmount) public {
         vm.assume(bytes(_name).length > 0);
         vm.assume(bytes(_name).length <= 32);
-        vm.assume(_bidder != address(this));
-        vm.assume(_bidder != address(clusters));
-        vm.assume(_bidder != address(0));
-        vm.assume(_bidder != address(vm));
+        address _bidder = bytesToAddress(_bidderBytes);
         _ethAmount = bound(_ethAmount, 0.01 ether, 10 ether);
         vm.deal(_bidder, 10 ether);
         bytes32 name = _toBytes32(_name);
@@ -812,7 +815,7 @@ contract ClustersTest is Test {
         require(bid.bidder == address(0), "bid bidder not purged");
     }
 
-    function testReduceBidTotalBid(string memory _name, address _bidder, uint256 _ethAmount) public {
+    function testReduceBidTotalBid(string memory _name, address payable _bidder, uint256 _ethAmount) public {
         vm.assume(bytes(_name).length > 0);
         vm.assume(bytes(_name).length <= 32);
         vm.assume(_bidder != address(this));
