@@ -307,7 +307,7 @@ contract ClustersTest is Test {
     function testBuyNameRevertInsufficient(string memory _name, uint256 _ethAmount) public {
         vm.assume(bytes(_name).length > 0);
         vm.assume(bytes(_name).length <= 32);
-        _ethAmount = bound(_ethAmount, 0, 0.01 ether - 1);
+        _ethAmount = bound(_ethAmount, 0, 0.01 ether - 1 wei);
         clusters.create();
         vm.expectRevert(NameManager.Insufficient.selector);
         clusters.buyName{value: _ethAmount}(_name, 1);
@@ -567,7 +567,7 @@ contract ClustersTest is Test {
         vm.assume(_bidder != address(clusters));
         vm.assume(_bidder != address(0));
         vm.assume(_bidder != address(1));
-        _ethAmount = bound(_ethAmount, 1 wei, 0.01 ether);
+        _ethAmount = bound(_ethAmount, 1 wei, 0.01 ether - 1 wei);
         vm.deal(_bidder, 1 ether);
         vm.deal(address(1), 0.25 ether);
         bytes32 name = _toBytes32(_name);
@@ -773,7 +773,7 @@ contract ClustersTest is Test {
         vm.assume(_bidder != address(clusters));
         vm.assume(_bidder != address(0));
         _ethAmount1 = bound(_ethAmount1, 0.02 ether, 1 ether);
-        _ethAmount2 = bound(_ethAmount2, 1 ether + 1 wei, type(uint256).max);
+        _ethAmount2 = bound(_ethAmount2, 1 ether + 1 wei, type(uint256).max - 1 wei);
         vm.deal(_bidder, 10 ether);
         clusters.create();
         clusters.buyName{value: 0.01 ether}(_name, 1);
