@@ -1,16 +1,14 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
 import {Test, console2} from "forge-std/Test.sol";
 import {Clusters, NameManager} from "../src/Clusters.sol";
 import {Pricing} from "../src/Pricing.sol";
-import {Lambert} from "../src/Lambert.sol";
 import {ClusterData} from "../src/libraries/ClusterData.sol";
 
 contract ClustersTest is Test {
     Pricing public pricing;
     Clusters public clusters;
-    Lambert public lambert;
 
     uint256 secondsAfterCreation = 1000 * 365 days;
     uint256 minPrice;
@@ -24,7 +22,6 @@ contract ClustersTest is Test {
     function setUp() public {
         pricing = new Pricing();
         clusters = new Clusters(address(pricing));
-        lambert = new Lambert();
         minPrice = pricing.minAnnualPrice();
         vm.deal(address(this), 1 ether);
     }
@@ -105,28 +102,6 @@ contract ClustersTest is Test {
 
         newPrice = pricing.getPriceAfterBid(1 ether, 2 ether, 30 days);
         assertEq(newPrice, 2 ether);
-    }
-
-    function testLambert() public {
-        vm.expectRevert("must be > 1/e");
-        lambert.W0(0);
-        vm.expectRevert("must be > 1/e");
-        lambert.W0(367879441171442322);
-
-        // W(1/e) ~= 0.278
-        assertEq(lambert.W0(367879441171442322 + 1), 278464542761073797);
-
-        // W(0.5) ~= 0.351
-        assertEq(lambert.W0(0.5e18), 351703661682451427);
-
-        // W(e) == 1
-        assertEq(lambert.W0(2718281828459045235), 999997172107599752);
-
-        // W(3) ~= 1.0499
-        assertEq(lambert.W0(3e18), 1049906379855897971);
-
-        // W(10) ~= 1.7455, approx is 1.830768336445553094
-        assertEq(lambert.W0(10e18), 1830768336445553094);
     }
 
     /*\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\
