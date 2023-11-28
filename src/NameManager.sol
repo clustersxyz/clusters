@@ -367,27 +367,26 @@ contract NameManager {
     /// STRING HELPERS ///
 
     /// @dev Returns bytes32 representation of string < 32 characters, used in name-related state vars and functions
-    function _toBytes32(string memory smallString) internal pure returns (bytes32 result) {
-        bytes memory smallBytes = bytes(smallString);
-        // Revert if longer than 32 characters
+    function _toBytes32(string memory _smallString) internal pure returns (bytes32 result) {
+        bytes memory smallBytes = bytes(_smallString);
         if (smallBytes.length > 32) revert Invalid();
         return bytes32(smallBytes);
     }
 
     /// @dev Returns a string from a small bytes32 string.
-    function _toString(bytes32 smallBytes) internal pure returns (string memory result) {
-        if (smallBytes == bytes32(0)) return result;
+    function _toString(bytes32 _smallBytes) internal pure returns (string memory result) {
+        if (_smallBytes == bytes32("")) return result;
         /// @solidity memory-safe-assembly
         assembly {
             result := mload(0x40)
             let n
             for {} 1 {} {
                 n := add(n, 1)
-                if iszero(byte(n, smallBytes)) { break } // Scan for '\0'.
+                if iszero(byte(n, _smallBytes)) { break } // Scan for '\0'.
             }
             mstore(result, n)
             let o := add(result, 0x20)
-            mstore(o, smallBytes)
+            mstore(o, _smallBytes)
             mstore(add(o, n), 0)
             mstore(0x40, add(result, 0x40))
         }

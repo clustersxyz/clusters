@@ -15,10 +15,70 @@ contract ClustersTest is Test {
 
     address constant PRANKED_ADDRESS = address(13);
 
-    function _toBytes32(string memory smallString) internal pure returns (bytes32 result) {
-        bytes memory smallBytes = bytes(smallString);
+    function _toBytes32(string memory _smallString) internal pure returns (bytes32 result) {
+        bytes memory smallBytes = bytes(_smallString);
         require(smallBytes.length <= 32, "name too long");
         return bytes32(smallBytes);
+    }
+
+    /// @dev This implementation differs from the onchain implementation as removing both left and right padding is
+    /// necessary for fuzz testing.
+    function _toString(bytes32 _smallBytes) internal pure returns (string memory result) {
+        // Find the index of the first non-zero byte
+        uint256 start = 0;
+        while (start < 32 && _smallBytes[start] == 0) {
+            unchecked {
+                ++start;
+            }
+        }
+        // Find the index of the last non-zero byte
+        uint256 end = 32;
+        while (end > start && _smallBytes[end - 1] == 0) {
+            unchecked {
+                --end;
+            }
+        }
+        uint256 length = end - start;
+        if (length == 0) {
+            return "";
+        }
+        // Copy the relevant bytes into a new bytes array
+        bytes memory bytesArray = new bytes(length);
+        for (uint256 i = 0; i < length;) {
+            bytesArray[i] = _smallBytes[i + start];
+            unchecked {
+                ++i;
+            }
+        }
+        return string(bytesArray);
+    }
+
+    /// @dev Used for sanitizing fuzz inputs for test soundness
+    function _removeLeftPadding(bytes32 _smallBytes) internal pure returns (bytes32 result) {
+        uint256 shift = 0;
+        // Determine the amount of left-padding (number of leading zeros)
+        while (shift < 32 && _smallBytes[shift] == 0) {
+            unchecked {
+                ++shift;
+            }
+        }
+        if (shift == 0) {
+            // No left-padding, return the original data
+            return _smallBytes;
+        }
+        if (shift == 32) {
+            // All bytes are zeros
+            return bytes32(0);
+        }
+        // Shift bytes to the left
+        for (uint256 i = 0; i < 32 - shift; i++) {
+            result |= bytes32(uint256(uint8(_smallBytes[i + shift])) << (8 * (31 - i)));
+        }
+        return result;
+    }
+
+    function _bytesToAddress(bytes32 _fuzzedBytes) internal pure returns (address) {
+        return address(uint160(uint256(keccak256(abi.encode(_fuzzedBytes)))));
     }
 
     function setUp() public {
@@ -32,8 +92,14 @@ contract ClustersTest is Test {
 
     fallback() external payable {}
 
-    function bytesToAddress(bytes32 _fuzzedBytes) internal pure returns (address) {
-        return address(uint160(uint256(keccak256(abi.encode(_fuzzedBytes)))));
+    function testInternalFunctions(bytes32 _fuzzedBytes) public view {
+        _fuzzedBytes = bytes32(bound(uint256(_fuzzedBytes), uint256(0x010000000000000000000000000000000000000000000000000000000000000), type(uint256).max));
+        bytes32 _bytes = _toBytes32("Manual Test");
+        string memory _string = _toString(_bytes);
+        require(keccak256(abi.encodePacked("Manual Test")) == keccak256(abi.encodePacked(_string)), "internal conversion error");
+        _string = _toString(_fuzzedBytes);
+        _bytes = _toBytes32(_string);
+        require(_bytes == _removeLeftPadding(_fuzzedBytes), "fuzzed byte32 conversion error");
     }
 
     /*\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\
@@ -116,126 +182,169 @@ contract ClustersTest is Test {
                 Clusters.sol
     \\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\*/
 
-    function testCreateCluster() public {
+    function testCreateCluster(bytes32 _callerSeed) public {
+        address caller = _bytesToAddress(_callerSeed);
+
+        vm.prank(caller);
         clusters.create();
+
         require(clusters.nextClusterId() == 2, "nextClusterId not incremented");
         address[] memory addresses = clusters.clusterAddresses(1);
         require(addresses.length == 1, "addresses array length error");
-        require(addresses[0] == address(this), "clusterAddresses error");
-        require(clusters.addressLookup(address(this)) == 1, "addressLookup error");
+        require(addresses[0] == caller, "clusterAddresses error");
+        require(clusters.addressLookup(caller) == 1, "addressLookup error");
     }
 
-    function testCreateClusterRevertRegistered() public {
+    function testCreateClusterRevertRegistered(bytes32 _callerSeed) public {
+        address caller = _bytesToAddress(_callerSeed);
+
+        vm.startPrank(caller);
         clusters.create();
         vm.expectRevert(NameManager.Registered.selector);
         clusters.create();
-    }
-
-    function testAddCluster(address _addr) public {
-        vm.assume(_addr != address(this));
-        vm.assume(_addr != address(clusters));
-        vm.assume(_addr != address(0));
-        clusters.create();
-        clusters.add(_addr);
-        address[] memory addresses = clusters.clusterAddresses(1);
-        require(addresses.length == 2, "addresses array length error");
-        require(addresses[0] == address(this), "clusterAddresses error");
-        require(addresses[1] == _addr, "clusterAddresses error");
-        require(clusters.addressLookup(address(this)) == 1, "addressLookup error");
-        require(clusters.addressLookup(_addr) == 1, "addressLookup error");
-    }
-
-    function testAddClusterRevertNoCluster(address _addr) public {
-        vm.assume(_addr != address(this));
-        vm.assume(_addr != address(clusters));
-        vm.assume(_addr != address(0));
-        vm.expectRevert(NameManager.NoCluster.selector);
-        clusters.add(_addr);
-    }
-
-    function testAddClusterRevertRegistered(address _addr) public {
-        vm.assume(_addr != address(this));
-        vm.assume(_addr != address(clusters));
-        vm.assume(_addr != address(0));
-        clusters.create();
-        vm.prank(_addr);
-        clusters.create();
-        vm.expectRevert(NameManager.Registered.selector);
-        clusters.add(_addr);
-    }
-
-    function testRemoveCluster(address _addr) public {
-        vm.assume(_addr != address(this));
-        vm.assume(_addr != address(clusters));
-        vm.assume(_addr != address(0));
-        clusters.create();
-        clusters.add(_addr);
-        clusters.remove(_addr);
-        address[] memory addresses = clusters.clusterAddresses(1);
-        require(addresses.length == 1, "addresses array length error");
-        require(addresses[0] == address(this), "clusterAddresses error");
-        require(clusters.addressLookup(address(this)) == 1, "addressLookup error");
-        require(clusters.addressLookup(_addr) == 0, "addressLookup error");
-    }
-
-    function testRemoveClusterRevertUnauthorized(address _addr) public {
-        vm.assume(_addr != address(this));
-        vm.assume(_addr != address(clusters));
-        vm.assume(_addr != address(0));
-        vm.assume(_addr != PRANKED_ADDRESS);
-        clusters.create();
-        clusters.add(_addr);
-        vm.startPrank(PRANKED_ADDRESS);
-        clusters.create();
-        vm.expectRevert(NameManager.Unauthorized.selector);
-        clusters.remove(_addr);
         vm.stopPrank();
     }
 
-    function testRemoveClusterRevertNoCluster(address _addr) public {
-        vm.assume(_addr != address(this));
-        vm.assume(_addr != address(clusters));
-        vm.assume(_addr != address(0));
-        vm.assume(_addr != PRANKED_ADDRESS);
+    function testAddCluster(bytes32 _callerSeed, bytes32 _addrSeed) public {
+        vm.assume(_callerSeed != _addrSeed);
+        address caller = _bytesToAddress(_callerSeed);
+        address addr = _bytesToAddress(_addrSeed);
+
+        vm.startPrank(caller);
         clusters.create();
-        clusters.add(_addr);
-        vm.prank(PRANKED_ADDRESS);
-        vm.expectRevert(NameManager.NoCluster.selector);
-        clusters.remove(_addr);
+        clusters.add(addr);
+        vm.stopPrank();
+
+        address[] memory addresses = clusters.clusterAddresses(1);
+        require(addresses.length == 2, "addresses array length error");
+        require(addresses[0] == caller, "clusterAddresses error");
+        require(addresses[1] == addr, "clusterAddresses error");
+        require(clusters.addressLookup(caller) == 1, "addressLookup error");
+        require(clusters.addressLookup(addr) == 1, "addressLookup error");
     }
 
-    function testLeaveCluster(address _addr) public {
-        vm.assume(_addr != address(this));
-        vm.assume(_addr != address(clusters));
-        vm.assume(_addr != address(0));
+    function testAddClusterRevertNoCluster(bytes32 _callerSeed, bytes32 _addrSeed) public {
+        vm.assume(_callerSeed != _addrSeed);
+        address caller = _bytesToAddress(_callerSeed);
+        address addr = _bytesToAddress(_addrSeed);
+
+        vm.prank(caller);
+        vm.expectRevert(NameManager.NoCluster.selector);
+        clusters.add(addr);
+    }
+
+    function testAddClusterRevertRegistered(bytes32 _callerSeed, bytes32 _addrSeed) public {
+        vm.assume(_callerSeed != _addrSeed);
+        address caller = _bytesToAddress(_callerSeed);
+        address addr = _bytesToAddress(_addrSeed);
+
+        vm.prank(caller);
         clusters.create();
-        clusters.add(_addr);
-        vm.prank(_addr);
-        clusters.leave();
+
+        vm.prank(addr);
+        clusters.create();
+
+        vm.prank(caller);
+        vm.expectRevert(NameManager.Registered.selector);
+        clusters.add(addr);
+    }
+
+    function testRemoveCluster(bytes32 _callerSeed, bytes32 _addrSeed) public {
+        vm.assume(_callerSeed != _addrSeed);
+        address caller = _bytesToAddress(_callerSeed);
+        address addr = _bytesToAddress(_addrSeed);
+
+        vm.startPrank(caller);
+        clusters.create();
+        clusters.add(addr);
+        clusters.remove(addr);
+        vm.stopPrank();
+
         address[] memory addresses = clusters.clusterAddresses(1);
         require(addresses.length == 1, "addresses array length error");
-        require(addresses[0] == address(this), "clusterAddresses error");
-        require(clusters.addressLookup(address(this)) == 1, "addressLookup error");
-        require(clusters.addressLookup(_addr) == 0, "addressLookup error");
+        require(addresses[0] == caller, "clusterAddresses error");
+        require(clusters.addressLookup(caller) == 1, "addressLookup error");
+        require(clusters.addressLookup(addr) == 0, "addressLookup error");
     }
 
-    function testLeaveClusterRevertNoCluster(address _addr) public {
-        vm.assume(_addr != address(this));
-        vm.assume(_addr != address(clusters));
-        vm.assume(_addr != address(0));
-        vm.assume(_addr != PRANKED_ADDRESS);
+    function testRemoveClusterRevertUnauthorized(bytes32 _callerSeed, bytes32 _addrSeed) public {
+        vm.assume(_callerSeed != _addrSeed);
+        address caller = _bytesToAddress(_callerSeed);
+        address addr = _bytesToAddress(_addrSeed);
+
+        vm.startPrank(caller);
         clusters.create();
-        clusters.add(_addr);
+        clusters.add(addr);
+        vm.stopPrank();
+
+        vm.startPrank(PRANKED_ADDRESS);
+        clusters.create();
+        vm.expectRevert(NameManager.Unauthorized.selector);
+        clusters.remove(addr);
+        vm.stopPrank();
+    }
+
+    function testRemoveClusterRevertNoCluster(bytes32 _callerSeed, bytes32 _addrSeed) public {
+        vm.assume(_callerSeed != _addrSeed);
+        address caller = _bytesToAddress(_callerSeed);
+        address addr = _bytesToAddress(_addrSeed);
+
+        vm.startPrank(caller);
+        clusters.create();
+        clusters.add(addr);
+        vm.stopPrank();
+
+        vm.prank(PRANKED_ADDRESS);
+        vm.expectRevert(NameManager.NoCluster.selector);
+        clusters.remove(addr);
+    }
+
+    function testLeaveCluster(bytes32 _callerSeed, bytes32 _addrSeed) public {
+        vm.assume(_callerSeed != _addrSeed);
+        address caller = _bytesToAddress(_callerSeed);
+        address addr = _bytesToAddress(_addrSeed);
+
+        vm.startPrank(caller);
+        clusters.create();
+        clusters.add(addr);
+        vm.stopPrank();
+
+        vm.prank(addr);
+        clusters.leave();
+
+        address[] memory addresses = clusters.clusterAddresses(1);
+        require(addresses.length == 1, "addresses array length error");
+        require(addresses[0] == caller, "clusterAddresses error");
+        require(clusters.addressLookup(caller) == 1, "addressLookup error");
+        require(clusters.addressLookup(addr) == 0, "addressLookup error");
+    }
+
+    function testLeaveClusterRevertNoCluster(bytes32 _callerSeed, bytes32 _addrSeed) public {
+        vm.assume(_callerSeed != _addrSeed);
+        address caller = _bytesToAddress(_callerSeed);
+        address addr = _bytesToAddress(_addrSeed);
+
+        vm.startPrank(caller);
+        clusters.create();
+        clusters.add(addr);
+        vm.stopPrank();
+
         vm.prank(PRANKED_ADDRESS);
         vm.expectRevert(NameManager.NoCluster.selector);
         clusters.leave();
     }
 
-    function testLeaveClusterRevertInvalid() public {
+    function testLeaveClusterRevertInvalid(bytes32 _callerSeed, bytes32 _name, uint256 _ethAmount) public {
+        vm.assume(_name != bytes32(""));
+        _ethAmount = bound(_ethAmount, minPrice, 10 ether);
+        address caller = _bytesToAddress(_callerSeed);
+        vm.deal(caller, _ethAmount);
+        vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: 0.25 ether}("Test Name", 1);
+        clusters.buyName{value: _ethAmount}("Test String", 1);
         vm.expectRevert(NameManager.Invalid.selector);
         clusters.leave();
+        vm.stopPrank();
     }
 
     /*\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\
@@ -491,7 +600,7 @@ contract ClustersTest is Test {
     function testBidName(string memory _name, bytes32 _bidderSalt, uint256 _ethAmount) public {
         vm.assume(bytes(_name).length > 0);
         vm.assume(bytes(_name).length <= 32);
-        address _bidder = bytesToAddress(_bidderSalt);
+        address _bidder = _bytesToAddress(_bidderSalt);
         _ethAmount = _bound(_ethAmount, 0.1 ether, 10 ether);
         vm.deal(_bidder, 10 ether);
         clusters.create();
@@ -512,7 +621,7 @@ contract ClustersTest is Test {
     function testBidNameRevertNoCluster(string memory _name, bytes32 _bidderSalt, uint256 _ethAmount) public {
         vm.assume(bytes(_name).length > 0);
         vm.assume(bytes(_name).length <= 32);
-        address _bidder = bytesToAddress(_bidderSalt);
+        address _bidder = _bytesToAddress(_bidderSalt);
         _ethAmount = bound(_ethAmount, 0.1 ether, 10 ether);
         vm.deal(_bidder, 10 ether);
         clusters.create();
@@ -566,7 +675,7 @@ contract ClustersTest is Test {
     function testBidNameRevertInsufficient(string memory _name, bytes32 _bidderSalt, uint256 _ethAmount) public {
         vm.assume(bytes(_name).length > 0);
         vm.assume(bytes(_name).length <= 32);
-        address _bidder = bytesToAddress(_bidderSalt);
+        address _bidder = _bytesToAddress(_bidderSalt);
         _ethAmount = bound(_ethAmount, 1 wei, 0.01 ether - 1 wei);
         vm.deal(_bidder, 1 ether);
         vm.deal(PRANKED_ADDRESS, 0.25 ether);
@@ -597,7 +706,7 @@ contract ClustersTest is Test {
     {
         vm.assume(bytes(_name).length > 0);
         vm.assume(bytes(_name).length <= 32);
-        address _bidder = bytesToAddress(_bidderSalt);
+        address _bidder = _bytesToAddress(_bidderSalt);
         _ethAmount1 = bound(_ethAmount1, 0.01 ether, 10 ether);
         _ethAmount2 = bound(_ethAmount2, 1 wei, 10 ether);
         vm.deal(_bidder, 20 ether);
@@ -627,8 +736,8 @@ contract ClustersTest is Test {
         vm.assume(bytes(_name).length > 0);
         vm.assume(bytes(_name).length <= 32);
         vm.assume(_bidder1Salt != _bidder2Salt);
-        address _bidder1 = bytesToAddress(_bidder1Salt);
-        address _bidder2 = bytesToAddress(_bidder2Salt);
+        address _bidder1 = _bytesToAddress(_bidder1Salt);
+        address _bidder2 = _bytesToAddress(_bidder2Salt);
         _ethAmount = bound(_ethAmount, 0.01 ether, 10 ether);
         vm.deal(_bidder1, 10 ether);
         vm.deal(_bidder2, 11 ether);
@@ -680,7 +789,7 @@ contract ClustersTest is Test {
     function testReduceBid(string memory _name, bytes32 _bidderSalt, uint256 _ethAmount1, uint256 _ethAmount2) public {
         vm.assume(bytes(_name).length > 0);
         vm.assume(bytes(_name).length <= 32);
-        address _bidder = bytesToAddress(_bidderSalt);
+        address _bidder = _bytesToAddress(_bidderSalt);
         _ethAmount1 = bound(_ethAmount1, 0.05 ether, 10 ether);
         _ethAmount2 = bound(_ethAmount2, 1 wei, 0.04 ether - 1 wei);
         vm.deal(_bidder, 10 ether);
@@ -711,7 +820,7 @@ contract ClustersTest is Test {
     ) public {
         vm.assume(bytes(_name).length > 0);
         vm.assume(bytes(_name).length <= 32);
-        address _bidder = bytesToAddress(_bidderSalt);
+        address _bidder = _bytesToAddress(_bidderSalt);
         _ethAmount1 = bound(_ethAmount1, 0.05 ether, 10 ether);
         _ethAmount2 = bound(_ethAmount2, 1 wei, 0.04 ether - 1 wei);
         vm.deal(_bidder, 10 ether);
@@ -734,7 +843,7 @@ contract ClustersTest is Test {
     ) public {
         vm.assume(bytes(_name).length > 0);
         vm.assume(bytes(_name).length <= 32);
-        address _bidder = bytesToAddress(_bidderSalt);
+        address _bidder = _bytesToAddress(_bidderSalt);
         _ethAmount = bound(_ethAmount, 0.02 ether, 10 ether);
         _timeSkew = bound(_timeSkew, 1, 30 days - 1);
         vm.deal(_bidder, 10 ether);
@@ -760,7 +869,7 @@ contract ClustersTest is Test {
     ) public {
         vm.assume(bytes(_name).length > 0);
         vm.assume(bytes(_name).length <= 32);
-        address _bidder = bytesToAddress(_bidderSalt);
+        address _bidder = _bytesToAddress(_bidderSalt);
         _ethAmount1 = bound(_ethAmount1, 0.02 ether, 1 ether);
         _ethAmount2 = bound(_ethAmount2, 1 ether + 1 wei, type(uint256).max - 1 wei);
         vm.deal(_bidder, 10 ether);
@@ -778,7 +887,7 @@ contract ClustersTest is Test {
     function testReduceBidUint256Max(string memory _name, bytes32 _bidderSalt, uint256 _ethAmount) public {
         vm.assume(bytes(_name).length > 0);
         vm.assume(bytes(_name).length <= 32);
-        address _bidder = bytesToAddress(_bidderSalt);
+        address _bidder = _bytesToAddress(_bidderSalt);
         _ethAmount = bound(_ethAmount, 0.01 ether, 10 ether);
         vm.deal(_bidder, 10 ether);
         bytes32 name = _toBytes32(_name);
@@ -802,7 +911,7 @@ contract ClustersTest is Test {
     function testReduceBidTotalBid(string memory _name, bytes32 _bidderSalt, uint256 _ethAmount) public {
         vm.assume(bytes(_name).length > 0);
         vm.assume(bytes(_name).length <= 32);
-        address _bidder = bytesToAddress(_bidderSalt);
+        address _bidder = _bytesToAddress(_bidderSalt);
         _ethAmount = bound(_ethAmount, 0.01 ether, 10 ether);
         vm.deal(_bidder, 10 ether);
         bytes32 name = _toBytes32(_name);
