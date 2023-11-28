@@ -206,12 +206,14 @@ contract NameManager {
             unchecked {
                 protocolRevenue += spent;
                 ethBacking[name] -= spent;
+                backing -= spent; // Backing is adjusted to use it in maxExpiry calculation instead of reading storage
             }
             priceIntegral[name] = ClusterData.PriceIntegral({
                 name: name,
                 lastUpdatedTimestamp: block.timestamp,
                 lastUpdatedPrice: newPrice,
-                maxExpiry: 0 // TODO: Correct this value
+                // TODO: Re-evaluate after pricing changes
+                maxExpiry: block.timestamp + uint256(pricing.getMaxDuration(pricing.minAnnualPrice(), backing))
             });
             emit PokeName(_name, msg.sender);
         }
