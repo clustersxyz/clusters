@@ -274,18 +274,21 @@ contract NameManager {
         // Poke name to update backing and ownership (if required) prior to bid adjustment
         pokeName(_name);
 
-        // Only process bid if it's still present after the poke, which implies name wasn't transferred
-        uint256 bid = bids[name].ethAmount;
-        if (bid == 0) revert NoBid();
-        // Revert if _amount is larger than the bid but isn't the max
-        // Bypassing this check for the max value eliminates the need for the frontend or bidder to find their bid prior
-        if (_amount > bid && _amount != type(uint256).max) revert Insufficient();
-
         // Calculate difference in unchecked block to allow underflow when using type(uint256).max
+        uint256 bid = bids[name].ethAmount;
         uint256 diff;
         unchecked {
             diff = bid - _amount;
         }
+
+        // Only process bid if it's still present after the poke, which implies name wasn't transferred
+        if (bid == 0) revert NoBid();
+        // Revert if _amount is larger than the bid but isn't the max
+        // Bypassing this check for the max value eliminates the need for the frontend or bidder to find their bid prior
+        if (_amount > bid && _amount != type(uint256).max) revert Insufficient();
+        // Also revert if bid is reduced beneath minimum annual price
+        if (diff != 0 && diff < pricing.minAnnualPrice()) revert Insufficient();
+
         // If reducing bid to 0 or by maximum uint256 value, revoke altogether
         if (diff == 0 || _amount == type(uint256).max) {
             delete bids[name];
@@ -307,6 +310,8 @@ contract NameManager {
         (bool success,) = payable(msg.sender).call{value: _amount}("");
         if (!success) revert NativeTokenTransferFailed();
     }
+
+    // TODO: acceptBid()
 
     /// @notice Allow failed bid refunds to be withdrawn
     function refundBid() external {
