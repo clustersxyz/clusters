@@ -625,34 +625,56 @@ contract ClustersTest is Test {
         require(address(clusters).balance == 0.1 ether, "contract balance issue");
     }
 
-    function testPokeName(string memory _name, uint256 _timeSkew) public {
-        vm.assume(bytes(_name).length > 0);
-        vm.assume(bytes(_name).length <= 32);
+    function testPokeName(bytes32 _callerSeed, bytes32 _addrSeed, bytes32 _name, uint256 _ethAmount, uint256 _timeSkew) public {
+        vm.assume(_callerSeed != bytes32(""));
+        vm.assume(_addrSeed != bytes32(""));
+        vm.assume(_callerSeed != _addrSeed);
+        vm.assume(_name != bytes32(""));
+        address caller = _bytesToAddress(_callerSeed);
+        address addr = _bytesToAddress(_addrSeed);
+        string memory _string = _toString(_removePadding(_name));
+        bytes32 name = _toBytes32(_string);
+        _ethAmount = bound(_ethAmount, minPrice, 10 ether);
         _timeSkew = bound(_timeSkew, 1, 24 weeks - 1);
-        bytes32 name = _toBytes32(_name);
+        vm.deal(caller, _ethAmount);
+
+        vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: 0.01 ether}(_name, 1);
-        uint256 ethBacking = clusters.ethBacking(name);
+        clusters.buyName{value: _ethAmount}(_string, 1);
+        vm.stopPrank();
+
         vm.warp(block.timestamp + _timeSkew);
-        clusters.pokeName(_name);
-        require(clusters.addressLookup(address(this)) == 1, "address(this) not assigned to cluster");
+        vm.prank(addr);
+        clusters.pokeName(_string);
+
+        require(clusters.addressLookup(caller) == 1, "address(this) not assigned to cluster");
         require(clusters.nameLookup(name) == 1, "name not assigned to cluster");
-        require(ethBacking > clusters.ethBacking(name), "ethBacking not adjusting");
-        require(address(clusters).balance == 0.01 ether, "contract balance issue");
+        require(_ethAmount > clusters.ethBacking(name), "ethBacking not adjusting");
+        require(address(clusters).balance == _ethAmount, "contract balance issue");
     }
 
-    function testPokeNameRevertInvalid() public {
+    function testPokeNameRevertInvalid(bytes32 _callerSeed) public {
+        vm.assume(_callerSeed != bytes32(""));
+        address caller = _bytesToAddress(_callerSeed);
+
+        vm.startPrank(caller);
         clusters.create();
         vm.expectRevert(NameManager.Invalid.selector);
         clusters.pokeName("");
+        vm.stopPrank();
     }
 
-    function testPokeNameRevertUnregistered(string memory _name) public {
-        vm.assume(bytes(_name).length > 0);
-        vm.assume(bytes(_name).length <= 32);
+    function testPokeNameRevertUnregistered(bytes32 _callerSeed, bytes32 _name) public {
+        vm.assume(_callerSeed != bytes32(""));
+        vm.assume(_name != bytes32(""));
+        address caller = _bytesToAddress(_callerSeed);
+        string memory _string = _toString(_removePadding(_name));
+
+        vm.startPrank(caller);
         clusters.create();
         vm.expectRevert(NameManager.Unregistered.selector);
-        clusters.pokeName(_name);
+        clusters.pokeName(_string);
+        vm.stopPrank();
     }
 
     function testBidName() public {
