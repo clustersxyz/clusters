@@ -83,7 +83,10 @@ contract ClustersTest is Test {
     function testInternalFunctions() public pure {
         bytes32 _bytes = _toBytes32("Manual Test");
         string memory _string = _toString(_removePadding(_bytes));
-        require(keccak256(abi.encodePacked("Manual Test")) == keccak256(abi.encodePacked(_string)), "internal conversion error");
+        require(
+            keccak256(abi.encodePacked("Manual Test")) == keccak256(abi.encodePacked(_string)),
+            "internal conversion error"
+        );
     }
 
     /*\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\
@@ -510,7 +513,9 @@ contract ClustersTest is Test {
         require(address(clusters).balance == _buyAmount, "contract balance issue");
     }
 
-    function testTransferNameRevertNoCluster(bytes32 _callerSalt, bytes32 _addrSalt, bytes32 _name, uint256 _buyAmount) public {
+    function testTransferNameRevertNoCluster(bytes32 _callerSalt, bytes32 _addrSalt, bytes32 _name, uint256 _buyAmount)
+        public
+    {
         vm.assume(_callerSalt != bytes32(""));
         vm.assume(_addrSalt != bytes32(""));
         vm.assume(_callerSalt != _addrSalt);
@@ -531,7 +536,12 @@ contract ClustersTest is Test {
         clusters.transferName(_string, 2);
     }
 
-    function testTransferNameRevertUnauthorized(bytes32 _callerSalt, bytes32 _addrSalt, bytes32 _name, uint256 _buyAmount) public {
+    function testTransferNameRevertUnauthorized(
+        bytes32 _callerSalt,
+        bytes32 _addrSalt,
+        bytes32 _name,
+        uint256 _buyAmount
+    ) public {
         vm.assume(_callerSalt != bytes32(""));
         vm.assume(_addrSalt != bytes32(""));
         vm.assume(_callerSalt != _addrSalt);
@@ -546,7 +556,7 @@ contract ClustersTest is Test {
         clusters.create();
         clusters.buyName{value: _buyAmount}(_string, 1);
         vm.stopPrank();
-        
+
         vm.startPrank(addr);
         clusters.create();
         vm.expectRevert(NameManager.Unauthorized.selector);
@@ -567,7 +577,12 @@ contract ClustersTest is Test {
         vm.stopPrank();
     }
 
-    function testTransferNameRevertUnregistered(bytes32 _callerSalt, bytes32 _name, uint256 _buyAmount, uint256 _toClusterId) public {
+    function testTransferNameRevertUnregistered(
+        bytes32 _callerSalt,
+        bytes32 _name,
+        uint256 _buyAmount,
+        uint256 _toClusterId
+    ) public {
         vm.assume(_callerSalt != bytes32(""));
         vm.assume(_name != bytes32(""));
         vm.assume(_toClusterId > 1);
@@ -584,7 +599,9 @@ contract ClustersTest is Test {
         vm.stopPrank();
     }
 
-    function testTransferNameCanonicalName(bytes32 _callerSalt, bytes32 _addrSalt, bytes32 _name, uint256 _buyAmount) public {
+    function testTransferNameCanonicalName(bytes32 _callerSalt, bytes32 _addrSalt, bytes32 _name, uint256 _buyAmount)
+        public
+    {
         vm.assume(_callerSalt != bytes32(""));
         vm.assume(_addrSalt != bytes32(""));
         vm.assume(_callerSalt != _addrSalt);
@@ -601,14 +618,17 @@ contract ClustersTest is Test {
         clusters.setCanonicalName(_string);
         vm.stopPrank();
 
-        require(clusters.canonicalClusterName(1) == _toBytes32(_toString(_removePadding(_name))), "canonicalClusterName error");
+        require(
+            clusters.canonicalClusterName(1) == _toBytes32(_toString(_removePadding(_name))),
+            "canonicalClusterName error"
+        );
 
         vm.prank(addr);
         clusters.create();
 
         vm.prank(caller);
         clusters.transferName(_string, 2);
-        
+
         require(clusters.canonicalClusterName(1) == bytes32(""), "canonicalClusterName wasn't cleared");
         require(clusters.canonicalClusterName(2) == bytes32(""), "canonicalClusterName possibly transferred");
     }
@@ -625,7 +645,9 @@ contract ClustersTest is Test {
         require(address(clusters).balance == 0.1 ether, "contract balance issue");
     }
 
-    function testPokeName(bytes32 _callerSalt, bytes32 _addrSalt, bytes32 _name, uint256 _buyAmount, uint256 _timeSkew) public {
+    function testPokeName(bytes32 _callerSalt, bytes32 _addrSalt, bytes32 _name, uint256 _buyAmount, uint256 _timeSkew)
+        public
+    {
         vm.assume(_callerSalt != bytes32(""));
         vm.assume(_addrSalt != bytes32(""));
         vm.assume(_callerSalt != _addrSalt);
@@ -698,7 +720,9 @@ contract ClustersTest is Test {
         require(bid.bidder == PRANKED_ADDRESS, "bid bidder incorrect");
     }
 
-    function testBidName(bytes32 _callerSalt, bytes32 _addrSalt, bytes32 _name, uint256 _buyAmount, uint256 _bidAmount) public {
+    function testBidName(bytes32 _callerSalt, bytes32 _addrSalt, bytes32 _name, uint256 _buyAmount, uint256 _bidAmount)
+        public
+    {
         vm.assume(_callerSalt != bytes32(""));
         vm.assume(_addrSalt != bytes32(""));
         vm.assume(_callerSalt != _addrSalt);
@@ -730,7 +754,13 @@ contract ClustersTest is Test {
         require(address(clusters).balance == _buyAmount + _bidAmount, "contract balance issue");
     }
 
-    function testBidNameRevertNoCluster(bytes32 _callerSalt, bytes32 _addrSalt, bytes32 _name, uint256 _buyAmount, uint256 _bidAmount) public {
+    function testBidNameRevertNoCluster(
+        bytes32 _callerSalt,
+        bytes32 _addrSalt,
+        bytes32 _name,
+        uint256 _buyAmount,
+        uint256 _bidAmount
+    ) public {
         vm.assume(_callerSalt != bytes32(""));
         vm.assume(_addrSalt != bytes32(""));
         vm.assume(_callerSalt != _addrSalt);
@@ -803,7 +833,9 @@ contract ClustersTest is Test {
         vm.stopPrank();
     }
 
-    function testBidNameRevertSelfBid(bytes32 _callerSalt, bytes32 _name, uint256 _buyAmount, uint256 _bidAmount) public {
+    function testBidNameRevertSelfBid(bytes32 _callerSalt, bytes32 _name, uint256 _buyAmount, uint256 _bidAmount)
+        public
+    {
         vm.assume(_callerSalt != bytes32(""));
         vm.assume(_name != bytes32(""));
         address caller = _bytesToAddress(_callerSalt);
@@ -820,7 +852,13 @@ contract ClustersTest is Test {
         vm.stopPrank();
     }
 
-    function testBidNameRevertInsufficient(bytes32 _callerSalt, bytes32 _addrSalt, bytes32 _name, uint256 _buyAmount, uint256 _bidAmount) public {
+    function testBidNameRevertInsufficient(
+        bytes32 _callerSalt,
+        bytes32 _addrSalt,
+        bytes32 _name,
+        uint256 _buyAmount,
+        uint256 _bidAmount
+    ) public {
         vm.assume(_callerSalt != bytes32(""));
         vm.assume(_addrSalt != bytes32(""));
         vm.assume(_callerSalt != _addrSalt);
@@ -834,7 +872,7 @@ contract ClustersTest is Test {
         vm.deal(caller, _buyAmount);
         vm.deal(addr, minPrice + 1);
         vm.deal(PRANKED_ADDRESS, _bidAmount);
-        
+
         vm.startPrank(caller);
         clusters.create();
         clusters.buyName{value: _buyAmount}(_string, 1);
@@ -862,9 +900,14 @@ contract ClustersTest is Test {
         clusters.bidName{value: minPrice + 1}(_string);
     }
 
-    function testBidNameIncreaseBid(bytes32 _callerSalt, bytes32 _addrSalt, bytes32 _name, uint256 _buyAmount, uint256 _bidAmount, uint256 _bidIncrease)
-        public
-    {
+    function testBidNameIncreaseBid(
+        bytes32 _callerSalt,
+        bytes32 _addrSalt,
+        bytes32 _name,
+        uint256 _buyAmount,
+        uint256 _bidAmount,
+        uint256 _bidIncrease
+    ) public {
         vm.assume(_callerSalt != bytes32(""));
         vm.assume(_addrSalt != bytes32(""));
         vm.assume(_callerSalt != _addrSalt);
@@ -904,9 +947,13 @@ contract ClustersTest is Test {
         require(address(clusters).balance == _buyAmount + _bidAmount + _bidIncrease, "contract balance issue");
     }
 
-    function testBidNameOutbid(bytes32 _callerSalt, bytes32 _addrSalt, bytes32 _name, uint256 _buyAmount, uint256 _bidAmount)
-        public
-    {
+    function testBidNameOutbid(
+        bytes32 _callerSalt,
+        bytes32 _addrSalt,
+        bytes32 _name,
+        uint256 _buyAmount,
+        uint256 _bidAmount
+    ) public {
         vm.assume(_callerSalt != bytes32(""));
         vm.assume(_addrSalt != bytes32(""));
         vm.assume(_callerSalt != _addrSalt);
@@ -970,7 +1017,14 @@ contract ClustersTest is Test {
         require(bid.bidder == PRANKED_ADDRESS, "bid bidder incorrect");
     }
 
-    function testReduceBid(bytes32 _callerSalt, bytes32 _addrSalt, bytes32 _name, uint256 _buyAmount, uint256 _bidAmount, uint256 _bidDecrease) public {
+    function testReduceBid(
+        bytes32 _callerSalt,
+        bytes32 _addrSalt,
+        bytes32 _name,
+        uint256 _buyAmount,
+        uint256 _bidAmount,
+        uint256 _bidDecrease
+    ) public {
         vm.assume(_callerSalt != bytes32(""));
         vm.assume(_addrSalt != bytes32(""));
         vm.assume(_callerSalt != _addrSalt);
@@ -1007,7 +1061,14 @@ contract ClustersTest is Test {
         require(bid.bidder == addr, "bid bidder incorrect");
     }
 
-    function testReduceBidRevertUnauthorized(bytes32 _callerSalt, bytes32 _addrSalt, bytes32 _name, uint256 _buyAmount, uint256 _bidAmount, uint256 _bidDecrease) public {
+    function testReduceBidRevertUnauthorized(
+        bytes32 _callerSalt,
+        bytes32 _addrSalt,
+        bytes32 _name,
+        uint256 _buyAmount,
+        uint256 _bidAmount,
+        uint256 _bidDecrease
+    ) public {
         vm.assume(_callerSalt != bytes32(""));
         vm.assume(_addrSalt != bytes32(""));
         vm.assume(_callerSalt != _addrSalt);
@@ -1036,7 +1097,15 @@ contract ClustersTest is Test {
         clusters.reduceBid(_string, _bidDecrease);
     }
 
-    function testReduceBidRevertTimelock(bytes32 _callerSalt, bytes32 _addrSalt, bytes32 _name, uint256 _buyAmount, uint256 _bidAmount, uint256 _bidDecrease, uint256 _timeSkew) public {
+    function testReduceBidRevertTimelock(
+        bytes32 _callerSalt,
+        bytes32 _addrSalt,
+        bytes32 _name,
+        uint256 _buyAmount,
+        uint256 _bidAmount,
+        uint256 _bidDecrease,
+        uint256 _timeSkew
+    ) public {
         vm.assume(_callerSalt != bytes32(""));
         vm.assume(_addrSalt != bytes32(""));
         vm.assume(_callerSalt != _addrSalt);
@@ -1069,7 +1138,15 @@ contract ClustersTest is Test {
     // TODO: Test once acceptBid is implemented
     //function testReduceBidRevertNoBid
 
-    function testReduceBidRevertInsufficient(bytes32 _callerSalt, bytes32 _addrSalt, bytes32 _name, uint256 _buyAmount, uint256 _bidAmount, uint256 _bidDecrease, uint256 _timeSkew) public {
+    function testReduceBidRevertInsufficient(
+        bytes32 _callerSalt,
+        bytes32 _addrSalt,
+        bytes32 _name,
+        uint256 _buyAmount,
+        uint256 _bidAmount,
+        uint256 _bidDecrease,
+        uint256 _timeSkew
+    ) public {
         vm.assume(_callerSalt != bytes32(""));
         vm.assume(_addrSalt != bytes32(""));
         vm.assume(_callerSalt != _addrSalt);
@@ -1101,7 +1178,14 @@ contract ClustersTest is Test {
         vm.stopPrank();
     }
 
-    function testReduceBidUint256Max(bytes32 _callerSalt, bytes32 _addrSalt, bytes32 _name, uint256 _buyAmount, uint256 _bidAmount, uint256 _timeSkew) public {
+    function testReduceBidUint256Max(
+        bytes32 _callerSalt,
+        bytes32 _addrSalt,
+        bytes32 _name,
+        uint256 _buyAmount,
+        uint256 _bidAmount,
+        uint256 _timeSkew
+    ) public {
         vm.assume(_callerSalt != bytes32(""));
         vm.assume(_addrSalt != bytes32(""));
         vm.assume(_callerSalt != _addrSalt);
@@ -1138,7 +1222,14 @@ contract ClustersTest is Test {
         require(bid.bidder == address(0), "bid bidder not purged");
     }
 
-    function testReduceBidTotalBid(bytes32 _callerSalt, bytes32 _addrSalt, bytes32 _name, uint256 _buyAmount, uint256 _bidAmount, uint256 _timeSkew) public {
+    function testReduceBidTotalBid(
+        bytes32 _callerSalt,
+        bytes32 _addrSalt,
+        bytes32 _name,
+        uint256 _buyAmount,
+        uint256 _bidAmount,
+        uint256 _timeSkew
+    ) public {
         vm.assume(_callerSalt != bytes32(""));
         vm.assume(_addrSalt != bytes32(""));
         vm.assume(_callerSalt != _addrSalt);
@@ -1220,7 +1311,9 @@ contract ClustersTest is Test {
         require(names[0] == name, "name array error");
     }
 
-    function testSetCanonicalNameUpdate(bytes32 _callerSalt, bytes32 _name1, bytes32 _name2, uint256 _buyAmount) public {
+    function testSetCanonicalNameUpdate(bytes32 _callerSalt, bytes32 _name1, bytes32 _name2, uint256 _buyAmount)
+        public
+    {
         vm.assume(_callerSalt != bytes32(""));
         vm.assume(_name1 != bytes32(""));
         vm.assume(_name2 != bytes32(""));
@@ -1273,7 +1366,12 @@ contract ClustersTest is Test {
         require(names[0] == name, "name array error");
     }
 
-    function testSetCanonicalNameRevertUnauthorized(bytes32 _callerSalt, bytes32 _addrSalt, bytes32 _name, uint256 _buyAmount) public {
+    function testSetCanonicalNameRevertUnauthorized(
+        bytes32 _callerSalt,
+        bytes32 _addrSalt,
+        bytes32 _name,
+        uint256 _buyAmount
+    ) public {
         vm.assume(_callerSalt != bytes32(""));
         vm.assume(_addrSalt != bytes32(""));
         vm.assume(_callerSalt != _addrSalt);
@@ -1296,7 +1394,12 @@ contract ClustersTest is Test {
         vm.stopPrank();
     }
 
-    function testSetCanonicalNameRevertNoCluster(bytes32 _callerSalt, bytes32 _addrSalt, bytes32 _name, uint256 _buyAmount) public {
+    function testSetCanonicalNameRevertNoCluster(
+        bytes32 _callerSalt,
+        bytes32 _addrSalt,
+        bytes32 _name,
+        uint256 _buyAmount
+    ) public {
         vm.assume(_callerSalt != bytes32(""));
         vm.assume(_addrSalt != bytes32(""));
         vm.assume(_callerSalt != _addrSalt);
