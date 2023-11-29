@@ -1429,7 +1429,7 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.setWalletName(_string);
+        clusters.setWalletName(caller, _string);
         vm.stopPrank();
 
         require(clusters.addressLookup(caller) == 1, "clusterId error");
@@ -1453,7 +1453,7 @@ contract ClustersTest is Test {
         vm.stopPrank();
 
         vm.prank(addr);
-        clusters.setWalletName(_string);
+        clusters.setWalletName(addr, _string);
 
         require(clusters.addressLookup(addr) == 1, "clusterId error");
         require(clusters.forwardLookup(1, name) == addr, "forwardLookup error");
@@ -1469,8 +1469,8 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.setWalletName(_string);
-        clusters.setWalletName("");
+        clusters.setWalletName(caller, _string);
+        clusters.setWalletName(caller, "");
         vm.stopPrank();
 
         require(clusters.addressLookup(caller) == 1, "clusterId error");
