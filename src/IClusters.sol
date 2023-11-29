@@ -86,5 +86,5 @@ interface IClusters {
     function refundBid() external;
 
     function setCanonicalName(string memory _name) external;
-    function setWalletName(string memory _walletName) external;
+    function setWalletName(address _addr, string memory _walletName) external;
 }

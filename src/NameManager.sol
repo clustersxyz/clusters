@@ -317,18 +317,19 @@ abstract contract NameManager is IClusters {
     }
 
     /// @notice Set wallet name for msg.sender or erase it by setting ""
-    function setWalletName(string memory _walletName) external checkPrivileges("") {
+    function setWalletName(address _addr, string memory _walletName) external checkPrivileges("") {
         bytes32 walletName = _toBytes32(_walletName);
         uint256 clusterId = addressLookup[msg.sender];
+        if (clusterId != addressLookup[_addr]) revert Unauthorized();
         if (bytes(_walletName).length == 0) {
-            walletName = reverseLookup[msg.sender];
+            walletName = reverseLookup[_addr];
             delete forwardLookup[clusterId][walletName];
-            delete reverseLookup[msg.sender];
-            emit WalletName("", msg.sender);
+            delete reverseLookup[_addr];
+            emit WalletName("", _addr);
         } else {
-            forwardLookup[clusterId][walletName] = msg.sender;
-            reverseLookup[msg.sender] = walletName;
-            emit WalletName(_walletName, msg.sender);
+            forwardLookup[clusterId][walletName] = _addr;
+            reverseLookup[_addr] = walletName;
+            emit WalletName(_walletName, _addr);
         }
     }
 
