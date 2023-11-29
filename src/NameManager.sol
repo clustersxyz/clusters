@@ -109,8 +109,9 @@ contract NameManager {
     /// ECONOMIC FUNCTIONS ///
 
     /// @notice Buy unregistered name. Must pay at least minimum yearly payment.
-    function buyName(string memory _name, uint256 clusterId) external payable checkPrivileges("") {
+    function buyName(string memory _name) external payable checkPrivileges("") {
         bytes32 name = _toBytes32(_name);
+        uint256 clusterId = nameLookup[name];
         if (name == bytes32("")) revert Invalid();
         // Check that name is unused and sufficient payment is made
         if (nameLookup[name] != 0) revert Registered();
@@ -311,7 +312,8 @@ contract NameManager {
         if (!success) revert NativeTokenTransferFailed();
     }
 
-    // TODO: acceptBid()
+    // TODO: implementation
+    function acceptBid(string memory _name) external returns (uint256) {}
 
     /// @notice Allow failed bid refunds to be withdrawn
     function refundBid() external {

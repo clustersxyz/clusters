@@ -5,6 +5,8 @@ import {EnumerableSet} from "openzeppelin/contracts/utils/structs/EnumerableSet.
 
 import {NameManager} from "./NameManager.sol";
 
+import {IClusters} from "./IClusters.sol";
+
 // Can a cluster have multiple names? (yes) Can it not have a name? (yes)
 // Where do we store expiries (we dont, do we need to?) and how do we clear state? (pokeName() wipes state before
 // transferring or expiring)
@@ -22,7 +24,7 @@ import {NameManager} from "./NameManager.sol";
 // returns 0)
 // What does the empty foobar/ resolver point to? CREATE2 Singlesig?
 
-contract Clusters is NameManager {
+contract Clusters is NameManager, IClusters {
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
