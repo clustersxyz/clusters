@@ -270,24 +270,24 @@ contract NameManager {
     /// @notice Reduce bid and refund difference. Revoke if _amount is the total bid or is the max uint256 value.
     function reduceBid(string memory _name, uint256 _amount) external {
         bytes32 name = _toBytes32(_name);
-        // Ensure the caller is the highest bidder
+        uint256 bid = bids[name].ethAmount;
+        if (bid == 0) revert NoBid();
         if (bids[name].bidder != msg.sender) revert Unauthorized();
-
         // Prevent reducing or revoking a bid before the bid timelock is up
         if (block.timestamp < bids[name].createdTimestamp + BID_TIMELOCK) revert Timelock();
 
         // Poke name to update backing and ownership (if required) prior to bid adjustment
         pokeName(_name);
 
+        // Short circuit if pokeName() processed transfer to bidder due to name expiry
+        if (bids[name].ethAmount == 0) return;
+
         // Calculate difference in unchecked block to allow underflow when using type(uint256).max
-        uint256 bid = bids[name].ethAmount;
         uint256 diff;
         unchecked {
             diff = bid - _amount;
         }
 
-        // Only process bid if it's still present after the poke, which implies name wasn't transferred
-        if (bid == 0) revert NoBid();
         // Revert if _amount is larger than the bid but isn't the max
         // Bypassing this check for the max value eliminates the need for the frontend or bidder to find their bid prior
         if (_amount > bid && _amount != type(uint256).max) revert Insufficient();
