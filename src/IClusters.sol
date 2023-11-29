@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import "../libraries/ClusterData.sol";
+import "./libraries/ClusterData.sol";
 
-interface INameManager {
+interface IClusters {
     /// ERRORS ///
 
     error NoBid();
@@ -15,6 +15,7 @@ interface INameManager {
     error Unauthorized();
     error Unregistered();
     error Insufficient();
+    error MulticallFailed();
     error NativeTokenTransferFailed();
 
     /// EVENTS ///
@@ -50,10 +51,16 @@ interface INameManager {
     function bids(bytes32 _name) external view returns (uint256 ethAmount, uint256 createdTimestamp, address bidder);
     function bidRefunds(address _bidder) external view returns (uint256 refund);
 
+    function clusterAddresses(uint256 _clusterId) external view returns (address[] memory addresses);
     function getClusterNames(uint256 _clusterId) external view returns (bytes32[] memory names);
     function getBid(bytes32 _name) external view returns (ClusterData.Bid memory bid);
 
     /// EXTERNAL FUNCTIONS ///
+
+    function create() external;
+    function add(address _addr) external;
+    function remove(address _addr) external;
+    function leave() external;
 
     function buyName(string memory _name, uint256 _clusterId) external payable;
     function fundName(string memory _name) external payable;
