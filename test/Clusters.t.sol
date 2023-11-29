@@ -1361,6 +1361,99 @@ contract ClustersTest is Test {
         require(bid.bidder == address(0), "bid bidder not purged");
     }
 
+    function testAcceptBid(bytes32 _callerSalt, bytes32 _addrSalt, bytes32 _name, uint256 _buyAmount, uint256 _bidAmount) public {
+        vm.assume(_callerSalt != bytes32(""));
+        vm.assume(_addrSalt != bytes32(""));
+        vm.assume(_callerSalt != _addrSalt);
+        vm.assume(_name != bytes32(""));
+        address caller = _bytesToAddress(_callerSalt);
+        address addr = _bytesToAddress(_addrSalt);
+        string memory _string = _toString(_removePadding(_name));
+        bytes32 name = _toBytes32(_string);
+        _buyAmount = bound(_buyAmount, minPrice, 10 ether);
+        _bidAmount = bound(_bidAmount, minPrice, 10 ether);
+        vm.deal(caller, _buyAmount);
+        vm.deal(addr, _bidAmount);
+
+        vm.startPrank(caller);
+        clusters.create();
+        clusters.buyName{value: _buyAmount}(_string, 1);
+        vm.stopPrank();
+
+        vm.startPrank(addr);
+        clusters.create();
+        clusters.bidName{value: _bidAmount}(_string);
+        vm.stopPrank();
+
+        uint256 balance = address(caller).balance;
+        vm.prank(caller);
+        clusters.acceptBid(_string);
+
+        bytes32[] memory names = clusters.getClusterNames(1);
+        require(names.length == 0, "names array not purged");
+        names = clusters.getClusterNames(2);
+        require(names.length == 1, "names array length error");
+        require(names[0] == name, "name array error");
+        require(clusters.nameLookup(name) == 2, "name not assigned to cluster");
+        require(clusters.ethBacking(name) == _buyAmount, "ethBacking incorrect");
+        require(address(clusters).balance == _buyAmount, "contract balance issue");
+        require(address(caller).balance == balance + _bidAmount, "bid payment issue");
+    }
+
+    function testAcceptBidRevertNoCluster(bytes32 _callerSalt, bytes32 _addrSalt, bytes32 _name, uint256 _buyAmount, uint256 _bidAmount) public {
+        vm.assume(_callerSalt != bytes32(""));
+        vm.assume(_addrSalt != bytes32(""));
+        vm.assume(_callerSalt != _addrSalt);
+        vm.assume(_name != bytes32(""));
+        address caller = _bytesToAddress(_callerSalt);
+        address addr = _bytesToAddress(_addrSalt);
+        string memory _string = _toString(_removePadding(_name));
+        _buyAmount = bound(_buyAmount, minPrice, 10 ether);
+        _bidAmount = bound(_bidAmount, minPrice, 10 ether);
+        vm.deal(caller, _buyAmount);
+        vm.deal(addr, _bidAmount);
+
+        vm.startPrank(caller);
+        clusters.create();
+        clusters.buyName{value: _buyAmount}(_string, 1);
+        vm.stopPrank();
+
+        vm.startPrank(addr);
+        clusters.create();
+        clusters.bidName{value: _bidAmount}(_string);
+        vm.stopPrank();
+
+        vm.prank(PRANKED_ADDRESS);
+        vm.expectRevert(NameManager.NoCluster.selector);
+        clusters.acceptBid(_string);
+    }
+
+    function testAcceptBidRevertUnauthorized(bytes32 _callerSalt, bytes32 _addrSalt, bytes32 _name, uint256 _buyAmount, uint256 _bidAmount) public {
+        vm.assume(_callerSalt != bytes32(""));
+        vm.assume(_addrSalt != bytes32(""));
+        vm.assume(_callerSalt != _addrSalt);
+        vm.assume(_name != bytes32(""));
+        address caller = _bytesToAddress(_callerSalt);
+        address addr = _bytesToAddress(_addrSalt);
+        string memory _string = _toString(_removePadding(_name));
+        _buyAmount = bound(_buyAmount, minPrice, 10 ether);
+        _bidAmount = bound(_bidAmount, minPrice, 10 ether);
+        vm.deal(caller, _buyAmount);
+        vm.deal(addr, _bidAmount);
+
+        vm.startPrank(caller);
+        clusters.create();
+        clusters.buyName{value: _buyAmount}(_string, 1);
+        vm.stopPrank();
+
+        vm.startPrank(addr);
+        clusters.create();
+        clusters.bidName{value: _bidAmount}(_string);
+        vm.expectRevert(NameManager.Unauthorized.selector);
+        clusters.acceptBid(_string);
+        vm.stopPrank();
+    }
+
     function testSetCanonicalName(bytes32 _callerSalt, bytes32 _name, uint256 _buyAmount) public {
         vm.assume(_callerSalt != bytes32(""));
         vm.assume(_name != bytes32(""));
