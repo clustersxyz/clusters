@@ -54,7 +54,7 @@ interface IClusters {
     function nameLookup(bytes32 _name) external view returns (uint256 clusterId);
     function canonicalClusterName(uint256 _clusterId) external view returns (bytes32 name);
     function forwardLookup(uint256 _clusterId, bytes32 _walletName) external view returns (address wallet);
-    function reverseLookup(address _wallet) external view returns (address walletName);
+    function reverseLookup(address _wallet) external view returns (bytes32 walletName);
 
     function priceIntegral(bytes32 _name)
         external
@@ -74,7 +74,6 @@ interface IClusters {
     function create() external;
     function add(address _addr) external;
     function remove(address _addr) external;
-    function leave() external;
 
     function buyName(string memory _name) external payable;
     function fundName(string memory _name) external payable;

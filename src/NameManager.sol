@@ -4,36 +4,13 @@ pragma solidity ^0.8.23;
 import {EnumerableSet} from "../lib/openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 
 import {Pricing} from "./Pricing.sol";
-import {ClusterData} from "./libraries/ClusterData.sol";
+
+import {IClusters} from "./IClusters.sol";
 
 /// @notice The bidding, accepting, eth storing component of Clusters. Handles name assignment
 ///         to cluster ids and checks auth of cluster membership before acting on one of its names
-contract NameManager {
+abstract contract NameManager is IClusters {
     using EnumerableSet for EnumerableSet.Bytes32Set;
-
-    error NoBid();
-    error SelfBid();
-    error Invalid();
-    error Timelock();
-    error NoCluster();
-    error Registered();
-    error Unauthorized();
-    error Unregistered();
-    error Insufficient();
-    error NativeTokenTransferFailed();
-
-    event BuyName(string indexed _name, uint256 indexed clusterId);
-    event FundName(string indexed _name, address indexed funder, uint256 indexed amount);
-    event TransferName(bytes32 indexed name, uint256 indexed fromClusterId, uint256 indexed toClusterId);
-    event PokeName(string indexed _name, address indexed poker);
-    event CanonicalName(string indexed _name, uint256 indexed clusterId);
-    event WalletName(string indexed _walletName, address indexed wallet);
-
-    event BidPlaced(string indexed _name, address indexed bidder, uint256 indexed amount);
-    event BidRefunded(string indexed _name, address indexed bidder, uint256 indexed amount);
-    event BidIncreased(string indexed _name, address indexed bidder, uint256 indexed amount);
-    event BidReduced(string indexed _name, address indexed bidder, uint256 indexed amount);
-    event BidRevoked(string indexed _name, address indexed bidder, uint256 indexed amount);
 
     uint256 internal constant BID_TIMELOCK = 30 days;
 
@@ -60,7 +37,7 @@ contract NameManager {
     mapping(address wallet => bytes32 walletName) public reverseLookup;
 
     /// @notice Data required for proper harberger tax calculation when pokeName() is called
-    mapping(bytes32 name => ClusterData.PriceIntegral integral) public priceIntegral;
+    mapping(bytes32 name => IClusters.PriceIntegral integral) public priceIntegral;
 
     /// @notice Amount of eth that's transferred from ethBacking to the protocol
     uint256 public protocolRevenue;
@@ -69,7 +46,7 @@ contract NameManager {
     mapping(bytes32 name => uint256 amount) public ethBacking;
 
     /// @notice Bid info storage, all bidIds are incremental and are not sorted by name
-    mapping(bytes32 name => ClusterData.Bid bidData) public bids;
+    mapping(bytes32 name => IClusters.Bid bidData) public bids;
 
     /// @notice Failed bid refunds are pooled so we don't have to revert when the highest bid is outbid
     mapping(address bidder => uint256 refund) public bidRefunds;
@@ -102,7 +79,7 @@ contract NameManager {
 
     /// @notice Get Bid struct from storage
     /// @return bid Bid struct
-    function getBid(bytes32 name) external view returns (ClusterData.Bid memory bid) {
+    function getBid(bytes32 name) external view returns (IClusters.Bid memory bid) {
         return bids[name];
     }
 
@@ -120,7 +97,7 @@ contract NameManager {
         unchecked {
             ethBacking[name] += msg.value;
         }
-        priceIntegral[name] = ClusterData.PriceIntegral({
+        priceIntegral[name] = IClusters.PriceIntegral({
             name: name,
             lastUpdatedTimestamp: block.timestamp,
             lastUpdatedPrice: pricing.minAnnualPrice(),
@@ -177,7 +154,7 @@ contract NameManager {
         bytes32 name = _toBytes32(_name);
         if (name == bytes32("")) revert Invalid();
         if (nameLookup[name] == 0) revert Unregistered();
-        ClusterData.PriceIntegral memory integral = priceIntegral[name];
+        IClusters.PriceIntegral memory integral = priceIntegral[name];
         (uint256 spent, uint256 newPrice) = pricing.getIntegratedPrice(
             integral.lastUpdatedPrice,
             block.timestamp - integral.lastUpdatedTimestamp,
@@ -208,7 +185,7 @@ contract NameManager {
                 protocolRevenue += spent;
                 ethBacking[name] -= spent;
             }
-            priceIntegral[name] = ClusterData.PriceIntegral({
+            priceIntegral[name] = IClusters.PriceIntegral({
                 name: name,
                 lastUpdatedTimestamp: block.timestamp,
                 lastUpdatedPrice: newPrice,
@@ -250,7 +227,7 @@ contract NameManager {
         // Process new highest bid
         else {
             // Overwrite previous bid
-            bids[name] = ClusterData.Bid(msg.value, block.timestamp, msg.sender);
+            bids[name] = IClusters.Bid(msg.value, block.timestamp, msg.sender);
             emit BidPlaced(_name, msg.sender, msg.value);
             // Process bid refund if there is one. Store balance for recipient if transfer fails instead of reverting.
             if (prevBid > 0) {

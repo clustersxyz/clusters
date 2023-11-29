@@ -189,7 +189,7 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        vm.expectRevert(NameManager.Registered.selector);
+        vm.expectRevert(IClusters.Registered.selector);
         clusters.create();
         vm.stopPrank();
     }
@@ -220,7 +220,7 @@ contract ClustersTest is Test {
         address addr = _bytesToAddress(_addrSalt);
 
         vm.prank(caller);
-        vm.expectRevert(NameManager.NoCluster.selector);
+        vm.expectRevert(IClusters.NoCluster.selector);
         clusters.add(addr);
     }
 
@@ -237,7 +237,7 @@ contract ClustersTest is Test {
         clusters.create();
 
         vm.prank(caller);
-        vm.expectRevert(NameManager.Registered.selector);
+        vm.expectRevert(IClusters.Registered.selector);
         clusters.add(addr);
     }
 
@@ -273,7 +273,7 @@ contract ClustersTest is Test {
 
         vm.startPrank(PRANKED_ADDRESS);
         clusters.create();
-        vm.expectRevert(NameManager.Unauthorized.selector);
+        vm.expectRevert(IClusters.Unauthorized.selector);
         clusters.remove(addr);
         vm.stopPrank();
     }
@@ -290,7 +290,7 @@ contract ClustersTest is Test {
         vm.stopPrank();
 
         vm.prank(PRANKED_ADDRESS);
-        vm.expectRevert(NameManager.NoCluster.selector);
+        vm.expectRevert(IClusters.NoCluster.selector);
         clusters.remove(addr);
     }
 
@@ -327,7 +327,7 @@ contract ClustersTest is Test {
         vm.stopPrank();
 
         vm.prank(PRANKED_ADDRESS);
-        vm.expectRevert(NameManager.NoCluster.selector);
+        vm.expectRevert(IClusters.NoCluster.selector);
         clusters.leave();
     }
 
@@ -341,13 +341,13 @@ contract ClustersTest is Test {
         vm.startPrank(caller);
         clusters.create();
         clusters.buyName{value: _buyAmount}("Test String");
-        vm.expectRevert(NameManager.Invalid.selector);
+        vm.expectRevert(IClusters.Invalid.selector);
         clusters.leave();
         vm.stopPrank();
     }
 
     /*\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\
-                NameManager.sol
+                IClusters.sol
     \\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\*/
 
     function buyName() public {
@@ -422,7 +422,7 @@ contract ClustersTest is Test {
         vm.deal(caller, minPrice);
 
         vm.prank(caller);
-        vm.expectRevert(NameManager.NoCluster.selector);
+        vm.expectRevert(IClusters.NoCluster.selector);
         clusters.buyName{value: minPrice}(_string);
     }
 
@@ -433,7 +433,7 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        vm.expectRevert(NameManager.Invalid.selector);
+        vm.expectRevert(IClusters.Invalid.selector);
         clusters.buyName{value: minPrice}("");
         vm.stopPrank();
     }
@@ -446,7 +446,7 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        vm.expectRevert(NameManager.Invalid.selector);
+        vm.expectRevert(IClusters.Invalid.selector);
         clusters.buyName{value: minPrice}(_name);
         vm.stopPrank();
     }
@@ -461,7 +461,7 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        vm.expectRevert(NameManager.Insufficient.selector);
+        vm.expectRevert(IClusters.Insufficient.selector);
         clusters.buyName{value: _buyAmount}(_string);
         vm.stopPrank();
     }
@@ -477,7 +477,7 @@ contract ClustersTest is Test {
         vm.startPrank(caller);
         clusters.create();
         clusters.buyName{value: _buyAmount}(_string);
-        vm.expectRevert(NameManager.Registered.selector);
+        vm.expectRevert(IClusters.Registered.selector);
         clusters.buyName{value: _buyAmount}(_string);
         vm.stopPrank();
     }
@@ -532,7 +532,7 @@ contract ClustersTest is Test {
         vm.stopPrank();
 
         vm.prank(addr);
-        vm.expectRevert(NameManager.NoCluster.selector);
+        vm.expectRevert(IClusters.NoCluster.selector);
         clusters.transferName(_string, 2);
     }
 
@@ -559,7 +559,7 @@ contract ClustersTest is Test {
 
         vm.startPrank(addr);
         clusters.create();
-        vm.expectRevert(NameManager.Unauthorized.selector);
+        vm.expectRevert(IClusters.Unauthorized.selector);
         clusters.transferName(_string, 2);
         vm.stopPrank();
     }
@@ -572,7 +572,7 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        vm.expectRevert(NameManager.Invalid.selector);
+        vm.expectRevert(IClusters.Invalid.selector);
         clusters.buyName{value: _buyAmount}("");
         vm.stopPrank();
     }
@@ -594,7 +594,7 @@ contract ClustersTest is Test {
         vm.startPrank(caller);
         clusters.create();
         clusters.buyName{value: _buyAmount}(_string);
-        vm.expectRevert(NameManager.Unregistered.selector);
+        vm.expectRevert(IClusters.Unregistered.selector);
         clusters.transferName(_string, _toClusterId);
         vm.stopPrank();
     }
@@ -681,7 +681,7 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        vm.expectRevert(NameManager.Invalid.selector);
+        vm.expectRevert(IClusters.Invalid.selector);
         clusters.pokeName("");
         vm.stopPrank();
     }
@@ -694,7 +694,7 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        vm.expectRevert(NameManager.Unregistered.selector);
+        vm.expectRevert(IClusters.Unregistered.selector);
         clusters.pokeName(_string);
         vm.stopPrank();
     }
@@ -779,7 +779,7 @@ contract ClustersTest is Test {
         vm.stopPrank();
 
         vm.prank(addr);
-        vm.expectRevert(NameManager.NoCluster.selector);
+        vm.expectRevert(IClusters.NoCluster.selector);
         clusters.bidName{value: _bidAmount}(_string);
     }
 
@@ -791,7 +791,7 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        vm.expectRevert(NameManager.Invalid.selector);
+        vm.expectRevert(IClusters.Invalid.selector);
         clusters.bidName{value: _buyAmount}("");
         vm.stopPrank();
     }
@@ -814,7 +814,7 @@ contract ClustersTest is Test {
 
         vm.startPrank(addr);
         clusters.create();
-        vm.expectRevert(NameManager.NoBid.selector);
+        vm.expectRevert(IClusters.NoBid.selector);
         clusters.bidName{value: 0}(_string);
     }
 
@@ -828,7 +828,7 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        vm.expectRevert(NameManager.Unregistered.selector);
+        vm.expectRevert(IClusters.Unregistered.selector);
         clusters.bidName{value: _bidAmount}(_string);
         vm.stopPrank();
     }
@@ -847,7 +847,7 @@ contract ClustersTest is Test {
         vm.startPrank(caller);
         clusters.create();
         clusters.buyName{value: _buyAmount}(_string);
-        vm.expectRevert(NameManager.SelfBid.selector);
+        vm.expectRevert(IClusters.SelfBid.selector);
         clusters.bidName{value: _bidAmount}(_string);
         vm.stopPrank();
     }
@@ -880,7 +880,7 @@ contract ClustersTest is Test {
 
         vm.startPrank(addr);
         clusters.create();
-        vm.expectRevert(NameManager.Insufficient.selector);
+        vm.expectRevert(IClusters.Insufficient.selector);
         clusters.bidName{value: minPrice - 1}(_string);
         vm.stopPrank();
 
@@ -896,7 +896,7 @@ contract ClustersTest is Test {
         require(address(clusters).balance == _buyAmount + _bidAmount, "contract balance issue");
 
         vm.prank(addr);
-        vm.expectRevert(NameManager.Insufficient.selector);
+        vm.expectRevert(IClusters.Insufficient.selector);
         clusters.bidName{value: minPrice + 1}(_string);
     }
 
@@ -1093,7 +1093,7 @@ contract ClustersTest is Test {
         vm.stopPrank();
 
         vm.prank(PRANKED_ADDRESS);
-        vm.expectRevert(NameManager.Unauthorized.selector);
+        vm.expectRevert(IClusters.Unauthorized.selector);
         clusters.reduceBid(_string, _bidDecrease);
     }
 
@@ -1130,7 +1130,7 @@ contract ClustersTest is Test {
         clusters.bidName{value: _bidAmount}(_string);
 
         vm.warp(block.timestamp + _timeSkew);
-        vm.expectRevert(NameManager.Timelock.selector);
+        vm.expectRevert(IClusters.Timelock.selector);
         clusters.reduceBid(_string, _bidDecrease);
         vm.stopPrank();
     }
@@ -1171,9 +1171,9 @@ contract ClustersTest is Test {
         clusters.bidName{value: _bidAmount}(_string);
 
         vm.warp(block.timestamp + _timeSkew);
-        vm.expectRevert(NameManager.Insufficient.selector);
+        vm.expectRevert(IClusters.Insufficient.selector);
         clusters.reduceBid(_string, _bidDecrease);
-        vm.expectRevert(NameManager.Insufficient.selector);
+        vm.expectRevert(IClusters.Insufficient.selector);
         clusters.reduceBid(_string, _bidAmount - 1);
         vm.stopPrank();
     }
@@ -1389,7 +1389,7 @@ contract ClustersTest is Test {
 
         vm.startPrank(addr);
         clusters.create();
-        vm.expectRevert(NameManager.Unauthorized.selector);
+        vm.expectRevert(IClusters.Unauthorized.selector);
         clusters.setCanonicalName(_string);
         vm.stopPrank();
     }
@@ -1416,7 +1416,7 @@ contract ClustersTest is Test {
         vm.stopPrank();
 
         vm.prank(addr);
-        vm.expectRevert(NameManager.NoCluster.selector);
+        vm.expectRevert(IClusters.NoCluster.selector);
         clusters.setCanonicalName(_string);
     }
 
@@ -1434,7 +1434,7 @@ contract ClustersTest is Test {
 
         require(clusters.addressLookup(caller) == 1, "clusterId error");
         require(clusters.forwardLookup(1, name) == caller, "forwardLookup error");
-        require(clusters.reverseLookup(caller) == name, "reverseLookup error");
+        require(clusters.reverseLookup(caller) == _name, "reverseLookup error");
     }
 
     function testSetWalletNameOther(bytes32 _callerSalt, bytes32 _addrSalt, bytes32 _name) public {
@@ -1457,7 +1457,7 @@ contract ClustersTest is Test {
 
         require(clusters.addressLookup(addr) == 1, "clusterId error");
         require(clusters.forwardLookup(1, name) == addr, "forwardLookup error");
-        require(clusters.reverseLookup(addr) == name, "reverseLookup error");
+        require(clusters.reverseLookup(addr) == _name, "reverseLookup error");
     }
 
     function testSetWalletNameDelete(bytes32 _callerSalt, bytes32 _name) public {

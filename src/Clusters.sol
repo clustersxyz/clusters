@@ -24,14 +24,12 @@ import {IClusters} from "./IClusters.sol";
 // returns 0)
 // What does the empty foobar/ resolver point to? CREATE2 Singlesig?
 
-contract Clusters is NameManager, IClusters {
+contract Clusters is NameManager {
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
     /// @dev Enumerate all addresses in a cluster
     mapping(uint256 clusterId => EnumerableSet.AddressSet addrs) internal _clusterAddresses;
-
-    error MulticallFailed();
 
     constructor(address _pricing) NameManager(_pricing) {}
 
