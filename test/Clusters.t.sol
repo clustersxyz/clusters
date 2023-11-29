@@ -1184,7 +1184,7 @@ contract ClustersTest is Test {
         string memory _string = _toString(_removePadding(_name));
         _buyAmount = bound(_buyAmount, minPrice, 10 ether);
         _bidAmount = bound(_bidAmount, minPrice * 2, 10 ether);
-        _bidDecrease = bound(_bidDecrease, _bidAmount + 1, 20 ether);
+        _bidDecrease = bound(_bidDecrease, _bidAmount - minPrice + 1, _bidAmount - 1);
         _timeSkew = bound(_timeSkew, 30 days + 1, 24 weeks);
         vm.deal(caller, _buyAmount);
         vm.deal(addr, _bidAmount);
@@ -1201,8 +1201,6 @@ contract ClustersTest is Test {
         vm.warp(block.timestamp + _timeSkew);
         vm.expectRevert(NameManager.Insufficient.selector);
         clusters.reduceBid(_string, _bidDecrease);
-        vm.expectRevert(NameManager.Insufficient.selector);
-        clusters.reduceBid(_string, _bidAmount - 1);
         vm.stopPrank();
     }
 
@@ -1284,6 +1282,52 @@ contract ClustersTest is Test {
 
         vm.warp(block.timestamp + _timeSkew);
         clusters.reduceBid(_string, _bidAmount);
+        vm.stopPrank();
+
+        require(address(addr).balance == balance + _bidAmount, "bid refund balance error");
+        require(address(clusters).balance == _buyAmount, "contract balance issue");
+        ClusterData.Bid memory bid = clusters.getBid(name);
+        require(bid.ethAmount == 0, "bid ethAmount not purged");
+        require(bid.createdTimestamp == 0, "bid createdTimestamp not purged");
+        require(bid.bidder == address(0), "bid bidder not purged");
+    }
+
+    function testReduceBidExceedsBid(
+        bytes32 _callerSalt,
+        bytes32 _addrSalt,
+        bytes32 _name,
+        uint256 _buyAmount,
+        uint256 _bidAmount,
+        uint256 _bidDecrease,
+        uint256 _timeSkew
+    ) public {
+        vm.assume(_callerSalt != bytes32(""));
+        vm.assume(_addrSalt != bytes32(""));
+        vm.assume(_callerSalt != _addrSalt);
+        vm.assume(_name != bytes32(""));
+        address caller = _bytesToAddress(_callerSalt);
+        address addr = _bytesToAddress(_addrSalt);
+        string memory _string = _toString(_removePadding(_name));
+        bytes32 name = _toBytes32(_string);
+        _buyAmount = bound(_buyAmount, minPrice, 10 ether);
+        _bidAmount = bound(_bidAmount, minPrice, 10 ether);
+        _bidDecrease = bound(_bidDecrease, _bidAmount + 1, type(uint256).max);
+        _timeSkew = bound(_timeSkew, 30 days + 1, 24 weeks);
+        vm.deal(caller, _buyAmount);
+        vm.deal(addr, _bidAmount);
+
+        vm.startPrank(caller);
+        clusters.create();
+        clusters.buyName{value: _buyAmount}(_string, 1);
+        vm.stopPrank();
+
+        vm.startPrank(addr);
+        clusters.create();
+        clusters.bidName{value: _bidAmount}(_string);
+        uint256 balance = address(addr).balance;
+
+        vm.warp(block.timestamp + _timeSkew);
+        clusters.reduceBid(_string, _bidDecrease);
         vm.stopPrank();
 
         require(address(addr).balance == balance + _bidAmount, "bid refund balance error");

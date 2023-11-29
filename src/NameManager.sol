@@ -116,9 +116,7 @@ contract NameManager {
         if (nameLookup[name] != 0) revert Registered();
         if (msg.value < pricing.minAnnualPrice()) revert Insufficient();
         // Process price accounting updates
-        unchecked {
-            ethBacking[name] += msg.value;
-        }
+        ethBacking[name] += msg.value;
         priceIntegral[name] = ClusterData.PriceIntegral({
             name: name,
             lastUpdatedTimestamp: block.timestamp,
@@ -134,9 +132,7 @@ contract NameManager {
         bytes32 name = _toBytes32(_name);
         if (name == bytes32("")) revert Invalid();
         if (nameLookup[name] == 0) revert Unregistered();
-        unchecked {
-            ethBacking[name] += msg.value;
-        }
+        ethBacking[name] += msg.value;
         emit FundName(_name, msg.sender, msg.value);
     }
 
@@ -189,28 +185,21 @@ contract NameManager {
         uint256 backing = ethBacking[name];
         if (spent >= backing) {
             delete ethBacking[name];
-            unchecked {
-                protocolRevenue += backing;
-            }
+            protocolRevenue += backing;
             // If there is a valid bid, transfer to the bidder
             address bidder;
             uint256 bid = bids[name].ethAmount;
             if (bid > 0) {
                 bidder = bids[name].bidder;
-                unchecked {
-                    ethBacking[name] += bid;
-                }
+                ethBacking[name] += bid;
                 delete bids[name];
             }
             // If there isn't a highest bidder, name will expire and be deleted as bidder is address(0)
             _transferName(name, nameLookup[name], addressLookup[bidder]);
         } else {
-            // Process price data update
-            unchecked {
-                protocolRevenue += spent;
-                ethBacking[name] -= spent;
-                backing -= spent; // Backing is adjusted to use it in maxExpiry calculation instead of reading storage
-            }
+            protocolRevenue += spent;
+            ethBacking[name] -= spent;
+            backing -= spent; // Backing is adjusted to use it in maxExpiry calculation instead of reading storage
             priceIntegral[name] = ClusterData.PriceIntegral({
                 name: name,
                 lastUpdatedTimestamp: block.timestamp,
@@ -244,9 +233,7 @@ contract NameManager {
         }
         // If the caller is the highest bidder, increase their bid and reset the timestamp
         else if (prevBidder == msg.sender) {
-            unchecked {
-                bids[name].ethAmount += msg.value;
-            }
+            bids[name].ethAmount += msg.value;
             // TODO: Determine which way is best to handle bid update timestamps
             // bids[name].createdTimestamp = block.timestamp;
             emit BidIncreased(_name, msg.sender, prevBid + msg.value);
@@ -275,41 +262,31 @@ contract NameManager {
         if (bids[name].bidder != msg.sender) revert Unauthorized();
         // Prevent reducing or revoking a bid before the bid timelock is up
         if (block.timestamp < bids[name].createdTimestamp + BID_TIMELOCK) revert Timelock();
+        // Overwrite amount with total bid in assumption caller is revoking bid
+        if (_amount > bid) _amount = bid;
 
         // Poke name to update backing and ownership (if required) prior to bid adjustment
         pokeName(_name);
-
         // Short circuit if pokeName() processed transfer to bidder due to name expiry
         if (bids[name].ethAmount == 0) return;
 
-        // Calculate difference in unchecked block to allow underflow when using type(uint256).max
-        uint256 diff;
-        unchecked {
-            diff = bid - _amount;
-        }
-
-        // Revert if _amount is larger than the bid but isn't the max
-        // Bypassing this check for the max value eliminates the need for the frontend or bidder to find their bid prior
-        if (_amount > bid && _amount != type(uint256).max) revert Insufficient();
-        // Also revert if bid is reduced beneath minimum annual price
+        // Revert if reduction will push bid beneath minAnnualPrice
+        uint256 diff = bid - _amount;
         if (diff != 0 && diff < pricing.minAnnualPrice()) revert Insufficient();
 
         // If reducing bid to 0 or by maximum uint256 value, revoke altogether
-        if (diff == 0 || _amount == type(uint256).max) {
+        if (diff == 0) {
             delete bids[name];
             emit BidRevoked(_name, msg.sender, bid);
         }
         // Otherwise, decrease bid and update timestamp
         else {
-            unchecked {
-                bids[name].ethAmount -= _amount;
-            }
+            bids[name].ethAmount -= _amount;
             // TODO: Determine which way is best to handle bid update timestamps
             // bids[name].createdTimestamp = block.timestamp;
             emit BidReduced(_name, msg.sender, _amount);
         }
-        // Overwrite type(uint256).max with bid so transfer doesn't fail
-        if (_amount == type(uint256).max) _amount = bid;
+        
         // Transfer bid reduction after all state is purged to prevent reentrancy
         // This bid refund reverts upon failure because it isn't happening in a forced context such as being outbid
         (bool success,) = payable(msg.sender).call{value: _amount}("");
