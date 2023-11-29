@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import "./libraries/ClusterData.sol";
-
 interface IClusters {
     /// ERRORS ///
 
@@ -33,6 +31,22 @@ interface IClusters {
     event BidReduced(string indexed _name, address indexed bidder, uint256 indexed amount);
     event BidRevoked(string indexed _name, address indexed bidder, uint256 indexed amount);
 
+    /// STRUCTS ///
+
+    struct PriceIntegral {
+        bytes32 name;
+        uint256 lastUpdatedTimestamp;
+        uint256 lastUpdatedPrice;
+        uint256 maxExpiry;
+    }
+
+    /// @notice All relevant information for an individual bid
+    struct Bid {
+        uint256 ethAmount;
+        uint256 createdTimestamp;
+        address bidder;
+    }
+
     /// STORAGE / VIEW FUNCTIONS ///
 
     function nextClusterId() external view returns (uint256 clusterId);
@@ -53,7 +67,7 @@ interface IClusters {
 
     function clusterAddresses(uint256 _clusterId) external view returns (address[] memory addresses);
     function getClusterNames(uint256 _clusterId) external view returns (bytes32[] memory names);
-    function getBid(bytes32 _name) external view returns (ClusterData.Bid memory bid);
+    function getBid(bytes32 _name) external view returns (Bid memory bid);
 
     /// EXTERNAL FUNCTIONS ///
 
