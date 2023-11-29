@@ -5,6 +5,8 @@ import {EnumerableSet} from "openzeppelin/contracts/utils/structs/EnumerableSet.
 
 import {NameManager} from "./NameManager.sol";
 
+import {IClusters} from "./IClusters.sol";
+
 // Can a cluster have multiple names? (yes) Can it not have a name? (yes)
 // Where do we store expiries (we dont, do we need to?) and how do we clear state? (pokeName() wipes state before
 // transferring or expiring)
@@ -28,8 +30,6 @@ contract Clusters is NameManager {
 
     /// @dev Enumerate all addresses in a cluster
     mapping(uint256 clusterId => EnumerableSet.AddressSet addrs) internal _clusterAddresses;
-
-    error MulticallFailed();
 
     constructor(address _pricing) NameManager(_pricing) {}
 
