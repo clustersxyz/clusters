@@ -1135,8 +1135,41 @@ contract ClustersTest is Test {
         vm.stopPrank();
     }
 
-    // TODO: Test once acceptBid is implemented
-    //function testReduceBidRevertNoBid
+    /* Should reduceBid revert if the name expires beforehand?
+    function testReduceBidRevertNoBid(
+        bytes32 _callerSalt,
+        bytes32 _addrSalt,
+        bytes32 _name,
+        uint256 _buyAmount,
+        uint256 _bidAmount,
+        uint256 _timeSkew
+    ) public {
+        vm.assume(_callerSalt != bytes32(""));
+        vm.assume(_addrSalt != bytes32(""));
+        vm.assume(_callerSalt != _addrSalt);
+        vm.assume(_name != bytes32(""));
+        address caller = _bytesToAddress(_callerSalt);
+        address addr = _bytesToAddress(_addrSalt);
+        string memory _string = _toString(_removePadding(_name));
+        _buyAmount = bound(_buyAmount, minPrice, minPrice * 2);
+        _bidAmount = bound(_bidAmount, minPrice * 2, 10 ether);
+        _timeSkew = bound(_timeSkew, 57 weeks, 130 weeks);
+        vm.deal(caller, _buyAmount);
+        vm.deal(addr, _bidAmount);
+
+        vm.startPrank(caller);
+        clusters.create();
+        clusters.buyName{value: _buyAmount}(_string, 1);
+        vm.stopPrank();
+
+        vm.startPrank(addr);
+        clusters.create();
+        clusters.bidName{value: _bidAmount}(_string);
+
+        vm.warp(block.timestamp + _timeSkew);
+        vm.expectRevert(NameManager.NoBid.selector);
+        clusters.reduceBid(_string, minPrice);
+    }*/
 
     function testReduceBidRevertInsufficient(
         bytes32 _callerSalt,

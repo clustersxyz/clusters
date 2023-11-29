@@ -143,9 +143,12 @@ contract NameManager {
     /// @notice Move name from one cluster to another without payment
     function transferName(string memory _name, uint256 toClusterId) external checkPrivileges(_name) {
         bytes32 name = _toBytes32(_name);
+        uint256 currentCluster = addressLookup[msg.sender];
         if (name == bytes32("")) revert Invalid();
         if (toClusterId >= nextClusterId) revert Unregistered();
-        uint256 currentCluster = addressLookup[msg.sender];
+        pokeName(_name);
+        // If name transfers after poke, short circuit transfer
+        if (nameLookup[name] != currentCluster) return;
         _transferName(name, currentCluster, toClusterId);
     }
 
@@ -313,7 +316,18 @@ contract NameManager {
         if (!success) revert NativeTokenTransferFailed();
     }
 
-    // TODO: acceptBid()
+    /// @notice Accept bid and transfer name to bidder
+    /// @dev Retrieves bid, adjusts state, then sends payment to avoid reentrancy
+    function acceptBid(string memory _name) external checkPrivileges(_name) returns (uint256 bidAmount) {
+        bytes32 name = _toBytes32(_name);
+        ClusterData.Bid memory bid = bids[name];
+        if (bid.ethAmount == 0) revert NoBid();
+        delete bids[name];
+        _transferName(name, nameLookup[name], addressLookup[bid.bidder]);
+        (bool success,) = payable(msg.sender).call{value: bid.ethAmount}("");
+        if (!success) revert NativeTokenTransferFailed();
+        return bid.ethAmount;
+    }
 
     /// @notice Allow failed bid refunds to be withdrawn
     function refundBid() external {
