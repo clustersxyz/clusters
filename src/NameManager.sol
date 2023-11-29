@@ -286,7 +286,7 @@ contract NameManager {
             // bids[name].createdTimestamp = block.timestamp;
             emit BidReduced(_name, msg.sender, _amount);
         }
-        
+
         // Transfer bid reduction after all state is purged to prevent reentrancy
         // This bid refund reverts upon failure because it isn't happening in a forced context such as being outbid
         (bool success,) = payable(msg.sender).call{value: _amount}("");
