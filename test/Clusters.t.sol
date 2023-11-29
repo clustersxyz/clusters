@@ -189,7 +189,7 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        vm.expectRevert(NameManager.Registered.selector);
+        vm.expectRevert(Clusters.AlreadyInCluster.selector);
         clusters.create();
         vm.stopPrank();
     }
@@ -237,7 +237,7 @@ contract ClustersTest is Test {
         clusters.create();
 
         vm.prank(caller);
-        vm.expectRevert(NameManager.Registered.selector);
+        vm.expectRevert(Clusters.AlreadyInCluster.selector);
         clusters.add(addr);
     }
 
@@ -273,7 +273,7 @@ contract ClustersTest is Test {
 
         vm.startPrank(PRANKED_ADDRESS);
         clusters.create();
-        vm.expectRevert(NameManager.Unauthorized.selector);
+        vm.expectRevert(Clusters.NotInSameCluster.selector);
         clusters.remove(addr);
         vm.stopPrank();
     }

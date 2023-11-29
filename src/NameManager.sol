@@ -42,7 +42,7 @@ contract NameManager {
     uint256 public nextClusterId = 1;
 
     /// @notice Which cluster an address belongs to
-    mapping(address addr => uint256 clusterId) public addressLookup;
+    mapping(bytes32 addr => uint256 clusterId) public addressLookup;
 
     /// @notice Which cluster a name belongs to
     mapping(bytes32 name => uint256 clusterId) public nameLookup;
@@ -57,7 +57,7 @@ contract NameManager {
     mapping(uint256 clusterId => mapping(bytes32 walletName => address wallet)) public forwardLookup;
 
     /// @notice For example lookup[0x123...] -> "hot", then combine with cluster name in a diff method
-    mapping(address wallet => bytes32 walletName) public reverseLookup;
+    mapping(bytes32 wallet => bytes32 walletName) public reverseLookup;
 
     /// @notice Data required for proper harberger tax calculation when pokeName() is called
     mapping(bytes32 name => ClusterData.PriceIntegral integral) public priceIntegral;

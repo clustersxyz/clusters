@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {EnumerableSet} from "openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import {EnumerableSet} from "../lib/openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 
 import {NameManager} from "./NameManager.sol";
+
+import {IClusters} from "./IClusters.sol";
 
 // Can a cluster have multiple names? (yes) Can it not have a name? (yes)
 // Where do we store expiries (we dont, do we need to?) and how do we clear state? (pokeName() wipes state before
@@ -22,13 +24,19 @@ import {NameManager} from "./NameManager.sol";
 // returns 0)
 // What does the empty foobar/ resolver point to? CREATE2 Singlesig?
 
-contract Clusters is NameManager {
+contract Clusters is NameManager, IClusters {
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
     /// @dev Enumerate all addresses in a cluster
-    mapping(uint256 clusterId => EnumerableSet.AddressSet addrs) internal _clusterAddresses;
+    /// @dev Ethereum addresses are 20 bytes, Solana addresses are base58-encoded 32 bytes, Bitcoin addresses start with '1', '3', or 'bc1'
+    // mapping(uint256 clusterId => EnumerableSet.AddressSet addrs) internal _clusterAddresses;
 
+    /// @dev Enumerate all crosschain addresses in a cluster
+    mapping(uint256 clusterId => EnumerableSet.Bytes32Set addrs) internal _clusterAddressesGeneralized;
+
+    error AlreadyInCluster();
+    error NotInSameCluster();
     error MulticallFailed();
 
     constructor(address _pricing) NameManager(_pricing) {}
@@ -51,41 +59,47 @@ contract Clusters is NameManager {
     /// PUBLIC FUNCTIONS ///
 
     function create() external {
-        _add(msg.sender, nextClusterId++);
+        _add(_toBytes32(msg.sender), nextClusterId++);
     }
 
-    function add(address _addr) external checkPrivileges("") {
-        if (addressLookup[_addr] != 0) revert Registered();
-        _add(_addr, addressLookup[msg.sender]);
+    function add(bytes32 _addr) external checkPrivileges("") {
+        _add(_addr, addressLookup[_toBytes32(msg.sender)]);
     }
 
-    function remove(address _addr) external checkPrivileges("") {
-        if (msg.sender != _addr && addressLookup[msg.sender] != addressLookup[_addr]) revert Unauthorized();
+    function remove(bytes32 _addr) external checkPrivileges("") {
+        bytes32 _msgSenderBytes = _toBytes32(msg.sender);
+        if (_msgSenderBytes != _addr && addressLookup[_msgSenderBytes] != addressLookup[_addr]) revert NotInSameCluster();
         _remove(_addr);
     }
 
-    function clusterAddresses(uint256 _clusterId) external view returns (address[] memory) {
-        return _clusterAddresses[_clusterId].values();
+    function clusterAddresses(uint256 _clusterId) external view returns (bytes32[] memory) {
+        return _clusterAddressesGeneralized[_clusterId].values();
     }
 
     /// INTERNAL FUNCTIONS ///
 
-    function _add(address _addr, uint256 clusterId) internal {
-        if (addressLookup[_addr] != 0) revert Registered();
+    function _add(bytes32 _addr, uint256 clusterId) internal {
+        if (addressLookup[_addr] != 0) revert AlreadyInCluster();
         addressLookup[_addr] = clusterId;
-        _clusterAddresses[clusterId].add(_addr);
+        // _clusterAddresses[clusterId].add(_addr);
+        _clusterAddressesGeneralized[clusterId].add(_addr);
     }
 
-    function _remove(address _addr) internal {
+    function _remove(bytes32 _addr) internal {
         uint256 clusterId = addressLookup[_addr];
         // If the cluster has valid names, prevent removing final address, regardless of what is supplied for _addr
-        if (_clusterNames[clusterId].length() > 0 && _clusterAddresses[clusterId].length() == 1) revert Invalid();
+        if (_clusterNames[clusterId].length() > 0 && _clusterAddressesGeneralized[clusterId].length() == 1) revert Invalid();
         delete addressLookup[_addr];
-        _clusterAddresses[clusterId].remove(_addr);
+        // _clusterAddresses[clusterId].remove(_addr);
+        _clusterAddressesGeneralized[clusterId].remove(_addr);
         bytes32 walletName = reverseLookup[_addr];
         if (walletName != bytes32("")) {
             delete forwardLookup[clusterId][walletName];
             delete reverseLookup[_addr];
         }
+    }
+
+    function _toBytes32(address _addr) internal pure returns (bytes32) {
+        return bytes32(uint256(uint160(_addr)));
     }
 }
