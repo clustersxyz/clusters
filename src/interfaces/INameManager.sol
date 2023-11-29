@@ -40,8 +40,11 @@ interface INameManager {
     function canonicalClusterName(uint256 _clusterId) external view returns (bytes32 name);
     function forwardLookup(uint256 _clusterId, bytes32 _walletName) external view returns (address wallet);
     function reverseLookup(address _wallet) external view returns (address walletName);
-    
-    function priceIntegral(bytes32 _name) external view returns (bytes32 name, uint256 lastUpdatedTimestamp, uint256 lastUpdatedPrice, uint256 maxExpiry);
+
+    function priceIntegral(bytes32 _name)
+        external
+        view
+        returns (bytes32 name, uint256 lastUpdatedTimestamp, uint256 lastUpdatedPrice, uint256 maxExpiry);
     function protocolRevenue() external view returns (uint256 revenue);
     function ethBacking(bytes32 _name) external view returns (uint256 ethAmount);
     function bids(bytes32 _name) external view returns (uint256 ethAmount, uint256 createdTimestamp, address bidder);
