@@ -60,12 +60,8 @@ contract Clusters is NameManager {
     }
 
     function remove(address _addr) external checkPrivileges("") {
-        if (addressLookup[msg.sender] != addressLookup[_addr]) revert Unauthorized();
+        if (msg.sender != _addr && addressLookup[msg.sender] != addressLookup[_addr]) revert Unauthorized();
         _remove(_addr);
-    }
-
-    function leave() external checkPrivileges("") {
-        _remove(msg.sender);
     }
 
     function clusterAddresses(uint256 _clusterId) external view returns (address[] memory) {
