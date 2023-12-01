@@ -322,8 +322,9 @@ contract ClustersTest is Test {
         clusters.leave();
     }
 
-    function testLeaveClusterRevertInvalid(bytes32 _callerSalt, bytes32 _name, uint256 _buyAmount) public {
-        vm.assume(_name != bytes32(""));
+    function testLeaveClusterRevertInvalid(bytes32 _callerSalt, string memory _name, uint256 _buyAmount) public {
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
         address caller = _bytesToAddress(_callerSalt);
         _buyAmount = bound(_buyAmount, minPrice, 10 ether);
         vm.deal(caller, _buyAmount);
@@ -340,17 +341,17 @@ contract ClustersTest is Test {
                 IClusters.sol
     \\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\*/
 
-    function testBuyName(bytes32 _callerSalt, bytes32 _name, uint256 _buyAmount) public {
-        vm.assume(_name != bytes32(""));
+    function testBuyName(bytes32 _callerSalt, string memory _name, uint256 _buyAmount) public {
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
         address caller = _bytesToAddress(_callerSalt);
-        string memory _string = _toString(_removePadding(_name));
-        bytes32 name = _toBytes32(_string);
+        bytes32 name = _toBytes32(_name);
         _buyAmount = bound(_buyAmount, minPrice, 10 ether);
         vm.deal(caller, _buyAmount);
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: _buyAmount}(_string);
+        clusters.buyName{value: _buyAmount}(_name);
         vm.stopPrank();
 
         bytes32[] memory names = clusters.getClusterNames(1);
@@ -361,15 +362,15 @@ contract ClustersTest is Test {
         require(address(clusters).balance == _buyAmount, "contract balance issue");
     }
 
-    function testBuyNameRevertNoCluster(bytes32 _callerSalt, bytes32 _name) public {
-        vm.assume(_name != bytes32(""));
+    function testBuyNameRevertNoCluster(bytes32 _callerSalt, string memory _name) public {
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
         address caller = _bytesToAddress(_callerSalt);
-        string memory _string = _toString(_removePadding(_name));
         vm.deal(caller, minPrice);
 
         vm.prank(caller);
         vm.expectRevert(IClusters.NoCluster.selector);
-        clusters.buyName{value: minPrice}(_string);
+        clusters.buyName{value: minPrice}(_name);
     }
 
     function testBuyNameRevertInvalid(bytes32 _callerSalt) public {
@@ -395,55 +396,55 @@ contract ClustersTest is Test {
         vm.stopPrank();
     }
 
-    function testBuyNameRevertInsufficient(bytes32 _callerSalt, bytes32 _name, uint256 _buyAmount) public {
-        vm.assume(_name != bytes32(""));
+    function testBuyNameRevertInsufficient(bytes32 _callerSalt, string memory _name, uint256 _buyAmount) public {
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
         address caller = _bytesToAddress(_callerSalt);
-        string memory _string = _toString(_removePadding(_name));
         _buyAmount = bound(_buyAmount, 0, minPrice - 1);
         vm.deal(caller, _buyAmount);
 
         vm.startPrank(caller);
         clusters.create();
         vm.expectRevert(IClusters.Insufficient.selector);
-        clusters.buyName{value: _buyAmount}(_string);
+        clusters.buyName{value: _buyAmount}(_name);
         vm.stopPrank();
     }
 
-    function testBuyNameRevertRegistered(bytes32 _callerSalt, bytes32 _name, uint256 _buyAmount) public {
-        vm.assume(_name != bytes32(""));
+    function testBuyNameRevertRegistered(bytes32 _callerSalt, string memory _name, uint256 _buyAmount) public {
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
         address caller = _bytesToAddress(_callerSalt);
-        string memory _string = _toString(_removePadding(_name));
         _buyAmount = bound(_buyAmount, minPrice, 10 ether);
         vm.deal(caller, _buyAmount * 2);
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: _buyAmount}(_string);
+        clusters.buyName{value: _buyAmount}(_name);
         vm.expectRevert(IClusters.Registered.selector);
-        clusters.buyName{value: _buyAmount}(_string);
+        clusters.buyName{value: _buyAmount}(_name);
         vm.stopPrank();
     }
 
-    function testTransferName(bytes32 _callerSalt, bytes32 _addrSalt, bytes32 _name, uint256 _buyAmount) public {
+    function testTransferName(bytes32 _callerSalt, bytes32 _addrSalt, string memory _name, uint256 _buyAmount) public {
         vm.assume(_callerSalt != _addrSalt);
-        vm.assume(_name != bytes32(""));
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
         address caller = _bytesToAddress(_callerSalt);
         address addr = _bytesToAddress(_addrSalt);
-        string memory _string = _toString(_removePadding(_name));
-        bytes32 name = _toBytes32(_string);
+        bytes32 name = _toBytes32(_name);
         _buyAmount = bound(_buyAmount, minPrice, 10 ether);
         vm.deal(caller, _buyAmount);
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: _buyAmount}(_string);
+        clusters.buyName{value: _buyAmount}(_name);
         vm.stopPrank();
 
         vm.prank(addr);
         clusters.create();
 
         vm.prank(caller);
-        clusters.transferName(_string, 2);
+        clusters.transferName(_name, 2);
 
         bytes32[] memory names = clusters.getClusterNames(2);
         require(names.length == 1, "names array length error");
@@ -453,50 +454,50 @@ contract ClustersTest is Test {
         require(address(clusters).balance == _buyAmount, "contract balance issue");
     }
 
-    function testTransferNameRevertNoCluster(bytes32 _callerSalt, bytes32 _addrSalt, bytes32 _name, uint256 _buyAmount)
+    function testTransferNameRevertNoCluster(bytes32 _callerSalt, bytes32 _addrSalt, string memory _name, uint256 _buyAmount)
         public
     {
         vm.assume(_callerSalt != _addrSalt);
-        vm.assume(_name != bytes32(""));
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
         address caller = _bytesToAddress(_callerSalt);
         address addr = _bytesToAddress(_addrSalt);
-        string memory _string = _toString(_removePadding(_name));
         _buyAmount = bound(_buyAmount, minPrice, 10 ether);
         vm.deal(caller, _buyAmount);
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: _buyAmount}(_string);
+        clusters.buyName{value: _buyAmount}(_name);
         vm.stopPrank();
 
         vm.prank(addr);
         vm.expectRevert(IClusters.NoCluster.selector);
-        clusters.transferName(_string, 2);
+        clusters.transferName(_name, 2);
     }
 
     function testTransferNameRevertUnauthorized(
         bytes32 _callerSalt,
         bytes32 _addrSalt,
-        bytes32 _name,
+        string memory _name,
         uint256 _buyAmount
     ) public {
         vm.assume(_callerSalt != _addrSalt);
-        vm.assume(_name != bytes32(""));
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
         address caller = _bytesToAddress(_callerSalt);
         address addr = _bytesToAddress(_addrSalt);
-        string memory _string = _toString(_removePadding(_name));
         _buyAmount = bound(_buyAmount, minPrice, 10 ether);
         vm.deal(caller, _buyAmount);
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: _buyAmount}(_string);
+        clusters.buyName{value: _buyAmount}(_name);
         vm.stopPrank();
 
         vm.startPrank(addr);
         clusters.create();
         vm.expectRevert(IClusters.Unauthorized.selector);
-        clusters.transferName(_string, 2);
+        clusters.transferName(_name, 2);
         vm.stopPrank();
     }
 
@@ -514,44 +515,44 @@ contract ClustersTest is Test {
 
     function testTransferNameRevertUnregistered(
         bytes32 _callerSalt,
-        bytes32 _name,
+        string memory _name,
         uint256 _buyAmount,
         uint256 _toClusterId
     ) public {
-        vm.assume(_name != bytes32(""));
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
         vm.assume(_toClusterId > 1);
         address caller = _bytesToAddress(_callerSalt);
-        string memory _string = _toString(_removePadding(_name));
         _buyAmount = bound(_buyAmount, minPrice, 10 ether);
         vm.deal(caller, _buyAmount);
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: _buyAmount}(_string);
+        clusters.buyName{value: _buyAmount}(_name);
         vm.expectRevert(IClusters.Unregistered.selector);
-        clusters.transferName(_string, _toClusterId);
+        clusters.transferName(_name, _toClusterId);
         vm.stopPrank();
     }
 
-    function testTransferNameCanonicalName(bytes32 _callerSalt, bytes32 _addrSalt, bytes32 _name, uint256 _buyAmount)
+    function testTransferNameCanonicalName(bytes32 _callerSalt, bytes32 _addrSalt, string memory _name, uint256 _buyAmount)
         public
     {
         vm.assume(_callerSalt != _addrSalt);
-        vm.assume(_name != bytes32(""));
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
         address caller = _bytesToAddress(_callerSalt);
         address addr = _bytesToAddress(_addrSalt);
-        string memory _string = _toString(_removePadding(_name));
         _buyAmount = bound(_buyAmount, minPrice, 10 ether);
         vm.deal(caller, _buyAmount);
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: _buyAmount}(_string);
-        clusters.setCanonicalName(_string);
+        clusters.buyName{value: _buyAmount}(_name);
+        clusters.setCanonicalName(_name);
         vm.stopPrank();
 
         require(
-            clusters.canonicalClusterName(1) == _toBytes32(_toString(_removePadding(_name))),
+            clusters.canonicalClusterName(1) == _toBytes32(_name),
             "canonicalClusterName error"
         );
 
@@ -559,33 +560,33 @@ contract ClustersTest is Test {
         clusters.create();
 
         vm.prank(caller);
-        clusters.transferName(_string, 2);
+        clusters.transferName(_name, 2);
 
         require(clusters.canonicalClusterName(1) == bytes32(""), "canonicalClusterName wasn't cleared");
         require(clusters.canonicalClusterName(2) == bytes32(""), "canonicalClusterName possibly transferred");
     }
 
-    function testPokeName(bytes32 _callerSalt, bytes32 _addrSalt, bytes32 _name, uint256 _buyAmount, uint256 _timeSkew)
+    function testPokeName(bytes32 _callerSalt, bytes32 _addrSalt, string memory _name, uint256 _buyAmount, uint256 _timeSkew)
         public
     {
         vm.assume(_callerSalt != _addrSalt);
-        vm.assume(_name != bytes32(""));
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
         address caller = _bytesToAddress(_callerSalt);
         address addr = _bytesToAddress(_addrSalt);
-        string memory _string = _toString(_removePadding(_name));
-        bytes32 name = _toBytes32(_string);
+        bytes32 name = _toBytes32(_name);
         _buyAmount = bound(_buyAmount, minPrice, 10 ether);
         _timeSkew = bound(_timeSkew, 1, 24 weeks - 1);
         vm.deal(caller, _buyAmount);
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: _buyAmount}(_string);
+        clusters.buyName{value: _buyAmount}(_name);
         vm.stopPrank();
 
         vm.warp(block.timestamp + _timeSkew);
         vm.prank(addr);
-        clusters.pokeName(_string);
+        clusters.pokeName(_name);
 
         require(clusters.addressLookup(caller) == 1, "address(this) not assigned to cluster");
         require(clusters.nameLookup(name) == 1, "name not assigned to cluster");
@@ -603,27 +604,27 @@ contract ClustersTest is Test {
         vm.stopPrank();
     }
 
-    function testPokeNameRevertUnregistered(bytes32 _callerSalt, bytes32 _name) public {
-        vm.assume(_name != bytes32(""));
+    function testPokeNameRevertUnregistered(bytes32 _callerSalt, string memory _name) public {
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
         address caller = _bytesToAddress(_callerSalt);
-        string memory _string = _toString(_removePadding(_name));
 
         vm.startPrank(caller);
         clusters.create();
         vm.expectRevert(IClusters.Unregistered.selector);
-        clusters.pokeName(_string);
+        clusters.pokeName(_name);
         vm.stopPrank();
     }
 
-    function testBidName(bytes32 _callerSalt, bytes32 _addrSalt, bytes32 _name, uint256 _buyAmount, uint256 _bidAmount)
+    function testBidName(bytes32 _callerSalt, bytes32 _addrSalt, string memory _name, uint256 _buyAmount, uint256 _bidAmount)
         public
     {
         vm.assume(_callerSalt != _addrSalt);
-        vm.assume(_name != bytes32(""));
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
         address caller = _bytesToAddress(_callerSalt);
         address addr = _bytesToAddress(_addrSalt);
-        string memory _string = _toString(_removePadding(_name));
-        bytes32 name = _toBytes32(_string);
+        bytes32 name = _toBytes32(_name);
         _buyAmount = bound(_buyAmount, minPrice, 10 ether);
         _bidAmount = bound(_bidAmount, minPrice, 10 ether);
         vm.deal(caller, _buyAmount);
@@ -631,12 +632,12 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: _buyAmount}(_string);
+        clusters.buyName{value: _buyAmount}(_name);
         vm.stopPrank();
 
         vm.startPrank(addr);
         clusters.create();
-        clusters.bidName{value: _bidAmount}(_string);
+        clusters.bidName{value: _bidAmount}(_name);
         vm.stopPrank();
 
         IClusters.Bid memory bid = clusters.getBid(name);
@@ -650,15 +651,15 @@ contract ClustersTest is Test {
     function testBidNameRevertNoCluster(
         bytes32 _callerSalt,
         bytes32 _addrSalt,
-        bytes32 _name,
+        string memory _name,
         uint256 _buyAmount,
         uint256 _bidAmount
     ) public {
         vm.assume(_callerSalt != _addrSalt);
-        vm.assume(_name != bytes32(""));
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
         address caller = _bytesToAddress(_callerSalt);
         address addr = _bytesToAddress(_addrSalt);
-        string memory _string = _toString(_removePadding(_name));
         _buyAmount = bound(_buyAmount, minPrice, 10 ether);
         _bidAmount = bound(_bidAmount, minPrice, 10 ether);
         vm.deal(caller, _buyAmount);
@@ -666,12 +667,12 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: _buyAmount}(_string);
+        clusters.buyName{value: _buyAmount}(_name);
         vm.stopPrank();
 
         vm.prank(addr);
         vm.expectRevert(IClusters.NoCluster.selector);
-        clusters.bidName{value: _bidAmount}(_string);
+        clusters.bidName{value: _bidAmount}(_name);
     }
 
     function testBidNameRevertInvalid(bytes32 _callerSalt, uint256 _buyAmount) public {
@@ -686,71 +687,71 @@ contract ClustersTest is Test {
         vm.stopPrank();
     }
 
-    function testBidNameRevertNoBid(bytes32 _callerSalt, bytes32 _addrSalt, bytes32 _name, uint256 _buyAmount) public {
+    function testBidNameRevertNoBid(bytes32 _callerSalt, bytes32 _addrSalt, string memory _name, uint256 _buyAmount) public {
         vm.assume(_callerSalt != _addrSalt);
-        vm.assume(_name != bytes32(""));
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
         address caller = _bytesToAddress(_callerSalt);
         address addr = _bytesToAddress(_addrSalt);
-        string memory _string = _toString(_removePadding(_name));
         _buyAmount = bound(_buyAmount, minPrice, 10 ether);
         vm.deal(caller, _buyAmount);
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: _buyAmount}(_string);
+        clusters.buyName{value: _buyAmount}(_name);
         vm.stopPrank();
 
         vm.startPrank(addr);
         clusters.create();
         vm.expectRevert(IClusters.NoBid.selector);
-        clusters.bidName{value: 0}(_string);
+        clusters.bidName{value: 0}(_name);
     }
 
-    function testBidNameRevertUnregistered(bytes32 _callerSalt, bytes32 _name, uint256 _bidAmount) public {
-        vm.assume(_name != bytes32(""));
+    function testBidNameRevertUnregistered(bytes32 _callerSalt, string memory _name, uint256 _bidAmount) public {
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
         address caller = _bytesToAddress(_callerSalt);
-        string memory _string = _toString(_removePadding(_name));
         _bidAmount = bound(_bidAmount, minPrice, 10 ether);
         vm.deal(caller, _bidAmount);
 
         vm.startPrank(caller);
         clusters.create();
         vm.expectRevert(IClusters.Unregistered.selector);
-        clusters.bidName{value: _bidAmount}(_string);
+        clusters.bidName{value: _bidAmount}(_name);
         vm.stopPrank();
     }
 
-    function testBidNameRevertSelfBid(bytes32 _callerSalt, bytes32 _name, uint256 _buyAmount, uint256 _bidAmount)
+    function testBidNameRevertSelfBid(bytes32 _callerSalt, string memory _name, uint256 _buyAmount, uint256 _bidAmount)
         public
     {
-        vm.assume(_name != bytes32(""));
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
         address caller = _bytesToAddress(_callerSalt);
-        string memory _string = _toString(_removePadding(_name));
         _buyAmount = bound(_buyAmount, minPrice, 10 ether);
         _bidAmount = bound(_bidAmount, minPrice, 10 ether);
         vm.deal(caller, _buyAmount + _bidAmount);
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: _buyAmount}(_string);
+        clusters.buyName{value: _buyAmount}(_name);
         vm.expectRevert(IClusters.SelfBid.selector);
-        clusters.bidName{value: _bidAmount}(_string);
+        clusters.bidName{value: _bidAmount}(_name);
         vm.stopPrank();
     }
 
     function testBidNameRevertInsufficient(
         bytes32 _callerSalt,
         bytes32 _addrSalt,
-        bytes32 _name,
+        string memory _name,
         uint256 _buyAmount,
         uint256 _bidAmount
     ) public {
         vm.assume(_callerSalt != _addrSalt);
-        vm.assume(_name != bytes32(""));
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
         address caller = _bytesToAddress(_callerSalt);
         address addr = _bytesToAddress(_addrSalt);
-        string memory _string = _toString(_removePadding(_name));
-        bytes32 name = _toBytes32(_string);
+        bytes32 name = _toBytes32(_name);
         _buyAmount = bound(_buyAmount, minPrice, 10 ether);
         _bidAmount = bound(_bidAmount, minPrice + 2, 10 ether);
         vm.deal(caller, _buyAmount);
@@ -759,18 +760,18 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: _buyAmount}(_string);
+        clusters.buyName{value: _buyAmount}(_name);
         vm.stopPrank();
 
         vm.startPrank(addr);
         clusters.create();
         vm.expectRevert(IClusters.Insufficient.selector);
-        clusters.bidName{value: minPrice - 1}(_string);
+        clusters.bidName{value: minPrice - 1}(_name);
         vm.stopPrank();
 
         vm.startPrank(PRANKED_ADDRESS);
         clusters.create();
-        clusters.bidName{value: _bidAmount}(_string);
+        clusters.bidName{value: _bidAmount}(_name);
         vm.stopPrank();
 
         IClusters.Bid memory bid = clusters.getBid(name);
@@ -781,23 +782,23 @@ contract ClustersTest is Test {
 
         vm.prank(addr);
         vm.expectRevert(IClusters.Insufficient.selector);
-        clusters.bidName{value: minPrice + 1}(_string);
+        clusters.bidName{value: minPrice + 1}(_name);
     }
 
     function testBidNameIncreaseBid(
         bytes32 _callerSalt,
         bytes32 _addrSalt,
-        bytes32 _name,
+        string memory _name,
         uint256 _buyAmount,
         uint256 _bidAmount,
         uint256 _bidIncrease
     ) public {
         vm.assume(_callerSalt != _addrSalt);
-        vm.assume(_name != bytes32(""));
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
         address caller = _bytesToAddress(_callerSalt);
         address addr = _bytesToAddress(_addrSalt);
-        string memory _string = _toString(_removePadding(_name));
-        bytes32 name = _toBytes32(_string);
+        bytes32 name = _toBytes32(_name);
         _buyAmount = bound(_buyAmount, minPrice, 10 ether);
         _bidAmount = bound(_bidAmount, minPrice, 10 ether);
         _bidIncrease = bound(_bidIncrease, 1, 10 ether);
@@ -806,12 +807,12 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: _buyAmount}(_string);
+        clusters.buyName{value: _buyAmount}(_name);
         vm.stopPrank();
 
         vm.startPrank(addr);
         clusters.create();
-        clusters.bidName{value: _bidAmount}(_string);
+        clusters.bidName{value: _bidAmount}(_name);
 
         IClusters.Bid memory bid = clusters.getBid(name);
         require(bid.ethAmount == _bidAmount, "bid ethAmount incorrect");
@@ -819,7 +820,7 @@ contract ClustersTest is Test {
         require(bid.bidder == addr, "bid bidder incorrect");
         require(address(clusters).balance == _buyAmount + _bidAmount, "contract balance issue");
 
-        clusters.bidName{value: _bidIncrease}(_string);
+        clusters.bidName{value: _bidIncrease}(_name);
         vm.stopPrank();
 
         bid = clusters.getBid(name);
@@ -832,16 +833,16 @@ contract ClustersTest is Test {
     function testBidNameOutbid(
         bytes32 _callerSalt,
         bytes32 _addrSalt,
-        bytes32 _name,
+        string memory _name,
         uint256 _buyAmount,
         uint256 _bidAmount
     ) public {
         vm.assume(_callerSalt != _addrSalt);
-        vm.assume(_name != bytes32(""));
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
         address caller = _bytesToAddress(_callerSalt);
         address addr = _bytesToAddress(_addrSalt);
-        string memory _string = _toString(_removePadding(_name));
-        bytes32 name = _toBytes32(_string);
+        bytes32 name = _toBytes32(_name);
         _buyAmount = bound(_buyAmount, minPrice, 10 ether);
         _bidAmount = bound(_bidAmount, minPrice, 10 ether);
         vm.deal(caller, _buyAmount);
@@ -850,18 +851,18 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: _buyAmount}(_string);
+        clusters.buyName{value: _buyAmount}(_name);
         vm.stopPrank();
 
         vm.startPrank(addr);
         clusters.create();
-        clusters.bidName{value: _bidAmount}(_string);
+        clusters.bidName{value: _bidAmount}(_name);
         vm.stopPrank();
         uint256 balance = address(addr).balance;
 
         vm.startPrank(PRANKED_ADDRESS);
         clusters.create();
-        clusters.bidName{value: _bidAmount + 1}(_string);
+        clusters.bidName{value: _bidAmount + 1}(_name);
         vm.stopPrank();
 
         require(address(addr).balance == balance + _bidAmount, "_bidder1 balance error");
@@ -875,17 +876,17 @@ contract ClustersTest is Test {
     function testReduceBid(
         bytes32 _callerSalt,
         bytes32 _addrSalt,
-        bytes32 _name,
+        string memory _name,
         uint256 _buyAmount,
         uint256 _bidAmount,
         uint256 _bidDecrease
     ) public {
         vm.assume(_callerSalt != _addrSalt);
-        vm.assume(_name != bytes32(""));
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
         address caller = _bytesToAddress(_callerSalt);
         address addr = _bytesToAddress(_addrSalt);
-        string memory _string = _toString(_removePadding(_name));
-        bytes32 name = _toBytes32(_string);
+        bytes32 name = _toBytes32(_name);
         _buyAmount = bound(_buyAmount, minPrice, 10 ether);
         _bidAmount = bound(_bidAmount, minPrice + 1, 10 ether);
         _bidDecrease = bound(_bidDecrease, 1, _bidAmount - minPrice);
@@ -894,16 +895,16 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: _buyAmount}(_string);
+        clusters.buyName{value: _buyAmount}(_name);
         vm.stopPrank();
 
         vm.startPrank(addr);
         clusters.create();
-        clusters.bidName{value: _bidAmount}(_string);
+        clusters.bidName{value: _bidAmount}(_name);
         uint256 balance = address(addr).balance;
 
         vm.warp(block.timestamp + 31 days);
-        clusters.reduceBid(_string, _bidDecrease);
+        clusters.reduceBid(_name, _bidDecrease);
         vm.stopPrank();
 
         require(address(addr).balance == balance + _bidDecrease, "bidder balance error");
@@ -917,16 +918,16 @@ contract ClustersTest is Test {
     function testReduceBidRevertUnauthorized(
         bytes32 _callerSalt,
         bytes32 _addrSalt,
-        bytes32 _name,
+        string memory _name,
         uint256 _buyAmount,
         uint256 _bidAmount,
         uint256 _bidDecrease
     ) public {
         vm.assume(_callerSalt != _addrSalt);
-        vm.assume(_name != bytes32(""));
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
         address caller = _bytesToAddress(_callerSalt);
         address addr = _bytesToAddress(_addrSalt);
-        string memory _string = _toString(_removePadding(_name));
         _buyAmount = bound(_buyAmount, minPrice, 10 ether);
         _bidAmount = bound(_bidAmount, minPrice + 1, 10 ether);
         _bidDecrease = bound(_bidDecrease, 1, _bidAmount - minPrice);
@@ -935,33 +936,33 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: _buyAmount}(_string);
+        clusters.buyName{value: _buyAmount}(_name);
         vm.stopPrank();
 
         vm.startPrank(addr);
         clusters.create();
-        clusters.bidName{value: _bidAmount}(_string);
+        clusters.bidName{value: _bidAmount}(_name);
         vm.stopPrank();
 
         vm.prank(PRANKED_ADDRESS);
         vm.expectRevert(IClusters.Unauthorized.selector);
-        clusters.reduceBid(_string, _bidDecrease);
+        clusters.reduceBid(_name, _bidDecrease);
     }
 
     function testReduceBidRevertTimelock(
         bytes32 _callerSalt,
         bytes32 _addrSalt,
-        bytes32 _name,
+        string memory _name,
         uint256 _buyAmount,
         uint256 _bidAmount,
         uint256 _bidDecrease,
         uint256 _timeSkew
     ) public {
         vm.assume(_callerSalt != _addrSalt);
-        vm.assume(_name != bytes32(""));
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
         address caller = _bytesToAddress(_callerSalt);
         address addr = _bytesToAddress(_addrSalt);
-        string memory _string = _toString(_removePadding(_name));
         _buyAmount = bound(_buyAmount, minPrice, 10 ether);
         _bidAmount = bound(_bidAmount, minPrice * 2, 10 ether);
         _bidDecrease = bound(_bidDecrease, 1, _bidAmount - minPrice);
@@ -971,33 +972,31 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: _buyAmount}(_string);
+        clusters.buyName{value: _buyAmount}(_name);
         vm.stopPrank();
 
         vm.startPrank(addr);
         clusters.create();
-        clusters.bidName{value: _bidAmount}(_string);
+        clusters.bidName{value: _bidAmount}(_name);
 
         vm.warp(block.timestamp + _timeSkew);
         vm.expectRevert(IClusters.Timelock.selector);
-        clusters.reduceBid(_string, _bidDecrease);
+        clusters.reduceBid(_name, _bidDecrease);
         vm.stopPrank();
     }
 
     function testReduceBidRevertNoBid(
         bytes32 _callerSalt,
         bytes32 _addrSalt,
-        bytes32 _name,
+        string memory _name,
         uint256 _buyAmount,
         uint256 _bidAmount
     ) public {
-        vm.assume(_callerSalt != bytes32(""));
-        vm.assume(_addrSalt != bytes32(""));
         vm.assume(_callerSalt != _addrSalt);
-        vm.assume(_name != bytes32(""));
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
         address caller = _bytesToAddress(_callerSalt);
         address addr = _bytesToAddress(_addrSalt);
-        string memory _string = _toString(_removePadding(_name));
         _buyAmount = bound(_buyAmount, minPrice, 10 ether);
         _bidAmount = bound(_bidAmount, minPrice, 10 ether);
         vm.deal(caller, _buyAmount);
@@ -1005,30 +1004,30 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: _buyAmount}(_string);
+        clusters.buyName{value: _buyAmount}(_name);
         vm.stopPrank();
 
         vm.startPrank(addr);
         clusters.create();
         vm.expectRevert(IClusters.NoBid.selector);
-        clusters.reduceBid(_string, minPrice);
+        clusters.reduceBid(_name, minPrice);
         vm.stopPrank();
     }
 
     function testReduceBidRevertInsufficient(
         bytes32 _callerSalt,
         bytes32 _addrSalt,
-        bytes32 _name,
+        string memory _name,
         uint256 _buyAmount,
         uint256 _bidAmount,
         uint256 _bidDecrease,
         uint256 _timeSkew
     ) public {
         vm.assume(_callerSalt != _addrSalt);
-        vm.assume(_name != bytes32(""));
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
         address caller = _bytesToAddress(_callerSalt);
         address addr = _bytesToAddress(_addrSalt);
-        string memory _string = _toString(_removePadding(_name));
         _buyAmount = bound(_buyAmount, minPrice, 10 ether);
         _bidAmount = bound(_bidAmount, minPrice * 2, 10 ether);
         _bidDecrease = bound(_bidDecrease, _bidAmount - minPrice + 1, _bidAmount - 1);
@@ -1038,33 +1037,33 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: _buyAmount}(_string);
+        clusters.buyName{value: _buyAmount}(_name);
         vm.stopPrank();
 
         vm.startPrank(addr);
         clusters.create();
-        clusters.bidName{value: _bidAmount}(_string);
+        clusters.bidName{value: _bidAmount}(_name);
 
         vm.warp(block.timestamp + _timeSkew);
         vm.expectRevert(IClusters.Insufficient.selector);
-        clusters.reduceBid(_string, _bidDecrease);
+        clusters.reduceBid(_name, _bidDecrease);
         vm.stopPrank();
     }
 
     function testReduceBidUint256Max(
         bytes32 _callerSalt,
         bytes32 _addrSalt,
-        bytes32 _name,
+        string memory _name,
         uint256 _buyAmount,
         uint256 _bidAmount,
         uint256 _timeSkew
     ) public {
         vm.assume(_callerSalt != _addrSalt);
-        vm.assume(_name != bytes32(""));
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
         address caller = _bytesToAddress(_callerSalt);
         address addr = _bytesToAddress(_addrSalt);
-        string memory _string = _toString(_removePadding(_name));
-        bytes32 name = _toBytes32(_string);
+        bytes32 name = _toBytes32(_name);
         _buyAmount = bound(_buyAmount, minPrice, 10 ether);
         _bidAmount = bound(_bidAmount, minPrice, 10 ether);
         _timeSkew = bound(_timeSkew, 30 days + 1, 24 weeks);
@@ -1073,16 +1072,16 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: _buyAmount}(_string);
+        clusters.buyName{value: _buyAmount}(_name);
         vm.stopPrank();
 
         vm.startPrank(addr);
         clusters.create();
-        clusters.bidName{value: _bidAmount}(_string);
+        clusters.bidName{value: _bidAmount}(_name);
         uint256 balance = address(addr).balance;
 
         vm.warp(block.timestamp + _timeSkew);
-        clusters.reduceBid(_string, type(uint256).max);
+        clusters.reduceBid(_name, type(uint256).max);
         vm.stopPrank();
 
         require(address(addr).balance == balance + _bidAmount, "bid refund balance error");
@@ -1096,17 +1095,17 @@ contract ClustersTest is Test {
     function testReduceBidTotalBid(
         bytes32 _callerSalt,
         bytes32 _addrSalt,
-        bytes32 _name,
+        string memory _name,
         uint256 _buyAmount,
         uint256 _bidAmount,
         uint256 _timeSkew
     ) public {
         vm.assume(_callerSalt != _addrSalt);
-        vm.assume(_name != bytes32(""));
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
         address caller = _bytesToAddress(_callerSalt);
         address addr = _bytesToAddress(_addrSalt);
-        string memory _string = _toString(_removePadding(_name));
-        bytes32 name = _toBytes32(_string);
+        bytes32 name = _toBytes32(_name);
         _buyAmount = bound(_buyAmount, minPrice, 10 ether);
         _bidAmount = bound(_bidAmount, minPrice, 10 ether);
         _timeSkew = bound(_timeSkew, 30 days + 1, 24 weeks);
@@ -1115,16 +1114,16 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: _buyAmount}(_string);
+        clusters.buyName{value: _buyAmount}(_name);
         vm.stopPrank();
 
         vm.startPrank(addr);
         clusters.create();
-        clusters.bidName{value: _bidAmount}(_string);
+        clusters.bidName{value: _bidAmount}(_name);
         uint256 balance = address(addr).balance;
 
         vm.warp(block.timestamp + _timeSkew);
-        clusters.reduceBid(_string, _bidAmount);
+        clusters.reduceBid(_name, _bidAmount);
         vm.stopPrank();
 
         require(address(addr).balance == balance + _bidAmount, "bid refund balance error");
@@ -1138,20 +1137,18 @@ contract ClustersTest is Test {
     function testReduceBidExceedsBid(
         bytes32 _callerSalt,
         bytes32 _addrSalt,
-        bytes32 _name,
+        string memory _name,
         uint256 _buyAmount,
         uint256 _bidAmount,
         uint256 _bidDecrease,
         uint256 _timeSkew
     ) public {
-        vm.assume(_callerSalt != bytes32(""));
-        vm.assume(_addrSalt != bytes32(""));
         vm.assume(_callerSalt != _addrSalt);
-        vm.assume(_name != bytes32(""));
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
         address caller = _bytesToAddress(_callerSalt);
         address addr = _bytesToAddress(_addrSalt);
-        string memory _string = _toString(_removePadding(_name));
-        bytes32 name = _toBytes32(_string);
+        bytes32 name = _toBytes32(_name);
         _buyAmount = bound(_buyAmount, minPrice, 10 ether);
         _bidAmount = bound(_bidAmount, minPrice, 10 ether);
         _bidDecrease = bound(_bidDecrease, _bidAmount + 1, type(uint256).max);
@@ -1161,16 +1158,16 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: _buyAmount}(_string);
+        clusters.buyName{value: _buyAmount}(_name);
         vm.stopPrank();
 
         vm.startPrank(addr);
         clusters.create();
-        clusters.bidName{value: _bidAmount}(_string);
+        clusters.bidName{value: _bidAmount}(_name);
         uint256 balance = address(addr).balance;
 
         vm.warp(block.timestamp + _timeSkew);
-        clusters.reduceBid(_string, _bidDecrease);
+        clusters.reduceBid(_name, _bidDecrease);
         vm.stopPrank();
 
         require(address(addr).balance == balance + _bidAmount, "bid refund balance error");
@@ -1207,18 +1204,16 @@ contract ClustersTest is Test {
     function testAcceptBid(
         bytes32 _callerSalt,
         bytes32 _addrSalt,
-        bytes32 _name,
+        string memory _name,
         uint256 _buyAmount,
         uint256 _bidAmount
     ) public {
-        vm.assume(_callerSalt != bytes32(""));
-        vm.assume(_addrSalt != bytes32(""));
         vm.assume(_callerSalt != _addrSalt);
-        vm.assume(_name != bytes32(""));
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
         address caller = _bytesToAddress(_callerSalt);
         address addr = _bytesToAddress(_addrSalt);
-        string memory _string = _toString(_removePadding(_name));
-        bytes32 name = _toBytes32(_string);
+        bytes32 name = _toBytes32(_name);
         _buyAmount = bound(_buyAmount, minPrice, 10 ether);
         _bidAmount = bound(_bidAmount, minPrice, 10 ether);
         vm.deal(caller, _buyAmount);
@@ -1226,17 +1221,17 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: _buyAmount}(_string);
+        clusters.buyName{value: _buyAmount}(_name);
         vm.stopPrank();
 
         vm.startPrank(addr);
         clusters.create();
-        clusters.bidName{value: _bidAmount}(_string);
+        clusters.bidName{value: _bidAmount}(_name);
         vm.stopPrank();
 
         uint256 balance = address(caller).balance;
         vm.prank(caller);
-        clusters.acceptBid(_string);
+        clusters.acceptBid(_name);
 
         bytes32[] memory names = clusters.getClusterNames(1);
         require(names.length == 0, "names array not purged");
@@ -1252,17 +1247,15 @@ contract ClustersTest is Test {
     function testAcceptBidRevertNoCluster(
         bytes32 _callerSalt,
         bytes32 _addrSalt,
-        bytes32 _name,
+        string memory _name,
         uint256 _buyAmount,
         uint256 _bidAmount
     ) public {
-        vm.assume(_callerSalt != bytes32(""));
-        vm.assume(_addrSalt != bytes32(""));
         vm.assume(_callerSalt != _addrSalt);
-        vm.assume(_name != bytes32(""));
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
         address caller = _bytesToAddress(_callerSalt);
         address addr = _bytesToAddress(_addrSalt);
-        string memory _string = _toString(_removePadding(_name));
         _buyAmount = bound(_buyAmount, minPrice, 10 ether);
         _bidAmount = bound(_bidAmount, minPrice, 10 ether);
         vm.deal(caller, _buyAmount);
@@ -1270,33 +1263,31 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: _buyAmount}(_string);
+        clusters.buyName{value: _buyAmount}(_name);
         vm.stopPrank();
 
         vm.startPrank(addr);
         clusters.create();
-        clusters.bidName{value: _bidAmount}(_string);
+        clusters.bidName{value: _bidAmount}(_name);
         vm.stopPrank();
 
         vm.prank(PRANKED_ADDRESS);
         vm.expectRevert(IClusters.NoCluster.selector);
-        clusters.acceptBid(_string);
+        clusters.acceptBid(_name);
     }
 
     function testAcceptBidRevertUnauthorized(
         bytes32 _callerSalt,
         bytes32 _addrSalt,
-        bytes32 _name,
+        string memory _name,
         uint256 _buyAmount,
         uint256 _bidAmount
     ) public {
-        vm.assume(_callerSalt != bytes32(""));
-        vm.assume(_addrSalt != bytes32(""));
         vm.assume(_callerSalt != _addrSalt);
-        vm.assume(_name != bytes32(""));
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
         address caller = _bytesToAddress(_callerSalt);
         address addr = _bytesToAddress(_addrSalt);
-        string memory _string = _toString(_removePadding(_name));
         _buyAmount = bound(_buyAmount, minPrice, 10 ether);
         _bidAmount = bound(_bidAmount, minPrice, 10 ether);
         vm.deal(caller, _buyAmount);
@@ -1304,45 +1295,44 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: _buyAmount}(_string);
+        clusters.buyName{value: _buyAmount}(_name);
         vm.stopPrank();
 
         vm.startPrank(addr);
         clusters.create();
-        clusters.bidName{value: _bidAmount}(_string);
+        clusters.bidName{value: _bidAmount}(_name);
         vm.expectRevert(IClusters.Unauthorized.selector);
-        clusters.acceptBid(_string);
+        clusters.acceptBid(_name);
         vm.stopPrank();
     }
 
-    function testAcceptBidRevertNoBid(bytes32 _callerSalt, bytes32 _name, uint256 _buyAmount) public {
-        vm.assume(_callerSalt != bytes32(""));
-        vm.assume(_name != bytes32(""));
+    function testAcceptBidRevertNoBid(bytes32 _callerSalt, string memory _name, uint256 _buyAmount) public {
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
         address caller = _bytesToAddress(_callerSalt);
-        string memory _string = _toString(_removePadding(_name));
         _buyAmount = bound(_buyAmount, minPrice, 10 ether);
         vm.deal(caller, _buyAmount);
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: _buyAmount}(_string);
+        clusters.buyName{value: _buyAmount}(_name);
         vm.expectRevert(IClusters.NoBid.selector);
-        clusters.acceptBid(_string);
+        clusters.acceptBid(_name);
         vm.stopPrank();
     }
 
-    function testSetCanonicalName(bytes32 _callerSalt, bytes32 _name, uint256 _buyAmount) public {
-        vm.assume(_name != bytes32(""));
+    function testSetCanonicalName(bytes32 _callerSalt, string memory _name, uint256 _buyAmount) public {
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
         address caller = _bytesToAddress(_callerSalt);
-        string memory _string = _toString(_removePadding(_name));
-        bytes32 name = _toBytes32(_string);
+        bytes32 name = _toBytes32(_name);
         _buyAmount = bound(_buyAmount, minPrice, 10 ether);
         vm.deal(caller, _buyAmount);
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: _buyAmount}(_string);
-        clusters.setCanonicalName(_string);
+        clusters.buyName{value: _buyAmount}(_name);
+        clusters.setCanonicalName(_name);
         vm.stopPrank();
 
         require(clusters.nameLookup(name) == 1, "clusterId error");
@@ -1352,26 +1342,26 @@ contract ClustersTest is Test {
         require(names[0] == name, "name array error");
     }
 
-    function testSetCanonicalNameUpdate(bytes32 _callerSalt, bytes32 _name1, bytes32 _name2, uint256 _buyAmount)
+    function testSetCanonicalNameUpdate(bytes32 _callerSalt, string memory _name1, string memory _name2, uint256 _buyAmount)
         public
-    {
-        vm.assume(_name1 != bytes32(""));
-        vm.assume(_name2 != bytes32(""));
-        vm.assume(_name1 != _name2);
+    {   
+        vm.assume(keccak256(abi.encodePacked(_name1)) != keccak256(abi.encodePacked(_name2)));
+        vm.assume(bytes(_name1).length > 0);
+        vm.assume(bytes(_name1).length <= 32);
+        vm.assume(bytes(_name2).length > 0);
+        vm.assume(bytes(_name2).length <= 32);
         address caller = _bytesToAddress(_callerSalt);
-        string memory _string1 = _toString(_removePadding(_name1));
-        bytes32 name1 = _toBytes32(_string1);
-        string memory _string2 = _toString(_removePadding(_name2));
-        bytes32 name2 = _toBytes32(_string2);
+        bytes32 name1 = _toBytes32(_name1);
+        bytes32 name2 = _toBytes32(_name2);
         _buyAmount = bound(_buyAmount, minPrice, 10 ether);
         vm.deal(caller, _buyAmount * 2);
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: _buyAmount}(_string1);
-        clusters.buyName{value: _buyAmount}(_string2);
-        clusters.setCanonicalName(_string1);
-        clusters.setCanonicalName(_string2);
+        clusters.buyName{value: _buyAmount}(_name1);
+        clusters.buyName{value: _buyAmount}(_name2);
+        clusters.setCanonicalName(_name1);
+        clusters.setCanonicalName(_name2);
         vm.stopPrank();
 
         require(clusters.nameLookup(name1) == 1, "clusterId error");
@@ -1383,18 +1373,18 @@ contract ClustersTest is Test {
         require(names[1] == name2, "name array error");
     }
 
-    function testSetCanonicalNameDelete(bytes32 _callerSalt, bytes32 _name, uint256 _buyAmount) public {
-        vm.assume(_name != bytes32(""));
+    function testSetCanonicalNameDelete(bytes32 _callerSalt, string memory _name, uint256 _buyAmount) public {
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
         address caller = _bytesToAddress(_callerSalt);
-        string memory _string = _toString(_removePadding(_name));
-        bytes32 name = _toBytes32(_string);
+        bytes32 name = _toBytes32(_name);
         _buyAmount = bound(_buyAmount, minPrice, 10 ether);
         vm.deal(caller, _buyAmount);
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: _buyAmount}(_string);
-        clusters.setCanonicalName(_string);
+        clusters.buyName{value: _buyAmount}(_name);
+        clusters.setCanonicalName(_name);
         clusters.setCanonicalName("");
         vm.stopPrank();
 
@@ -1408,62 +1398,62 @@ contract ClustersTest is Test {
     function testSetCanonicalNameRevertUnauthorized(
         bytes32 _callerSalt,
         bytes32 _addrSalt,
-        bytes32 _name,
+        string memory _name,
         uint256 _buyAmount
     ) public {
         vm.assume(_callerSalt != _addrSalt);
-        vm.assume(_name != bytes32(""));
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
         address caller = _bytesToAddress(_callerSalt);
         address addr = _bytesToAddress(_addrSalt);
-        string memory _string = _toString(_removePadding(_name));
         _buyAmount = bound(_buyAmount, minPrice, 10 ether);
         vm.deal(caller, _buyAmount);
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: _buyAmount}(_string);
+        clusters.buyName{value: _buyAmount}(_name);
         vm.stopPrank();
 
         vm.startPrank(addr);
         clusters.create();
         vm.expectRevert(IClusters.Unauthorized.selector);
-        clusters.setCanonicalName(_string);
+        clusters.setCanonicalName(_name);
         vm.stopPrank();
     }
 
     function testSetCanonicalNameRevertNoCluster(
         bytes32 _callerSalt,
         bytes32 _addrSalt,
-        bytes32 _name,
+        string memory _name,
         uint256 _buyAmount
     ) public {
         vm.assume(_callerSalt != _addrSalt);
-        vm.assume(_name != bytes32(""));
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
         address caller = _bytesToAddress(_callerSalt);
         address addr = _bytesToAddress(_addrSalt);
-        string memory _string = _toString(_removePadding(_name));
         _buyAmount = bound(_buyAmount, minPrice, 10 ether);
         vm.deal(caller, _buyAmount);
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: _buyAmount}(_string);
+        clusters.buyName{value: _buyAmount}(_name);
         vm.stopPrank();
 
         vm.prank(addr);
         vm.expectRevert(IClusters.NoCluster.selector);
-        clusters.setCanonicalName(_string);
+        clusters.setCanonicalName(_name);
     }
 
-    function testSetWalletName(bytes32 _callerSalt, bytes32 _name) public {
+    function testSetWalletName(bytes32 _callerSalt, string memory _name) public {
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
         address caller = _bytesToAddress(_callerSalt);
-        string memory _string = _toString(_removePadding(_name));
-        bytes32 name = _toBytes32(_string);
-        vm.assume(name != bytes32(""));
+        bytes32 name = _toBytes32(_name);
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.setWalletName(caller, _string);
+        clusters.setWalletName(caller, _name);
         vm.stopPrank();
 
         assertEq(clusters.addressLookup(caller), 1, "addressLookup failed");
@@ -1471,13 +1461,13 @@ contract ClustersTest is Test {
         assertEq(clusters.reverseLookup(caller), name, "reverseLookup failed");
     }
 
-    function testSetWalletNameOther(bytes32 _callerSalt, bytes32 _addrSalt, bytes32 _name) public {
+    function testSetWalletNameOther(bytes32 _callerSalt, bytes32 _addrSalt, string memory _name) public {
         vm.assume(_callerSalt != _addrSalt);
-        vm.assume(_name != bytes32(""));
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
         address caller = _bytesToAddress(_callerSalt);
         address addr = _bytesToAddress(_addrSalt);
-        string memory _string = _toString(_removePadding(_name));
-        bytes32 name = _toBytes32(_string);
+        bytes32 name = _toBytes32(_name);
 
         vm.startPrank(caller);
         clusters.create();
@@ -1485,22 +1475,22 @@ contract ClustersTest is Test {
         vm.stopPrank();
 
         vm.prank(addr);
-        clusters.setWalletName(addr, _string);
+        clusters.setWalletName(addr, _name);
 
         assertEq(clusters.addressLookup(addr), 1, "addressLookup failed");
         assertEq(clusters.forwardLookup(1, name), addr, "forwardLookup failed");
         assertEq(clusters.reverseLookup(addr), name, "reverseLookup failed");
     }
 
-    function testSetWalletNameDelete(bytes32 _callerSalt, bytes32 _name) public {
-        vm.assume(_name != bytes32(""));
+    function testSetWalletNameDelete(bytes32 _callerSalt, string memory _name) public {
+        vm.assume(bytes(_name).length > 0);
+        vm.assume(bytes(_name).length <= 32);
         address caller = _bytesToAddress(_callerSalt);
-        string memory _string = _toString(_removePadding(_name));
-        bytes32 name = _toBytes32(_string);
+        bytes32 name = _toBytes32(_name);
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.setWalletName(caller, _string);
+        clusters.setWalletName(caller, _name);
         clusters.setWalletName(caller, "");
         vm.stopPrank();
 
