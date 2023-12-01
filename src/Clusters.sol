@@ -56,8 +56,13 @@ contract Clusters is NameManager {
         _add(addr, addressLookup[msgSender]);
     }
 
-    function remove(address addr) external checkPrivileges("") {
-        if (addressLookup[msg.sender] != addressLookup[addr]) revert Unauthorized();
+    function remove(address addr) external {
+        remove(msg.sender, addr);
+    }
+
+    function remove(address msgSender, address addr) public onlyEndpoint(msgSender) {
+        _checkZeroCluster(msgSender);
+        if (addressLookup[msgSender] != addressLookup[addr]) revert Unauthorized();
         _remove(addr);
     }
 
