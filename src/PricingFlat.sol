@@ -16,7 +16,7 @@ contract PricingFlat is IPricing {
         view
         returns (uint256 spent, uint256 price)
     {
-        spent = (secondsAfterUpdate - lastUpdatedPrice) * minAnnualPrice / 365 days;
+        spent = secondsAfterUpdate * minAnnualPrice / 365 days;
         price = minAnnualPrice;
     }
 }
