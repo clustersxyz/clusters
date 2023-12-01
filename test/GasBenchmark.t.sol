@@ -13,7 +13,6 @@ contract GasBenchmarkTest is Test {
     function setUp() public {
         pricing = new Pricing();
         clusters = new Clusters(address(pricing));
-        minPrice = pricing.minAnnualPrice();
         vm.deal(address(this), 1 ether);
     }
 
@@ -22,8 +21,10 @@ contract GasBenchmarkTest is Test {
     }
 
     function testBenchmark() public {
-        bytes32 callerSalt = "";
-        address caller = _bytesToAddress(_callerSalt);
+        bytes32 callerSalt = "caller";
+        bytes32 addrSalt = "addr";
+        address caller = _bytesToAddress(callerSalt);
+        address addr = _bytesToAddress(addrSalt);
 
         vm.startPrank(caller);
         clusters.create();
