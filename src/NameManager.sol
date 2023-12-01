@@ -111,28 +111,6 @@ abstract contract NameManager is IClusters {
         emit BuyName(_name, clusterId);
     }
 
-    /// @notice Buy unregistered name. Must pay at least minimum yearly payment.
-    function buyName(string memory _name, uint256 clusterId) public payable checkPrivileges("") {
-        bytes32 name = _toBytes32(_name);
-        uint256 clusterId = nameLookup[name];
-        if (name == bytes32("")) revert Invalid();
-        // Check that name is unused and sufficient payment is made
-        if (nameLookup[name] != 0) revert Registered();
-        if (msg.value < pricing.minAnnualPrice()) revert Insufficient();
-        // Process price accounting updates
-        unchecked {
-            ethBacking[name] += msg.value;
-        }
-        priceIntegral[name] = IClusters.PriceIntegral({
-            name: name,
-            lastUpdatedTimestamp: block.timestamp,
-            lastUpdatedPrice: pricing.minAnnualPrice(),
-            maxExpiry: block.timestamp + uint256(pricing.getMaxDuration(pricing.minAnnualPrice(), msg.value))
-        });
-        _assignName(name, clusterId);
-        emit BuyName(_name, clusterId);
-    }
-
     /// @notice Fund an existing and specific name, callable by anyone
     function fundName(string memory _name) external payable {
         bytes32 name = _toBytes32(_name);
