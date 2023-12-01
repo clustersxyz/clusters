@@ -92,4 +92,8 @@ contract Clusters is NameManager {
             delete reverseLookup[_addr];
         }
     }
+
+    function _addressToBytes32(address _addr) internal pure returns (bytes32 addr) {
+        return bytes32(uint256(uint160(_addr)));
+    }
 }
