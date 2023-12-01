@@ -3,18 +3,18 @@ pragma solidity ^0.8.13;
 
 import {Test, console2} from "forge-std/Test.sol";
 import {Clusters, NameManager} from "../src/Clusters.sol";
-import {PricingMinFlatMaxLinearDecayExponential} from "../src/PricingMinFlatMaxLinearDecayExponential.sol";
+import {PricingHarberger} from "../src/PricingHarberger.sol";
 import {Endpoint} from "../src/Endpoint.sol";
 import {IClusters} from "../src/IClusters.sol";
 
 contract GasBenchmarkTest is Test {
-    PricingMinFlatMaxLinearDecayExponential public pricing;
+    PricingHarberger public pricing;
     Endpoint public endpoint;
     Clusters public clusters;
     uint256 public minPrice;
 
     function setUp() public {
-        pricing = new PricingMinFlatMaxLinearDecayExponential();
+        pricing = new PricingHarberger();
         endpoint = new Endpoint();
         clusters = new Clusters(address(pricing), address(endpoint));
         minPrice = pricing.minAnnualPrice();
