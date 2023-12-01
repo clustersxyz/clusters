@@ -9,6 +9,7 @@ interface IClusters {
     error Invalid();
     error Timelock();
     error NoCluster();
+    error Insolvent();
     error Registered();
     error Unauthorized();
     error Unregistered();

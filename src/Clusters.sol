@@ -28,8 +28,6 @@ contract Clusters is NameManager {
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
-    error Insolvent();
-
     bytes4 internal constant BUY_NAME_SIG = bytes4(keccak256("buyName(string,uint256)"));
     bytes4 internal constant FUND_NAME_SIG = bytes4(keccak256("fundName(string,uint256)"));
     bytes4 internal constant BID_NAME_SIG = bytes4(keccak256("bidName(string,uint256)"));
@@ -46,24 +44,16 @@ contract Clusters is NameManager {
             sig := mload(add(_data, 32))
         }
 
-        // Match the function signature
+        // Match the function signature of a payable function
         if (sig == BUY_NAME_SIG || sig == FUND_NAME_SIG || sig == BID_NAME_SIG) {
-            // Read the memory offset (location) of the string
-            uint256 stringOffset;
-            assembly {
-                stringOffset := mload(add(_data, 36)) // 4 bytes sig + 32 bytes for offset
-            }
-            // Read the length of the string stored in the 32 bytes after the offset
-            uint256 stringLength;
-            assembly {
-                stringLength := mload(add(_data, add(36, stringOffset))) // 4 bytes sig + 32 bytes offset
-            }
-            // Calculate the position of the _value parameter (32 bytes after the offset, immediately after length)
-            uint256 valueOffset = stringOffset + stringLength + 32;
+            if (_data.length != 132) revert Invalid();
+            // Assume string is always 32 bytes or less, and is stored as a 32-byte word in calldata
+            uint256 valueOffset = 68; // 4 bytes (sig) + 32 bytes (offset) + 32 bytes (length)
+
             // Extract the _value parameter
             uint256 _value;
             assembly {
-                _value := mload(add(_data, add(32, valueOffset))) // Corrected for 32 byte word size
+                _value := mload(add(_data, valueOffset))
             }
             return _value;
         }
