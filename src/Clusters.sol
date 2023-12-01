@@ -7,22 +7,13 @@ import {NameManager} from "./NameManager.sol";
 
 import {IClusters} from "./IClusters.sol";
 
-// Can a cluster have multiple names? (yes) Can it not have a name? (yes)
-// Where do we store expiries (we dont, do we need to?) and how do we clear state? (pokeName() wipes state before
-// transferring or expiring)
-// It's actually more complex, user money is stored in escrow and can be used to pay harberger tax on loan or get outbid
-// (name backing can only pay harberger tax, bids increase harberger tax, outbids refund previous bid)
-// And same for expiries, the bid is required to trigger. Need smooth mathematical functions here (trigger /w pokeName()
-// or bidName())
-// Can users set a canonical name for cluster? Yes, they can own multiple names and they can also have zero names.
-// Should you be able to transfer name between clusters? Yes, and how can they be traded? (transferName() updates
-// relevant state)
-// How do we handle when an account gets hacked and kick everyone else out from valuable cluster? Problem of success,
-// can just ignore. Don't get phished, 2FA not worth it.
-// What do we do about everybody being in cluster 0? Treat it like a burn address of sorts.
-// (_clusterNames has names removed on expiry and 'checkPrivileges(name)' modifier prevents execution if addressLookup
-// returns 0)
-// What does the empty foobar/ resolver point to? CREATE2 Singlesig?
+/**
+OPEN QUESTIONS/TODOS
+Can you create a cluster without registering a name? No, there needs to be a bounty for adding others to your cluster
+What does the empty foobar/ resolver point to?
+
+
+ */
 
 contract Clusters is NameManager {
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -61,10 +52,6 @@ contract Clusters is NameManager {
     function remove(address _addr) external checkPrivileges("") {
         if (addressLookup[msg.sender] != addressLookup[_addr]) revert Unauthorized();
         _remove(_addr);
-    }
-
-    function leave() external checkPrivileges("") {
-        _remove(msg.sender);
     }
 
     function clusterAddresses(uint256 _clusterId) external view returns (address[] memory) {

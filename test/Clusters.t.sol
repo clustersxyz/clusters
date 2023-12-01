@@ -298,7 +298,7 @@ contract ClustersTest is Test {
         vm.stopPrank();
 
         vm.prank(addr);
-        clusters.leave();
+        clusters.remove(addr);
 
         address[] memory addresses = clusters.clusterAddresses(1);
         require(addresses.length == 1, "addresses array length error");
@@ -319,7 +319,7 @@ contract ClustersTest is Test {
 
         vm.prank(PRANKED_ADDRESS);
         vm.expectRevert(IClusters.NoCluster.selector);
-        clusters.leave();
+        clusters.remove(PRANKED_ADDRESS);
     }
 
     function testLeaveClusterRevertInvalid(bytes32 _callerSalt, bytes32 _name, uint256 _buyAmount) public {
@@ -332,7 +332,7 @@ contract ClustersTest is Test {
         clusters.create();
         clusters.buyName{value: _buyAmount}("Test String");
         vm.expectRevert(IClusters.Invalid.selector);
-        clusters.leave();
+        clusters.remove(caller);
         vm.stopPrank();
     }
 
