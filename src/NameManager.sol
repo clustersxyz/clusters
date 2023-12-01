@@ -70,7 +70,7 @@ abstract contract NameManager is IClusters {
         if (addressToClusterId[addr] == 0) revert NoCluster();
     }
 
-    function _checkNameValid(string memory name) internal view {
+    function _checkNameValid(string memory name) internal pure {
         if (bytes(name).length == 0) revert EmptyName();
     }
 
@@ -145,8 +145,8 @@ abstract contract NameManager is IClusters {
         bytes32 name = _toBytes32(name_);
         if (name == bytes32("")) revert Invalid();
         if (toClusterId >= nextClusterId) revert Unregistered();
-        uint256 addressToClusterId = addressToClusterId[msg.sender];
-        _transferName(name, addressToClusterId, toClusterId);
+        uint256 clusterId = addressToClusterId[msg.sender];
+        _transferName(name, clusterId, toClusterId);
     }
 
     /// @dev Transfer cluster name or delete cluster name without checking auth

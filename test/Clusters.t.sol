@@ -7,8 +7,10 @@ import {Pricing} from "../src/Pricing.sol";
 import {Endpoint} from "../src/Endpoint.sol";
 import {IClusters} from "../src/IClusters.sol";
 
+import {PricingHarness} from "./harness/PricingHarness.sol";
+
 contract ClustersTest is Test {
-    Pricing public pricing;
+    PricingHarness public pricing;
     Endpoint public endpoint;
     Clusters public clusters;
 
@@ -19,7 +21,7 @@ contract ClustersTest is Test {
     string constant NAME = "Test Name";
 
     function setUp() public {
-        pricing = new Pricing();
+        pricing = new PricingHarness();
         endpoint = new Endpoint();
         clusters = new Clusters(address(pricing), address(clusters));
         minPrice = pricing.minAnnualPrice();
@@ -44,12 +46,12 @@ contract ClustersTest is Test {
     \\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\*/
 
     function testDecayMultiplier() public {
-        int256 decay = pricing.getDecayMultiplier(730 days);
+        int256 decay = pricing.exposed_getDecayMultiplier(730 days);
         assertEq(decay, int256(0.25e18 - 1)); // Tiny error tolerance is okay
     }
 
     function testIntegratedDecayPrice() public {
-        uint256 spent = pricing.getIntegratedDecayPrice(1 ether, 730 days);
+        uint256 spent = pricing.exposed_getIntegratedDecayPrice(1 ether, 730 days);
         assertEq(spent, 1082021280666722556); // 1.08 ether over 2 years
     }
 
@@ -105,13 +107,13 @@ contract ClustersTest is Test {
     }
 
     function testPriceAfterBid() public {
-        uint256 newPrice = pricing.getPriceAfterBid(1 ether, 2 ether, 0);
+        uint256 newPrice = pricing.exposed_getPriceAfterBid(1 ether, 2 ether, 0);
         assertEq(newPrice, 1 ether);
 
-        newPrice = pricing.getPriceAfterBid(1 ether, 2 ether, 15 days);
+        newPrice = pricing.exposed_getPriceAfterBid(1 ether, 2 ether, 15 days);
         assertEq(newPrice, 1.25 ether);
 
-        newPrice = pricing.getPriceAfterBid(1 ether, 2 ether, 30 days);
+        newPrice = pricing.exposed_getPriceAfterBid(1 ether, 2 ether, 30 days);
         assertEq(newPrice, 2 ether);
     }
 
