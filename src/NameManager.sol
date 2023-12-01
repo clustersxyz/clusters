@@ -14,6 +14,8 @@ import {console2} from "forge-std/Test.sol";
 abstract contract NameManager is IClusters {
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
+    address immutable public endpoint;
+
     uint256 internal constant BID_TIMELOCK = 30 days;
 
     Pricing internal pricing;
@@ -64,6 +66,18 @@ abstract contract NameManager is IClusters {
     /// @notice Amount of eth that's sitting in active bids and canceled but not-yet-withdrawn bids
     uint256 public totalBidBacking;
 
+    function _checkZeroCluster(address addr) internal view {
+        if (addressLookup[addr] == 0) revert NoCluster();
+    }
+
+    function _checkNameValid(string memory name) internal view {
+        if (bytes(name).length == 0) revert EmptyName();
+    }
+
+    function _checkNameOwnership(address addr, string memory name) internal view {
+        if (addressLookup[addr] != nameLookup[_toBytes32(name)]) revert Unauthorized();
+    }
+
     /// @notice Ensure msg.sender has a cluster or owns a name
     modifier checkPrivileges(string memory _name) {
         // Revert if msg.sender has no cluster in all cases
@@ -73,14 +87,20 @@ abstract contract NameManager is IClusters {
             _;
         } else {
             // Otherwise make sure name belongs to msg.sender's clusterId
-            console2.log(addressLookup[msg.sender], nameLookup[_toBytes32(_name)]);
             if (addressLookup[msg.sender] != nameLookup[_toBytes32(_name)]) revert Unauthorized();
             _;
         }
     }
 
-    constructor(address _pricing) {
+    modifier onlyEndpoint(address _msgSender) {
+        if (msg.sender != _msgSender && msg.sender != endpoint) revert Unauthorized();
+        _;
+    }
+
+    constructor(address _pricing, address _endpoint) {
         pricing = Pricing(_pricing);
+        endpoint = _endpoint;
+
     }
 
     /// VIEW FUNCTIONS ///

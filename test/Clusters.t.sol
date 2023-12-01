@@ -4,10 +4,12 @@ pragma solidity ^0.8.13;
 import {Test, console2} from "forge-std/Test.sol";
 import {Clusters, NameManager} from "../src/Clusters.sol";
 import {Pricing} from "../src/Pricing.sol";
+import {Endpoint} from "../src/Endpoint.sol";
 import {IClusters} from "../src/IClusters.sol";
 
 contract ClustersTest is Test {
     Pricing public pricing;
+    Endpoint public endpoint;
     Clusters public clusters;
 
     uint256 secondsAfterCreation = 1000 * 365 days;
@@ -16,63 +18,10 @@ contract ClustersTest is Test {
     address constant PRANKED_ADDRESS = address(13);
     string constant NAME = "Test Name";
 
-    function _toBytes32(string memory _smallString) internal pure returns (bytes32 result) {
-        bytes memory smallBytes = bytes(_smallString);
-        require(smallBytes.length <= 32, "name too long");
-        return bytes32(smallBytes);
-    }
-
-    /// @dev This implementation differs from the onchain implementation as removing both left and right padding is
-    /// necessary for fuzz testing.
-    function _toString(bytes32 _smallBytes) internal pure returns (string memory result) {
-        if (_smallBytes == bytes32("")) return result;
-        /// @solidity memory-safe-assembly
-        assembly {
-            result := mload(0x40)
-            let n
-            for {} 1 {} {
-                n := add(n, 1)
-                if iszero(byte(n, _smallBytes)) { break } // Scan for '\0'.
-            }
-            mstore(result, n)
-            let o := add(result, 0x20)
-            mstore(o, _smallBytes)
-            mstore(add(o, n), 0)
-            mstore(0x40, add(result, 0x40))
-        }
-    }
-
-    /// @dev Used for sanitizing fuzz inputs by removing all left-padding (assume all names are right-padded)
-    function _removePadding(bytes32 _smallBytes) internal pure returns (bytes32 result) {
-        uint256 shift = 0;
-        // Determine the amount of left-padding (number of leading zeros)
-        while (shift < 32 && _smallBytes[shift] == 0) {
-            unchecked {
-                ++shift;
-            }
-        }
-        if (shift == 0) {
-            // No left-padding, return the original data
-            return _smallBytes;
-        }
-        if (shift == 32) {
-            // All bytes are zeros
-            return bytes32(0);
-        }
-        // Shift bytes to the left
-        for (uint256 i = 0; i < 32 - shift; i++) {
-            result |= bytes32(uint256(uint8(_smallBytes[i + shift])) << (8 * (31 - i)));
-        }
-        return result;
-    }
-
-    function _bytesToAddress(bytes32 _fuzzedBytes) internal pure returns (address) {
-        return address(uint160(uint256(keccak256(abi.encode(_fuzzedBytes)))));
-    }
-
     function setUp() public {
         pricing = new Pricing();
-        clusters = new Clusters(address(pricing));
+        endpoint = new Endpoint();
+        clusters = new Clusters(address(pricing), address(clusters));
         minPrice = pricing.minAnnualPrice();
         vm.deal(address(this), 1 ether);
     }
@@ -1308,5 +1257,59 @@ contract ClustersTest is Test {
         require(clusters.addressLookup(caller) == 1, "clusterId error");
         require(clusters.forwardLookup(1, name) == address(0), "forwardLookup not purged");
         require(clusters.reverseLookup(caller) == bytes32(""), "reverseLookup not purged");
+    }
+
+    function _toBytes32(string memory _smallString) internal pure returns (bytes32 result) {
+        bytes memory smallBytes = bytes(_smallString);
+        require(smallBytes.length <= 32, "name too long");
+        return bytes32(smallBytes);
+    }
+
+    /// @dev This implementation differs from the onchain implementation as removing both left and right padding is
+    /// necessary for fuzz testing.
+    function _toString(bytes32 _smallBytes) internal pure returns (string memory result) {
+        if (_smallBytes == bytes32("")) return result;
+        /// @solidity memory-safe-assembly
+        assembly {
+            result := mload(0x40)
+            let n
+            for {} 1 {} {
+                n := add(n, 1)
+                if iszero(byte(n, _smallBytes)) { break } // Scan for '\0'.
+            }
+            mstore(result, n)
+            let o := add(result, 0x20)
+            mstore(o, _smallBytes)
+            mstore(add(o, n), 0)
+            mstore(0x40, add(result, 0x40))
+        }
+    }
+
+    /// @dev Used for sanitizing fuzz inputs by removing all left-padding (assume all names are right-padded)
+    function _removePadding(bytes32 _smallBytes) internal pure returns (bytes32 result) {
+        uint256 shift = 0;
+        // Determine the amount of left-padding (number of leading zeros)
+        while (shift < 32 && _smallBytes[shift] == 0) {
+            unchecked {
+                ++shift;
+            }
+        }
+        if (shift == 0) {
+            // No left-padding, return the original data
+            return _smallBytes;
+        }
+        if (shift == 32) {
+            // All bytes are zeros
+            return bytes32(0);
+        }
+        // Shift bytes to the left
+        for (uint256 i = 0; i < 32 - shift; i++) {
+            result |= bytes32(uint256(uint8(_smallBytes[i + shift])) << (8 * (31 - i)));
+        }
+        return result;
+    }
+
+    function _bytesToAddress(bytes32 _fuzzedBytes) internal pure returns (address) {
+        return address(uint160(uint256(keccak256(abi.encode(_fuzzedBytes)))));
     }
 }

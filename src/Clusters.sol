@@ -20,7 +20,7 @@ contract Clusters is NameManager {
     /// @dev Enumerate all addresses in a cluster
     mapping(uint256 clusterId => EnumerableSet.AddressSet addrs) internal _clusterAddresses;
 
-    constructor(address _pricing) NameManager(_pricing) {}
+    constructor(address _pricing, address _endpoint) NameManager(_pricing, _endpoint) {}
 
     /// @dev For payable multicall to be secure, we cannot trust msg.value params in other external methods
     /// @dev Must instead do strict protocol invariant checking at the end of methods like Uniswap V2
@@ -39,17 +39,26 @@ contract Clusters is NameManager {
     /// PUBLIC FUNCTIONS ///
 
     function create() external {
-        _add(msg.sender, nextClusterId++);
+        create(msg.sender);
     }
 
-    function add(address _addr) external checkPrivileges("") {
-        if (addressLookup[_addr] != 0) revert Registered();
-        _add(_addr, addressLookup[msg.sender]);
+    function create(address msgSender) public onlyEndpoint(msgSender) {
+        _add(msgSender, nextClusterId++);
     }
 
-    function remove(address _addr) external checkPrivileges("") {
-        if (addressLookup[msg.sender] != addressLookup[_addr]) revert Unauthorized();
-        _remove(_addr);
+    function add(address addr) external checkPrivileges("") {
+        add(msg.sender, addr);
+    }
+
+    function add(address msgSender, address addr) public onlyEndpoint(msgSender) {
+        _checkZeroCluster(msgSender);
+        if (addressLookup[addr] != 0) revert Registered();
+        _add(addr, addressLookup[msgSender]);
+    }
+
+    function remove(address addr) external checkPrivileges("") {
+        if (addressLookup[msg.sender] != addressLookup[addr]) revert Unauthorized();
+        _remove(addr);
     }
 
     function clusterAddresses(uint256 _clusterId) external view returns (address[] memory) {
@@ -58,22 +67,22 @@ contract Clusters is NameManager {
 
     /// INTERNAL FUNCTIONS ///
 
-    function _add(address _addr, uint256 clusterId) internal {
-        if (addressLookup[_addr] != 0) revert Registered();
-        addressLookup[_addr] = clusterId;
-        _clusterAddresses[clusterId].add(_addr);
+    function _add(address addr, uint256 clusterId) internal {
+        if (addressLookup[addr] != 0) revert Registered();
+        addressLookup[addr] = clusterId;
+        _clusterAddresses[clusterId].add(addr);
     }
 
-    function _remove(address _addr) internal {
-        uint256 clusterId = addressLookup[_addr];
-        // If the cluster has valid names, prevent removing final address, regardless of what is supplied for _addr
+    function _remove(address addr) internal {
+        uint256 clusterId = addressLookup[addr];
+        // If the cluster has valid names, prevent removing final address, regardless of what is supplied for addr
         if (_clusterNames[clusterId].length() > 0 && _clusterAddresses[clusterId].length() == 1) revert Invalid();
-        delete addressLookup[_addr];
-        _clusterAddresses[clusterId].remove(_addr);
-        bytes32 walletName = reverseLookup[_addr];
+        delete addressLookup[addr];
+        _clusterAddresses[clusterId].remove(addr);
+        bytes32 walletName = reverseLookup[addr];
         if (walletName != bytes32("")) {
             delete forwardLookup[clusterId][walletName];
-            delete reverseLookup[_addr];
+            delete reverseLookup[addr];
         }
     }
 }

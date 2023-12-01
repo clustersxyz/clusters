@@ -4,6 +4,7 @@ pragma solidity ^0.8.23;
 interface IClusters {
     /// ERRORS ///
 
+    error EmptyName();
     error NoBid();
     error SelfBid();
     error Invalid();
