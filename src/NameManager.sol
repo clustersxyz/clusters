@@ -109,9 +109,7 @@ abstract contract NameManager is IClusters {
         if (nameLookup[name] != 0) revert Registered();
         if (msg.value < pricing.minAnnualPrice()) revert Insufficient();
         // Process price accounting updates
-        unchecked {
-            nameBacking[name] += msg.value;
-        }
+        nameBacking[name] += msg.value;
         priceIntegral[name] = IClusters.PriceIntegral({
             name: name,
             lastUpdatedTimestamp: block.timestamp,
@@ -127,9 +125,7 @@ abstract contract NameManager is IClusters {
         bytes32 name = _toBytes32(_name);
         if (name == bytes32("")) revert Invalid();
         if (nameLookup[name] == 0) revert Unregistered();
-        unchecked {
-            nameBacking[name] += msg.value;
-        }
+        nameBacking[name] += msg.value;
         emit FundName(_name, msg.sender, msg.value);
     }
 
@@ -182,28 +178,22 @@ abstract contract NameManager is IClusters {
         uint256 backing = nameBacking[name];
         if (spent >= backing) {
             delete nameBacking[name];
-            unchecked {
-                protocolRevenue += backing;
-            }
+            protocolRevenue += backing;
             // If there is a valid bid, transfer to the bidder
             address bidder;
             uint256 bid = bids[name].ethAmount;
             if (bid > 0) {
                 bidder = bids[name].bidder;
-                unchecked {
-                    nameBacking[name] += bid;
-                }
+                nameBacking[name] += bid;
                 delete bids[name];
             }
             // If there isn't a highest bidder, name will expire and be deleted as bidder is address(0)
             _transferName(name, nameLookup[name], addressLookup[bidder]);
         } else {
             // Process price data update
-            unchecked {
-                protocolRevenue += spent;
-                nameBacking[name] -= spent;
-                backing -= spent;
-            }
+            protocolRevenue += spent;
+            nameBacking[name] -= spent;
+            backing -= spent;
             priceIntegral[name] = IClusters.PriceIntegral({
                 name: name,
                 lastUpdatedTimestamp: block.timestamp,
