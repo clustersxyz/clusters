@@ -3,14 +3,14 @@ pragma solidity ^0.8.13;
 
 import {Test, console2} from "forge-std/Test.sol";
 import {Clusters, NameManager} from "../src/Clusters.sol";
+import {IPricing} from "../src/IPricing.sol";
+import {PricingFlat} from "../src/PricingFlat.sol";
 import {PricingHarberger} from "../src/PricingHarberger.sol";
 import {Endpoint} from "../src/Endpoint.sol";
 import {IClusters} from "../src/IClusters.sol";
 
-import {PricingHarbergerHarness} from "./harness/PricingHarbergerHarness.sol";
-
 contract ClustersTest is Test {
-    PricingHarbergerHarness public pricing;
+    IPricing public pricing;
     Endpoint public endpoint;
     Clusters public clusters;
 
@@ -21,7 +21,7 @@ contract ClustersTest is Test {
     string constant NAME = "Test Name";
 
     function setUp() public {
-        pricing = new PricingHarbergerHarness();
+        pricing = new PricingHarberger();
         endpoint = new Endpoint();
         clusters = new Clusters(address(pricing), address(clusters));
         minPrice = pricing.minAnnualPrice();
