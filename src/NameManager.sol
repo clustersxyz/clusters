@@ -78,8 +78,8 @@ abstract contract NameManager is IClusters {
         if (addressLookup[addr] != nameLookup[_toBytes32(name)]) revert Unauthorized();
     }
 
-    modifier onlyEndpoint(address _msgSender) {
-        if (msg.sender != _msgSender && msg.sender != endpoint) revert Unauthorized();
+    modifier onlyEndpoint(address msgSender) {
+        if (msg.sender != msgSender && msg.sender != endpoint) revert Unauthorized();
         _;
     }
 

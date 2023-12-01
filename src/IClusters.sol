@@ -53,8 +53,8 @@ interface IClusters {
     function nextClusterId() external view returns (uint256 clusterId);
     function addressLookup(address addr) external view returns (uint256 clusterId);
     function nameLookup(bytes32 name_) external view returns (uint256 clusterId);
-    function canonicalClusterName(uint256 _clusterId) external view returns (bytes32 name);
-    function forwardLookup(uint256 _clusterId, bytes32 walletName_) external view returns (address wallet);
+    function canonicalClusterName(uint256 clusterId) external view returns (bytes32 name);
+    function forwardLookup(uint256 clusterId, bytes32 walletName_) external view returns (address wallet);
     function reverseLookup(address _wallet) external view returns (bytes32 walletName);
 
     function priceIntegral(bytes32 name_)
@@ -66,8 +66,8 @@ interface IClusters {
     function bids(bytes32 name_) external view returns (uint256 ethAmount, uint256 createdTimestamp, address bidder);
     function bidRefunds(address _bidder) external view returns (uint256 refund);
 
-    function clusterAddresses(uint256 _clusterId) external view returns (address[] memory addresses);
-    function getClusterNames(uint256 _clusterId) external view returns (bytes32[] memory names);
+    function clusterAddresses(uint256 clusterId) external view returns (address[] memory addresses);
+    function getClusterNames(uint256 clusterId) external view returns (bytes32[] memory names);
     function getBid(bytes32 name_) external view returns (Bid memory bid);
 
     /// EXTERNAL FUNCTIONS ///
