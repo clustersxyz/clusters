@@ -28,10 +28,46 @@ contract Clusters is NameManager {
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
+    bytes4 internal constant BUY_NAME_SIG = bytes4(keccak256("buyName(string,uint256)"));
+    bytes4 internal constant FUND_NAME_SIG = bytes4(keccak256("fundName(string,uint256)"));
+    bytes4 internal constant BID_NAME_SIG = bytes4(keccak256("bidName(string,uint256)"));
+
     /// @dev Enumerate all addresses in a cluster
     mapping(uint256 clusterId => EnumerableSet.AddressSet addrs) internal _clusterAddresses;
 
     constructor(address _pricing) NameManager(_pricing) {}
+
+    function _determineCallValue(bytes memory _data) internal pure returns (uint256) {
+        // Extract the function signature
+        bytes4 sig;
+        assembly {
+            sig := mload(add(_data, 32))
+        }
+
+        // Match the function signature
+        if (sig == BUY_NAME_SIG || sig == FUND_NAME_SIG || sig == BID_NAME_SIG) {
+            // Read the memory offset (location) of the string
+            uint256 stringOffset;
+            assembly {
+                stringOffset := mload(add(_data, 36)) // 4 bytes sig + 32 bytes for offset
+            }
+            // Read the length of the string stored in the 32 bytes after the offset
+            uint256 stringLength;
+            assembly {
+                stringLength := mload(add(_data, add(36, stringOffset))) // 4 bytes sig + 32 bytes offset
+            }
+            // Calculate the position of the _value parameter (32 bytes after the offset, immediately after length)
+            uint256 valueOffset = stringOffset + stringLength + 32;
+            // Extract the _value parameter
+            uint256 _value;
+            assembly {
+                _value := mload(add(_data, add(32, valueOffset))) // Corrected for 32 byte word size
+            }
+            return _value;
+        }
+        // Handle unmatched function signatures
+        return 0;
+    }
 
     /// @dev For payable multicall to be secure, we cannot trust msg.value params in other external methods
     /// @dev Must instead do strict protocol invariant checking at the end of methods like Uniswap V2
