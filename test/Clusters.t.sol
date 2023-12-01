@@ -14,6 +14,7 @@ contract ClustersTest is Test {
     uint256 minPrice;
 
     address constant PRANKED_ADDRESS = address(13);
+    string constant NAME = "Test Name";
 
     function _toBytes32(string memory _smallString) internal pure returns (bytes32 result) {
         bytes memory smallBytes = bytes(_smallString);
@@ -339,22 +340,6 @@ contract ClustersTest is Test {
                 IClusters.sol
     \\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\*/
 
-    function buyName() public {
-        clusters.buyName{value: 0.1 ether}("Test Name");
-    }
-
-    function testBuyName() public {
-        clusters.create();
-        buyName();
-        bytes32 name = _toBytes32("Test Name");
-        bytes32[] memory names = clusters.getClusterNames(1);
-        require(names.length == 1, "names array length error");
-        require(names[0] == name, "name array error");
-        require(clusters.nameLookup(name) == 1, "name not assigned to cluster");
-        require(clusters.ethBacking(name) == 0.1 ether, "ethBacking incorrect");
-        require(address(clusters).balance == 0.1 ether, "contract balance issue");
-    }
-
     function testBuyName(bytes32 _callerSalt, bytes32 _name, uint256 _buyAmount) public {
         vm.assume(_name != bytes32(""));
         address caller = _bytesToAddress(_callerSalt);
@@ -580,18 +565,6 @@ contract ClustersTest is Test {
         require(clusters.canonicalClusterName(2) == bytes32(""), "canonicalClusterName possibly transferred");
     }
 
-    function testPokeName() public {
-        clusters.create();
-        buyName();
-        vm.prank(PRANKED_ADDRESS);
-        clusters.pokeName("Test Name");
-        bytes32 name = _toBytes32("Test Name");
-        require(clusters.addressLookup(address(this)) == 1, "address(this) not assigned to cluster");
-        require(clusters.nameLookup(name) == 1, "name not assigned to cluster");
-        require(clusters.ethBacking(name) == 0.1 ether, "ethBacking incorrect");
-        require(address(clusters).balance == 0.1 ether, "contract balance issue");
-    }
-
     function testPokeName(bytes32 _callerSalt, bytes32 _addrSalt, bytes32 _name, uint256 _buyAmount, uint256 _timeSkew)
         public
     {
@@ -640,27 +613,6 @@ contract ClustersTest is Test {
         vm.expectRevert(IClusters.Unregistered.selector);
         clusters.pokeName(_string);
         vm.stopPrank();
-    }
-
-    function testBidName() public {
-        clusters.create();
-        buyName();
-        bytes32 name = _toBytes32("Test Name");
-        vm.deal(PRANKED_ADDRESS, 1 ether);
-        vm.startPrank(PRANKED_ADDRESS);
-        clusters.create();
-        clusters.bidName{value: 0.2 ether}("Test Name");
-        vm.stopPrank();
-        require(clusters.addressLookup(address(this)) == 1, "address(this) not assigned to cluster");
-        require(clusters.nameLookup(name) == 1, "name not assigned to cluster");
-        bytes32[] memory names = clusters.getClusterNames(1);
-        require(name == names[0], "cluster name array incorrect");
-        require(clusters.ethBacking(name) == 0.1 ether, "ethBacking incorrect");
-        require(address(clusters).balance == 0.3 ether, "contract balance issue");
-        IClusters.Bid memory bid = clusters.getBid(name);
-        require(bid.ethAmount == 0.2 ether, "bid ethAmount incorrect");
-        require(bid.createdTimestamp == block.timestamp, "bid createdTimestamp incorrect");
-        require(bid.bidder == PRANKED_ADDRESS, "bid bidder incorrect");
     }
 
     function testBidName(bytes32 _callerSalt, bytes32 _addrSalt, bytes32 _name, uint256 _buyAmount, uint256 _bidAmount)
@@ -920,31 +872,6 @@ contract ClustersTest is Test {
         require(bid.bidder == PRANKED_ADDRESS, "bid bidder incorrect");
     }
 
-    function testReduceBid() public {
-        clusters.create();
-        buyName();
-        bytes32 name = _toBytes32("Test Name");
-        vm.deal(PRANKED_ADDRESS, 1 ether);
-        vm.startPrank(PRANKED_ADDRESS);
-        clusters.create();
-        clusters.bidName{value: 0.2 ether}("Test Name");
-        uint256 balance = PRANKED_ADDRESS.balance;
-        vm.warp(block.timestamp + 31 days);
-        clusters.reduceBid("Test Name", 0.05 ether);
-        vm.stopPrank();
-        require(PRANKED_ADDRESS.balance == balance + 0.05 ether, "refund error");
-        require(clusters.addressLookup(address(this)) == 1, "address(this) not assigned to cluster");
-        require(clusters.nameLookup(name) == 1, "name not assigned to cluster");
-        bytes32[] memory names = clusters.getClusterNames(1);
-        require(name == names[0], "cluster name array incorrect");
-        require(clusters.ethBacking(name) < 0.1 ether, "ethBacking incorrect");
-        require(address(clusters).balance == 0.25 ether, "contract balance issue");
-        IClusters.Bid memory bid = clusters.getBid(name);
-        require(bid.ethAmount == 0.15 ether, "bid ethAmount incorrect");
-        require(bid.createdTimestamp == block.timestamp - 31 days, "bid createdTimestamp incorrect");
-        require(bid.bidder == PRANKED_ADDRESS, "bid bidder incorrect");
-    }
-
     function testReduceBid(
         bytes32 _callerSalt,
         bytes32 _addrSalt,
@@ -1184,14 +1111,14 @@ contract ClustersTest is Test {
 
     function testRevokeBid() public {
         clusters.create();
-        buyName();
-        bytes32 name = _toBytes32("Test Name");
+        clusters.buyName{value: 0.1 ether}(NAME);
+        bytes32 name = _toBytes32(NAME);
         vm.deal(PRANKED_ADDRESS, 1 ether);
         vm.startPrank(PRANKED_ADDRESS);
         clusters.create();
-        clusters.bidName{value: 0.2 ether}("Test Name");
+        clusters.bidName{value: 0.2 ether}(NAME);
         vm.warp(block.timestamp + 31 days);
-        clusters.reduceBid("Test Name", 0.2 ether);
+        clusters.reduceBid(NAME, 0.2 ether);
         vm.stopPrank();
         require(clusters.addressLookup(address(this)) == 1, "address(this) not assigned to cluster");
         require(clusters.nameLookup(name) == 1, "name not assigned to cluster");
