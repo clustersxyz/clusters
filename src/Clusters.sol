@@ -28,6 +28,8 @@ contract Clusters is NameManager {
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
+    error Insolvent();
+
     bytes4 internal constant BUY_NAME_SIG = bytes4(keccak256("buyName(string,uint256)"));
     bytes4 internal constant FUND_NAME_SIG = bytes4(keccak256("fundName(string,uint256)"));
     bytes4 internal constant BID_NAME_SIG = bytes4(keccak256("bidName(string,uint256)"));
@@ -73,13 +75,32 @@ contract Clusters is NameManager {
     /// @dev Must instead do strict protocol invariant checking at the end of methods like Uniswap V2
     function multicall(bytes[] calldata _data) external payable returns (bytes[] memory results) {
         results = new bytes[](_data.length);
+        uint256 totalValue;
         bool success;
+
+        // Iterate through each call, check for payable functions' _value param, and tally up total value used
         unchecked {
             for (uint256 i = 0; i < _data.length; ++i) {
+                // Retrieve each call's calldata looking for a _value parameter to ensure no double-spending
+                uint256 callValue = _determineCallValue(_data[i]);
+                if (totalValue + callValue > msg.value) revert Insufficient();
+
+                // Execute each call
                 //slither-disable-next-line calls-loop,delegatecall-loop
                 (success, results[i]) = address(this).delegatecall(_data[i]);
                 if (!success) revert MulticallFailed();
+
+                // After the call, tally _value, if any, and confirm internal accounting invariant still holds
+                totalValue += callValue;
+                if (address(this).balance != protocolRevenue + totalNameBacking + totalBidBacking) revert Insolvent();
             }
+        }
+
+        // If caller overpaid, refund difference
+        uint256 excessValue = msg.value - totalValue;
+        if (excessValue > 0) {
+            (success,) = payable(msg.sender).call{value: excessValue}("");
+            if (!success) revert NativeTokenTransferFailed();
         }
     }
 
