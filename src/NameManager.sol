@@ -3,7 +3,7 @@ pragma solidity ^0.8.23;
 
 import {EnumerableSet} from "../lib/openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 
-import {Pricing} from "./Pricing.sol";
+import {IPricing} from "./IPricing.sol";
 
 import {IClusters} from "./IClusters.sol";
 
@@ -18,15 +18,15 @@ abstract contract NameManager is IClusters {
 
     uint256 internal constant BID_TIMELOCK = 30 days;
 
-    Pricing internal pricing;
+    IPricing internal pricing;
 
     uint256 public nextClusterId = 1;
 
     /// @notice Which cluster an address belongs to
-    mapping(address addr => uint256 clusterId) public addressLookup;
+    mapping(address addr => uint256 clusterId) public addressToClusterId;
 
     /// @notice Which cluster a name belongs to
-    mapping(bytes32 name => uint256 clusterId) public nameLookup;
+    mapping(bytes32 name => uint256 clusterId) public nameToClusterId;
 
     /// @notice Display name to be shown for a cluster, like ENS reverse records
     mapping(uint256 clusterId => bytes32 name) public canonicalClusterName;
@@ -67,15 +67,15 @@ abstract contract NameManager is IClusters {
     uint256 public totalBidBacking;
 
     function _checkZeroCluster(address addr) internal view {
-        if (addressLookup[addr] == 0) revert NoCluster();
+        if (addressToClusterId[addr] == 0) revert NoCluster();
     }
 
-    function _checkNameValid(string memory name) internal view {
+    function _checkNameValid(string memory name) internal pure {
         if (bytes(name).length == 0) revert EmptyName();
     }
 
     function _checkNameOwnership(address addr, string memory name) internal view {
-        if (addressLookup[addr] != nameLookup[_toBytes32(name)]) revert Unauthorized();
+        if (addressToClusterId[addr] != nameToClusterId[_toBytes32(name)]) revert Unauthorized();
     }
 
     modifier onlyEndpoint(address msgSender) {
@@ -84,7 +84,7 @@ abstract contract NameManager is IClusters {
     }
 
     constructor(address _pricing, address _endpoint) {
-        pricing = Pricing(_pricing);
+        pricing = IPricing(_pricing);
         endpoint = _endpoint;
     }
 
@@ -108,11 +108,11 @@ abstract contract NameManager is IClusters {
     function buyName(string memory name_) external payable {
         _checkZeroCluster(msg.sender);
         bytes32 name = _toBytes32(name_);
-        uint256 clusterId = addressLookup[msg.sender];
+        uint256 clusterId = addressToClusterId[msg.sender];
         console2.log(name_, clusterId);
         if (name == bytes32("")) revert Invalid();
         // Check that name is unused and sufficient payment is made
-        if (nameLookup[name] != 0) revert Registered();
+        if (nameToClusterId[name] != 0) revert Registered();
         if (msg.value < pricing.minAnnualPrice()) revert Insufficient();
         // Process price accounting updates
         unchecked {
@@ -121,8 +121,7 @@ abstract contract NameManager is IClusters {
         priceIntegral[name] = IClusters.PriceIntegral({
             name: name,
             lastUpdatedTimestamp: block.timestamp,
-            lastUpdatedPrice: pricing.minAnnualPrice(),
-            maxExpiry: block.timestamp + uint256(pricing.getMaxDuration(pricing.minAnnualPrice(), msg.value))
+            lastUpdatedPrice: pricing.minAnnualPrice()
         });
         _assignName(name, clusterId);
         emit BuyName(name_, clusterId);
@@ -132,7 +131,7 @@ abstract contract NameManager is IClusters {
     function fundName(string memory name_) external payable {
         bytes32 name = _toBytes32(name_);
         if (name == bytes32("")) revert Invalid();
-        if (nameLookup[name] == 0) revert Unregistered();
+        if (nameToClusterId[name] == 0) revert Unregistered();
         unchecked {
             nameBacking[name] += msg.value;
         }
@@ -146,8 +145,8 @@ abstract contract NameManager is IClusters {
         bytes32 name = _toBytes32(name_);
         if (name == bytes32("")) revert Invalid();
         if (toClusterId >= nextClusterId) revert Unregistered();
-        uint256 currentCluster = addressLookup[msg.sender];
-        _transferName(name, currentCluster, toClusterId);
+        uint256 clusterId = addressToClusterId[msg.sender];
+        _transferName(name, clusterId, toClusterId);
     }
 
     /// @dev Transfer cluster name or delete cluster name without checking auth
@@ -159,7 +158,7 @@ abstract contract NameManager is IClusters {
         }
         // Assign name to new cluster, otherwise unassign
         if (toClusterId != 0) {
-            // Assign name to new cluster, _unassignName() isn't used because it resets nameLookup
+            // Assign name to new cluster, _unassignName() isn't used because it resets nameToClusterId
             _assignName(name, toClusterId);
             _clusterNames[fromClusterId].remove(name);
             // Purge canonical name if necessary
@@ -176,7 +175,7 @@ abstract contract NameManager is IClusters {
     function pokeName(string memory name_) public {
         bytes32 name = _toBytes32(name_);
         if (name == bytes32("")) revert Invalid();
-        if (nameLookup[name] == 0) revert Unregistered();
+        if (nameToClusterId[name] == 0) revert Unregistered();
         IClusters.PriceIntegral memory integral = priceIntegral[name];
         (uint256 spent, uint256 newPrice) = pricing.getIntegratedPrice(
             integral.lastUpdatedPrice,
@@ -201,19 +200,15 @@ abstract contract NameManager is IClusters {
                 delete bids[name];
             }
             // If there isn't a highest bidder, name will expire and be deleted as bidder is address(0)
-            _transferName(name, nameLookup[name], addressLookup[bidder]);
+            _transferName(name, nameToClusterId[name], addressToClusterId[bidder]);
         } else {
             // Process price data update
             unchecked {
                 protocolRevenue += spent;
                 nameBacking[name] -= spent;
             }
-            priceIntegral[name] = IClusters.PriceIntegral({
-                name: name,
-                lastUpdatedTimestamp: block.timestamp,
-                lastUpdatedPrice: newPrice,
-                maxExpiry: 0 // TODO: Correct this value
-            });
+            priceIntegral[name] =
+                IClusters.PriceIntegral({name: name, lastUpdatedTimestamp: block.timestamp, lastUpdatedPrice: newPrice});
             emit PokeName(name_, msg.sender);
         }
     }
@@ -228,10 +223,10 @@ abstract contract NameManager is IClusters {
         bytes32 name = _toBytes32(name_);
         if (name == bytes32("")) revert Invalid();
         if (msg.value == 0) revert NoBid();
-        uint256 clusterId = nameLookup[name];
+        uint256 clusterId = nameToClusterId[name];
         if (clusterId == 0) revert Unregistered();
         // Prevent name owner from bidding on their own name
-        if (clusterId == addressLookup[msg.sender]) revert SelfBid();
+        if (clusterId == addressToClusterId[msg.sender]) revert SelfBid();
         // Retrieve bidder values to process refund in case they're outbid
         uint256 prevBid = bids[name].ethAmount;
         address prevBidder = bids[name].bidder;
@@ -331,7 +326,7 @@ abstract contract NameManager is IClusters {
     function setCanonicalName(string memory name_) external {
         _checkZeroCluster(msg.sender);
         bytes32 name = _toBytes32(name_);
-        uint256 clusterId = addressLookup[msg.sender];
+        uint256 clusterId = addressToClusterId[msg.sender];
         if (bytes(name_).length == 0) {
             delete canonicalClusterName[clusterId];
             emit CanonicalName("", clusterId);
@@ -346,8 +341,8 @@ abstract contract NameManager is IClusters {
     function setWalletName(address _addr, string memory walletName_) external {
         _checkZeroCluster(msg.sender);
         bytes32 walletName = _toBytes32(walletName_);
-        uint256 clusterId = addressLookup[msg.sender];
-        if (clusterId != addressLookup[_addr]) revert Unauthorized();
+        uint256 clusterId = addressToClusterId[msg.sender];
+        if (clusterId != addressToClusterId[_addr]) revert Unauthorized();
         if (bytes(walletName_).length == 0) {
             walletName = reverseLookup[_addr];
             delete forwardLookup[clusterId][walletName];
@@ -362,13 +357,13 @@ abstract contract NameManager is IClusters {
 
     /// @dev Set name-related state variables
     function _assignName(bytes32 name, uint256 clusterId) internal {
-        nameLookup[name] = clusterId;
+        nameToClusterId[name] = clusterId;
         _clusterNames[clusterId].add(name);
     }
 
     /// @dev Purge name-related state variables
     function _unassignName(bytes32 name, uint256 clusterId) internal {
-        nameLookup[name] = 0;
+        nameToClusterId[name] = 0;
         if (canonicalClusterName[clusterId] == name) {
             delete canonicalClusterName[clusterId];
             emit CanonicalName("", clusterId);

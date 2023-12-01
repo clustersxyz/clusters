@@ -4,6 +4,8 @@ pragma solidity ^0.8.23;
 import {toWadUnsafe, wadExp, wadLn, unsafeWadMul, unsafeWadDiv} from "../lib/solmate/src/utils/SignedWadMath.sol";
 import {FixedPointMathLib} from "../lib/solady/src/utils/FixedPointMathLib.sol";
 
+import {IPricing} from "./IPricing.sol";
+
 import {console2} from "../lib/forge-std/src/Test.sol";
 
 /*
@@ -22,7 +24,7 @@ for months >= 1
 /// @notice A stateless computation library for price, bids, decays, etc
 /// @dev All state is stored in clusters so we can replace the Pricing module while providing guarantees to existing
 /// holders
-contract Pricing {
+contract Pricing is IPricing {
     uint256 internal constant SECONDS_IN_MONTH = 30 days;
     uint256 internal constant SECONDS_IN_YEAR = 365 days;
     uint256 internal constant DENOMINATOR = 10_000;
@@ -33,14 +35,7 @@ contract Pricing {
 
     constructor() {}
 
-    /// @notice If no bids occur and name price starts at p0, how many seconds until ethAmount runs out?
-    function getMaxDuration(uint256 p0, uint256 ethAmount) external view returns (int256) {
-        if (p0 <= minAnnualPrice) {
-            return unsafeWadDiv(unsafeWadMul(toWadUnsafe(SECONDS_IN_YEAR), toWadUnsafe(ethAmount)), toWadUnsafe(p0));
-        } else {
-            return 0;
-        }
-    }
+    /// PUBLIC FUNCTIONS ///
 
     /// @notice The amount of eth that's been spent on a name since last update
     /// @param lastUpdatedPrice Can be greater than max price, used to calculate decay times
@@ -128,37 +123,39 @@ contract Pricing {
         }
     }
 
+    /// INTERNAL FUNCTIONS ///
+
     /// @notice The annual max price integrated over its duration
-    function getIntegratedMaxPrice(uint256 numSeconds) public view returns (uint256) {
+    function getIntegratedMaxPrice(uint256 numSeconds) internal view returns (uint256) {
         return maxPriceBase * numSeconds / SECONDS_IN_YEAR
             + (maxPriceIncrement * numSeconds ** 2) / (2 * SECONDS_IN_YEAR ** 2);
     }
 
     /// @notice The annual max price at an instantaneous point in time, derivative of getIntegratedMaxPrice
-    function getMaxPrice(uint256 numSeconds) public view returns (uint256) {
+    function getMaxPrice(uint256 numSeconds) internal view returns (uint256) {
         return maxPriceBase + (maxPriceIncrement * numSeconds) / SECONDS_IN_YEAR;
     }
 
     /// @notice The integral of the annual price while it's exponentially decaying over `numSeconds` starting at p0
-    function getIntegratedDecayPrice(uint256 p0, uint256 numSeconds) public pure returns (uint256) {
+    function getIntegratedDecayPrice(uint256 p0, uint256 numSeconds) internal pure returns (uint256) {
         return uint256(
             unsafeWadMul(int256(p0), unsafeWadDiv(getDecayMultiplier(numSeconds) - toWadUnsafe(1), wadLn(0.5e18)))
         );
     }
 
     /// @notice The annual decayed price at an instantaneous point in time, derivative of getIntegratedDecayPrice
-    function getDecayPrice(uint256 p0, uint256 numSeconds) public pure returns (uint256) {
+    function getDecayPrice(uint256 p0, uint256 numSeconds) internal pure returns (uint256) {
         return uint256(unsafeWadMul(int256(p0), getDecayMultiplier(numSeconds)));
     }
 
     /// @notice Implements e^(ln(0.5)x) ~= e^(-0.6931x) which cuts the number in half every year for exponential decay
     /// @dev Since this will be <1, returns a wad with 18 decimals
-    function getDecayMultiplier(uint256 numSeconds) public pure returns (int256) {
+    function getDecayMultiplier(uint256 numSeconds) internal pure returns (int256) {
         return wadExp(wadLn(0.5e18) * int256(numSeconds) / int256(SECONDS_IN_YEAR));
     }
 
     /// @notice Current adjusts quadratically up to bid price, capped at 1 month duration
-    function getPriceAfterBid(uint256 p0, uint256 pBid, uint256 bidLengthInSeconds) external pure returns (uint256) {
+    function getPriceAfterBid(uint256 p0, uint256 pBid, uint256 bidLengthInSeconds) internal pure returns (uint256) {
         if (p0 >= pBid) return p0;
         if (bidLengthInSeconds >= SECONDS_IN_MONTH) return pBid;
         int256 wadMonths = toWadUnsafe(bidLengthInSeconds) / int256(SECONDS_IN_MONTH);
