@@ -454,9 +454,12 @@ contract ClustersTest is Test {
         require(address(clusters).balance == _buyAmount, "contract balance issue");
     }
 
-    function testTransferNameRevertNoCluster(bytes32 _callerSalt, bytes32 _addrSalt, string memory _name, uint256 _buyAmount)
-        public
-    {
+    function testTransferNameRevertNoCluster(
+        bytes32 _callerSalt,
+        bytes32 _addrSalt,
+        string memory _name,
+        uint256 _buyAmount
+    ) public {
         vm.assume(_callerSalt != _addrSalt);
         vm.assume(bytes(_name).length > 0);
         vm.assume(bytes(_name).length <= 32);
@@ -534,9 +537,12 @@ contract ClustersTest is Test {
         vm.stopPrank();
     }
 
-    function testTransferNameCanonicalName(bytes32 _callerSalt, bytes32 _addrSalt, string memory _name, uint256 _buyAmount)
-        public
-    {
+    function testTransferNameCanonicalName(
+        bytes32 _callerSalt,
+        bytes32 _addrSalt,
+        string memory _name,
+        uint256 _buyAmount
+    ) public {
         vm.assume(_callerSalt != _addrSalt);
         vm.assume(bytes(_name).length > 0);
         vm.assume(bytes(_name).length <= 32);
@@ -551,10 +557,7 @@ contract ClustersTest is Test {
         clusters.setCanonicalName(_name);
         vm.stopPrank();
 
-        require(
-            clusters.canonicalClusterName(1) == _toBytes32(_name),
-            "canonicalClusterName error"
-        );
+        require(clusters.canonicalClusterName(1) == _toBytes32(_name), "canonicalClusterName error");
 
         vm.prank(addr);
         clusters.create();
@@ -566,9 +569,13 @@ contract ClustersTest is Test {
         require(clusters.canonicalClusterName(2) == bytes32(""), "canonicalClusterName possibly transferred");
     }
 
-    function testPokeName(bytes32 _callerSalt, bytes32 _addrSalt, string memory _name, uint256 _buyAmount, uint256 _timeSkew)
-        public
-    {
+    function testPokeName(
+        bytes32 _callerSalt,
+        bytes32 _addrSalt,
+        string memory _name,
+        uint256 _buyAmount,
+        uint256 _timeSkew
+    ) public {
         vm.assume(_callerSalt != _addrSalt);
         vm.assume(bytes(_name).length > 0);
         vm.assume(bytes(_name).length <= 32);
@@ -616,9 +623,13 @@ contract ClustersTest is Test {
         vm.stopPrank();
     }
 
-    function testBidName(bytes32 _callerSalt, bytes32 _addrSalt, string memory _name, uint256 _buyAmount, uint256 _bidAmount)
-        public
-    {
+    function testBidName(
+        bytes32 _callerSalt,
+        bytes32 _addrSalt,
+        string memory _name,
+        uint256 _buyAmount,
+        uint256 _bidAmount
+    ) public {
         vm.assume(_callerSalt != _addrSalt);
         vm.assume(bytes(_name).length > 0);
         vm.assume(bytes(_name).length <= 32);
@@ -687,7 +698,9 @@ contract ClustersTest is Test {
         vm.stopPrank();
     }
 
-    function testBidNameRevertNoBid(bytes32 _callerSalt, bytes32 _addrSalt, string memory _name, uint256 _buyAmount) public {
+    function testBidNameRevertNoBid(bytes32 _callerSalt, bytes32 _addrSalt, string memory _name, uint256 _buyAmount)
+        public
+    {
         vm.assume(_callerSalt != _addrSalt);
         vm.assume(bytes(_name).length > 0);
         vm.assume(bytes(_name).length <= 32);
@@ -1342,9 +1355,12 @@ contract ClustersTest is Test {
         require(names[0] == name, "name array error");
     }
 
-    function testSetCanonicalNameUpdate(bytes32 _callerSalt, string memory _name1, string memory _name2, uint256 _buyAmount)
-        public
-    {   
+    function testSetCanonicalNameUpdate(
+        bytes32 _callerSalt,
+        string memory _name1,
+        string memory _name2,
+        uint256 _buyAmount
+    ) public {
         vm.assume(keccak256(abi.encodePacked(_name1)) != keccak256(abi.encodePacked(_name2)));
         vm.assume(bytes(_name1).length > 0);
         vm.assume(bytes(_name1).length <= 32);
