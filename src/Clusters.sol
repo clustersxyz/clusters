@@ -46,7 +46,7 @@ contract Clusters is NameManager {
         _add(msgSender, nextClusterId++);
     }
 
-    function add(address addr) external checkPrivileges("") {
+    function add(address addr) external {
         add(msg.sender, addr);
     }
 

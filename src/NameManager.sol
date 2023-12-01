@@ -14,7 +14,7 @@ import {console2} from "forge-std/Test.sol";
 abstract contract NameManager is IClusters {
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
-    address immutable public endpoint;
+    address public immutable endpoint;
 
     uint256 internal constant BID_TIMELOCK = 30 days;
 
@@ -78,20 +78,6 @@ abstract contract NameManager is IClusters {
         if (addressLookup[addr] != nameLookup[_toBytes32(name)]) revert Unauthorized();
     }
 
-    /// @notice Ensure msg.sender has a cluster or owns a name
-    modifier checkPrivileges(string memory _name) {
-        // Revert if msg.sender has no cluster in all cases
-        if (addressLookup[msg.sender] == 0) revert NoCluster();
-        // If empty _name parameter, only check cluster ownership
-        if (bytes(_name).length == 0) {
-            _;
-        } else {
-            // Otherwise make sure name belongs to msg.sender's clusterId
-            if (addressLookup[msg.sender] != nameLookup[_toBytes32(_name)]) revert Unauthorized();
-            _;
-        }
-    }
-
     modifier onlyEndpoint(address _msgSender) {
         if (msg.sender != _msgSender && msg.sender != endpoint) revert Unauthorized();
         _;
@@ -100,7 +86,6 @@ abstract contract NameManager is IClusters {
     constructor(address _pricing, address _endpoint) {
         pricing = Pricing(_pricing);
         endpoint = _endpoint;
-
     }
 
     /// VIEW FUNCTIONS ///
@@ -120,7 +105,8 @@ abstract contract NameManager is IClusters {
     /// ECONOMIC FUNCTIONS ///
 
     /// @notice Buy unregistered name. Must pay at least minimum yearly payment.
-    function buyName(string memory _name) external payable checkPrivileges("") {
+    function buyName(string memory _name) external payable {
+        _checkZeroCluster(msg.sender);
         bytes32 name = _toBytes32(_name);
         uint256 clusterId = addressLookup[msg.sender];
         console2.log(_name, clusterId);
@@ -154,7 +140,9 @@ abstract contract NameManager is IClusters {
     }
 
     /// @notice Move name from one cluster to another without payment
-    function transferName(string memory _name, uint256 toClusterId) external checkPrivileges(_name) {
+    function transferName(string memory _name, uint256 toClusterId) external {
+        _checkZeroCluster(msg.sender);
+        _checkNameOwnership(msg.sender, _name);
         bytes32 name = _toBytes32(_name);
         if (name == bytes32("")) revert Invalid();
         if (toClusterId >= nextClusterId) revert Unregistered();
@@ -235,7 +223,8 @@ abstract contract NameManager is IClusters {
     ///         resets the timelock.
     /// @dev Should work smoothly for fully expired names and names partway through their duration
     /// @dev Needs to be onchain ETH bid escrowed in one place because otherwise prices shift
-    function bidName(string memory _name) external payable checkPrivileges("") {
+    function bidName(string memory _name) external payable {
+        _checkZeroCluster(msg.sender);
         bytes32 name = _toBytes32(_name);
         if (name == bytes32("")) revert Invalid();
         if (msg.value == 0) revert NoBid();
@@ -339,20 +328,23 @@ abstract contract NameManager is IClusters {
     /// LOCAL NAME MANAGEMENT ///
 
     /// @notice Set canonical name or erase it by setting ""
-    function setCanonicalName(string memory _name) external checkPrivileges(_name) {
+    function setCanonicalName(string memory _name) external {
+        _checkZeroCluster(msg.sender);
         bytes32 name = _toBytes32(_name);
         uint256 clusterId = addressLookup[msg.sender];
         if (bytes(_name).length == 0) {
             delete canonicalClusterName[clusterId];
             emit CanonicalName("", clusterId);
         } else {
+            _checkNameOwnership(msg.sender, _name);
             canonicalClusterName[clusterId] = name;
             emit CanonicalName(_name, clusterId);
         }
     }
 
     /// @notice Set wallet name for msg.sender or erase it by setting ""
-    function setWalletName(address _addr, string memory _walletName) external checkPrivileges("") {
+    function setWalletName(address _addr, string memory _walletName) external {
+        _checkZeroCluster(msg.sender);
         bytes32 walletName = _toBytes32(_walletName);
         uint256 clusterId = addressLookup[msg.sender];
         if (clusterId != addressLookup[_addr]) revert Unauthorized();

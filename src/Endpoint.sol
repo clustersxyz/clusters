@@ -6,7 +6,5 @@ pragma solidity ^0.8.23;
 contract Endpoint {
     // address immutable public clusters;
 
-    constructor() {
-        
-    }
+    constructor() {}
 }
