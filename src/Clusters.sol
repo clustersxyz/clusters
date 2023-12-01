@@ -33,10 +33,9 @@ contract Clusters is NameManager {
 
     constructor(address _pricing) NameManager(_pricing) {}
 
-    // TODO: Make this payable and pass along msg.value? As it stands insecure to make payable because of msg.value
-    // reuse (I don't think this is a good idea because all payable NameManager functions would need a value param, or
-    // we would have to externalize NameManager so TXs to it can be individually payable)
-    function multicall(bytes[] calldata _data) external returns (bytes[] memory results) {
+    /// @dev For payable multicall to be secure, we cannot trust msg.value params in other external methods
+    /// @dev Must instead do strict protocol invariant checking at the end of methods like Uniswap V2
+    function multicall(bytes[] calldata _data) external payable returns (bytes[] memory results) {
         results = new bytes[](_data.length);
         bool success;
         unchecked {
