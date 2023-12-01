@@ -97,37 +97,85 @@ abstract contract NameManager is IClusters {
         return bids[name];
     }
 
-    /// ECONOMIC FUNCTIONS ///
+    /// PAYABLE FUNCTIONS ///
 
     /// @notice Buy unregistered name. Must pay at least minimum yearly payment.
-    function buyName(string memory _name) external payable checkPrivileges("") {
+    function buyName(string memory _name, uint256 _value) external payable checkPrivileges("") {
+        if (_value < msg.value) revert Insufficient();
         bytes32 name = _toBytes32(_name);
         uint256 clusterId = addressLookup[msg.sender];
         console2.log(_name, clusterId);
         if (name == bytes32("")) revert Invalid();
         // Check that name is unused and sufficient payment is made
         if (nameLookup[name] != 0) revert Registered();
-        if (msg.value < pricing.minAnnualPrice()) revert Insufficient();
+        if (_value < pricing.minAnnualPrice()) revert Insufficient();
         // Process price accounting updates
-        nameBacking[name] += msg.value;
+        nameBacking[name] += _value;
         priceIntegral[name] = IClusters.PriceIntegral({
             name: name,
             lastUpdatedTimestamp: block.timestamp,
             lastUpdatedPrice: pricing.minAnnualPrice(),
-            maxExpiry: block.timestamp + uint256(pricing.getMaxDuration(pricing.minAnnualPrice(), msg.value))
+            maxExpiry: block.timestamp + uint256(pricing.getMaxDuration(pricing.minAnnualPrice(), _value))
         });
         _assignName(name, clusterId);
         emit BuyName(_name, clusterId);
     }
 
     /// @notice Fund an existing and specific name, callable by anyone
-    function fundName(string memory _name) external payable {
+    function fundName(string memory _name, uint256 _value) external payable {
+        if (_value < msg.value) revert Insufficient();
         bytes32 name = _toBytes32(_name);
         if (name == bytes32("")) revert Invalid();
         if (nameLookup[name] == 0) revert Unregistered();
-        nameBacking[name] += msg.value;
-        emit FundName(_name, msg.sender, msg.value);
+        nameBacking[name] += _value;
+        emit FundName(_name, msg.sender, _value);
     }
+
+    /// @notice Place bids on valid names. Subsequent calls increases existing bid. If name is expired update ownership.
+    ///         All bids timelocked for 30 days, unless they are outbid in which they are returned. Increasing a bid
+    ///         resets the timelock.
+    /// @dev Should work smoothly for fully expired names and names partway through their duration
+    /// @dev Needs to be onchain ETH bid escrowed in one place because otherwise prices shift
+    function bidName(string memory _name, uint256 _value) external payable checkPrivileges("") {
+        if (_value < msg.value) revert Insufficient();
+        bytes32 name = _toBytes32(_name);
+        if (name == bytes32("")) revert Invalid();
+        if (_value == 0) revert NoBid();
+        uint256 clusterId = nameLookup[name];
+        if (clusterId == 0) revert Unregistered();
+        // Prevent name owner from bidding on their own name
+        if (clusterId == addressLookup[msg.sender]) revert SelfBid();
+        // Retrieve bidder values to process refund in case they're outbid
+        uint256 prevBid = bids[name].ethAmount;
+        address prevBidder = bids[name].bidder;
+        // Revert if bid isn't sufficient or greater than the highest bid, bypass for highest bidder
+        if (prevBidder != msg.sender && (_value <= prevBid || _value < pricing.minAnnualPrice())) {
+            revert Insufficient();
+        }
+        // If the caller is the highest bidder, increase their bid and reset the timestamp
+        else if (prevBidder == msg.sender) {
+            bids[name].ethAmount += _value;
+            // TODO: Determine which way is best to handle bid update timestamps
+            // bids[name].createdTimestamp = block.timestamp;
+            emit BidIncreased(_name, msg.sender, prevBid + _value);
+        }
+        // Process new highest bid
+        else {
+            // Overwrite previous bid
+            bids[name] = IClusters.Bid(_value, block.timestamp, msg.sender);
+            emit BidPlaced(_name, msg.sender, _value);
+            // Process bid refund if there is one. Store balance for recipient if transfer fails instead of reverting.
+            if (prevBid > 0) {
+                (bool success,) = payable(prevBidder).call{value: prevBid}("");
+                if (!success) bidRefunds[prevBidder] += prevBid;
+                else emit BidRefunded(_name, prevBidder, _value);
+            }
+        }
+        // Update name status and transfer to highest bidder if expired
+        pokeName(_name);
+    }
+
+    /// OTHER ECONOMIC FUNCTIONS ///
 
     /// @notice Move name from one cluster to another without payment
     function transferName(string memory _name, uint256 toClusterId) external checkPrivileges(_name) {
@@ -203,49 +251,6 @@ abstract contract NameManager is IClusters {
             });
             emit PokeName(_name, msg.sender);
         }
-    }
-
-    /// @notice Place bids on valid names. Subsequent calls increases existing bid. If name is expired update ownership.
-    ///         All bids timelocked for 30 days, unless they are outbid in which they are returned. Increasing a bid
-    ///         resets the timelock.
-    /// @dev Should work smoothly for fully expired names and names partway through their duration
-    /// @dev Needs to be onchain ETH bid escrowed in one place because otherwise prices shift
-    function bidName(string memory _name) external payable checkPrivileges("") {
-        bytes32 name = _toBytes32(_name);
-        if (name == bytes32("")) revert Invalid();
-        if (msg.value == 0) revert NoBid();
-        uint256 clusterId = nameLookup[name];
-        if (clusterId == 0) revert Unregistered();
-        // Prevent name owner from bidding on their own name
-        if (clusterId == addressLookup[msg.sender]) revert SelfBid();
-        // Retrieve bidder values to process refund in case they're outbid
-        uint256 prevBid = bids[name].ethAmount;
-        address prevBidder = bids[name].bidder;
-        // Revert if bid isn't sufficient or greater than the highest bid, bypass for highest bidder
-        if (prevBidder != msg.sender && (msg.value <= prevBid || msg.value < pricing.minAnnualPrice())) {
-            revert Insufficient();
-        }
-        // If the caller is the highest bidder, increase their bid and reset the timestamp
-        else if (prevBidder == msg.sender) {
-            bids[name].ethAmount += msg.value;
-            // TODO: Determine which way is best to handle bid update timestamps
-            // bids[name].createdTimestamp = block.timestamp;
-            emit BidIncreased(_name, msg.sender, prevBid + msg.value);
-        }
-        // Process new highest bid
-        else {
-            // Overwrite previous bid
-            bids[name] = IClusters.Bid(msg.value, block.timestamp, msg.sender);
-            emit BidPlaced(_name, msg.sender, msg.value);
-            // Process bid refund if there is one. Store balance for recipient if transfer fails instead of reverting.
-            if (prevBid > 0) {
-                (bool success,) = payable(prevBidder).call{value: prevBid}("");
-                if (!success) bidRefunds[prevBidder] += prevBid;
-                else emit BidRefunded(_name, prevBidder, msg.value);
-            }
-        }
-        // Update name status and transfer to highest bidder if expired
-        pokeName(_name);
     }
 
     /// @notice Reduce bid and refund difference. Revoke if _amount is the total bid or is the max uint256 value.
