@@ -129,7 +129,7 @@ contract ClustersTest is Test {
         address[] memory addresses = clusters.clusterAddresses(1);
         require(addresses.length == 1, "addresses array length error");
         require(addresses[0] == caller, "clusterAddresses error");
-        require(clusters.addressLookup(caller) == 1, "addressLookup error");
+        require(clusters.addressToClusterId(caller) == 1, "addressToClusterId error");
     }
 
     function testCreateClusterRevertRegistered(bytes32 callerSalt) public {
@@ -156,8 +156,8 @@ contract ClustersTest is Test {
         require(addresses.length == 2, "addresses array length error");
         require(addresses[0] == caller, "clusterAddresses error");
         require(addresses[1] == addr, "clusterAddresses error");
-        require(clusters.addressLookup(caller) == 1, "addressLookup error");
-        require(clusters.addressLookup(addr) == 1, "addressLookup error");
+        require(clusters.addressToClusterId(caller) == 1, "addressToClusterId error");
+        require(clusters.addressToClusterId(addr) == 1, "addressToClusterId error");
     }
 
     function testAddClusterRevertNoCluster(bytes32 callerSalt, bytes32 addrSalt) public {
@@ -200,8 +200,8 @@ contract ClustersTest is Test {
         address[] memory addresses = clusters.clusterAddresses(1);
         require(addresses.length == 1, "addresses array length error");
         require(addresses[0] == caller, "clusterAddresses error");
-        require(clusters.addressLookup(caller) == 1, "addressLookup error");
-        require(clusters.addressLookup(addr) == 0, "addressLookup error");
+        require(clusters.addressToClusterId(caller) == 1, "addressToClusterId error");
+        require(clusters.addressToClusterId(addr) == 0, "addressToClusterId error");
     }
 
     function testRemoveClusterRevertUnauthorized(bytes32 callerSalt, bytes32 addrSalt) public {
@@ -252,8 +252,8 @@ contract ClustersTest is Test {
         address[] memory addresses = clusters.clusterAddresses(1);
         require(addresses.length == 1, "addresses array length error");
         require(addresses[0] == caller, "clusterAddresses error");
-        require(clusters.addressLookup(caller) == 1, "addressLookup error");
-        require(clusters.addressLookup(addr) == 0, "addressLookup error");
+        require(clusters.addressToClusterId(caller) == 1, "addressToClusterId error");
+        require(clusters.addressToClusterId(addr) == 0, "addressToClusterId error");
     }
 
     function testLeaveClusterRevertNoCluster(bytes32 callerSalt, bytes32 addrSalt) public {
@@ -305,7 +305,7 @@ contract ClustersTest is Test {
         bytes32[] memory names = clusters.getClusterNames(1);
         require(names.length == 1, "names array length error");
         require(names[0] == name, "name array error");
-        require(clusters.nameLookup(name) == 1, "name not assigned to cluster");
+        require(clusters.nameToClusterId(name) == 1, "name not assigned to cluster");
         require(clusters.nameBacking(name) == buyAmount, "nameBacking incorrect");
         require(address(clusters).balance == buyAmount, "contract balance issue");
     }
@@ -397,7 +397,7 @@ contract ClustersTest is Test {
         bytes32[] memory names = clusters.getClusterNames(2);
         require(names.length == 1, "names array length error");
         require(names[0] == name, "name array error");
-        require(clusters.nameLookup(name) == 2, "name not assigned to proper cluster");
+        require(clusters.nameToClusterId(name) == 2, "name not assigned to proper cluster");
         require(clusters.nameBacking(name) == buyAmount, "nameBacking incorrect");
         require(address(clusters).balance == buyAmount, "contract balance issue");
     }
@@ -533,8 +533,8 @@ contract ClustersTest is Test {
         vm.prank(addr);
         clusters.pokeName(_string);
 
-        require(clusters.addressLookup(caller) == 1, "address(this) not assigned to cluster");
-        require(clusters.nameLookup(name) == 1, "name not assigned to cluster");
+        require(clusters.addressToClusterId(caller) == 1, "address(this) not assigned to cluster");
+        require(clusters.nameToClusterId(name) == 1, "name not assigned to cluster");
         require(buyAmount > clusters.nameBacking(name), "nameBacking not adjusting");
         require(address(clusters).balance == buyAmount, "contract balance issue");
     }
@@ -586,7 +586,7 @@ contract ClustersTest is Test {
         vm.stopPrank();
 
         IClusters.Bid memory bid = clusters.getBid(name);
-        require(clusters.nameLookup(name) == 1, "purchaser lost name after bid");
+        require(clusters.nameToClusterId(name) == 1, "purchaser lost name after bid");
         require(bid.ethAmount == bidAmount, "bid ethAmount incorrect");
         require(bid.createdTimestamp == block.timestamp, "bid createdTimestamp incorrect");
         require(bid.bidder == addr, "bid bidder incorrect");
@@ -1064,8 +1064,8 @@ contract ClustersTest is Test {
         vm.warp(block.timestamp + 31 days);
         clusters.reduceBid(NAME, 0.2 ether);
         vm.stopPrank();
-        require(clusters.addressLookup(address(this)) == 1, "address(this) not assigned to cluster");
-        require(clusters.nameLookup(name) == 1, "name not assigned to cluster");
+        require(clusters.addressToClusterId(address(this)) == 1, "address(this) not assigned to cluster");
+        require(clusters.nameToClusterId(name) == 1, "name not assigned to cluster");
         bytes32[] memory names = clusters.getClusterNames(1);
         require(name == names[0], "cluster name array incorrect");
         require(clusters.nameBacking(name) < 0.1 ether, "nameBacking incorrect");
@@ -1090,7 +1090,7 @@ contract ClustersTest is Test {
         clusters.setCanonicalName(_string);
         vm.stopPrank();
 
-        require(clusters.nameLookup(name) == 1, "clusterId error");
+        require(clusters.nameToClusterId(name) == 1, "clusterId error");
         require(clusters.canonicalClusterName(1) == name, "canonicalClusterName error");
         bytes32[] memory names = clusters.getClusterNames(1);
         require(names.length == 1, "names array length error");
@@ -1117,8 +1117,8 @@ contract ClustersTest is Test {
         clusters.setCanonicalName(_string2);
         vm.stopPrank();
 
-        require(clusters.nameLookup(name1) == 1, "clusterId error");
-        require(clusters.nameLookup(name2) == 1, "clusterId error");
+        require(clusters.nameToClusterId(name1) == 1, "clusterId error");
+        require(clusters.nameToClusterId(name2) == 1, "clusterId error");
         require(clusters.canonicalClusterName(1) == name2, "canonicalClusterName error");
         bytes32[] memory names = clusters.getClusterNames(1);
         require(names.length == 2, "names array length error");
@@ -1141,7 +1141,7 @@ contract ClustersTest is Test {
         clusters.setCanonicalName("");
         vm.stopPrank();
 
-        require(clusters.nameLookup(name) == 1, "clusterId error");
+        require(clusters.nameToClusterId(name) == 1, "clusterId error");
         require(clusters.canonicalClusterName(1) == bytes32(""), "canonicalClusterName error");
         bytes32[] memory names = clusters.getClusterNames(1);
         require(names.length == 1, "names array length error");
@@ -1206,7 +1206,7 @@ contract ClustersTest is Test {
         clusters.setWalletName(caller, _string);
         vm.stopPrank();
 
-        assertEq(clusters.addressLookup(caller), 1, "addressLookup failed");
+        assertEq(clusters.addressToClusterId(caller), 1, "addressToClusterId failed");
         assertEq(clusters.forwardLookup(1, name), caller, "forwardLookup failed");
         assertEq(clusters.reverseLookup(caller), name, "reverseLookup failed");
     }
@@ -1227,7 +1227,7 @@ contract ClustersTest is Test {
         vm.prank(addr);
         clusters.setWalletName(addr, _string);
 
-        assertEq(clusters.addressLookup(addr), 1, "addressLookup failed");
+        assertEq(clusters.addressToClusterId(addr), 1, "addressToClusterId failed");
         assertEq(clusters.forwardLookup(1, name), addr, "forwardLookup failed");
         assertEq(clusters.reverseLookup(addr), name, "reverseLookup failed");
     }
@@ -1244,7 +1244,7 @@ contract ClustersTest is Test {
         clusters.setWalletName(caller, "");
         vm.stopPrank();
 
-        require(clusters.addressLookup(caller) == 1, "clusterId error");
+        require(clusters.addressToClusterId(caller) == 1, "clusterId error");
         require(clusters.forwardLookup(1, name) == address(0), "forwardLookup not purged");
         require(clusters.reverseLookup(caller) == bytes32(""), "reverseLookup not purged");
     }

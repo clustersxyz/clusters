@@ -2,20 +2,20 @@
 pragma solidity ^0.8.23;
 
 interface IClusters {
-    /// ERRORS ///
+    /// STRUCTS ///
 
-    error EmptyName();
-    error NoBid();
-    error SelfBid();
-    error Invalid();
-    error Timelock();
-    error NoCluster();
-    error Registered();
-    error Unauthorized();
-    error Unregistered();
-    error Insufficient();
-    error MulticallFailed();
-    error NativeTokenTransferFailed();
+    struct PriceIntegral {
+        bytes32 name;
+        uint256 lastUpdatedTimestamp;
+        uint256 lastUpdatedPrice;
+    }
+
+    /// @notice All relevant information for an individual bid
+    struct Bid {
+        uint256 ethAmount;
+        uint256 createdTimestamp;
+        address bidder;
+    }
 
     /// EVENTS ///
 
@@ -32,27 +32,26 @@ interface IClusters {
     event BidReduced(string indexed name_, address indexed bidder, uint256 indexed amount);
     event BidRevoked(string indexed name_, address indexed bidder, uint256 indexed amount);
 
-    /// STRUCTS ///
+    /// ERRORS ///
 
-    struct PriceIntegral {
-        bytes32 name;
-        uint256 lastUpdatedTimestamp;
-        uint256 lastUpdatedPrice;
-        uint256 maxExpiry;
-    }
-
-    /// @notice All relevant information for an individual bid
-    struct Bid {
-        uint256 ethAmount;
-        uint256 createdTimestamp;
-        address bidder;
-    }
+    error EmptyName();
+    error NoBid();
+    error SelfBid();
+    error Invalid();
+    error Timelock();
+    error NoCluster();
+    error Registered();
+    error Unauthorized();
+    error Unregistered();
+    error Insufficient();
+    error MulticallFailed();
+    error NativeTokenTransferFailed();
 
     /// STORAGE / VIEW FUNCTIONS ///
 
     function nextClusterId() external view returns (uint256 clusterId);
-    function addressLookup(address addr) external view returns (uint256 clusterId);
-    function nameLookup(bytes32 name_) external view returns (uint256 clusterId);
+    function addressToClusterId(address addr) external view returns (uint256 clusterId);
+    function nameToClusterId(bytes32 name_) external view returns (uint256 clusterId);
     function canonicalClusterName(uint256 clusterId) external view returns (bytes32 name);
     function forwardLookup(uint256 clusterId, bytes32 walletName_) external view returns (address wallet);
     function reverseLookup(address _wallet) external view returns (bytes32 walletName);
@@ -60,7 +59,7 @@ interface IClusters {
     function priceIntegral(bytes32 name_)
         external
         view
-        returns (bytes32 name, uint256 lastUpdatedTimestamp, uint256 lastUpdatedPrice, uint256 maxExpiry);
+        returns (bytes32 name, uint256 lastUpdatedTimestamp, uint256 lastUpdatedPrice);
     function protocolRevenue() external view returns (uint256 revenue);
     function nameBacking(bytes32 name_) external view returns (uint256 ethAmount);
     function bids(bytes32 name_) external view returns (uint256 ethAmount, uint256 createdTimestamp, address bidder);
