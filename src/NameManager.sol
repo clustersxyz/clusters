@@ -4,36 +4,15 @@ pragma solidity ^0.8.23;
 import {EnumerableSet} from "../lib/openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 
 import {Pricing} from "./Pricing.sol";
-import {ClusterData} from "./libraries/ClusterData.sol";
+
+import {IClusters} from "./IClusters.sol";
+
+import {console2} from "forge-std/Test.sol";
 
 /// @notice The bidding, accepting, eth storing component of Clusters. Handles name assignment
 ///         to cluster ids and checks auth of cluster membership before acting on one of its names
-contract NameManager {
+abstract contract NameManager is IClusters {
     using EnumerableSet for EnumerableSet.Bytes32Set;
-
-    error NoBid();
-    error SelfBid();
-    error Invalid();
-    error Timelock();
-    error NoCluster();
-    error Registered();
-    error Unauthorized();
-    error Unregistered();
-    error Insufficient();
-    error NativeTokenTransferFailed();
-
-    event BuyName(string indexed _name, uint256 indexed clusterId);
-    event FundName(string indexed _name, address indexed funder, uint256 indexed amount);
-    event TransferName(bytes32 indexed name, uint256 indexed fromClusterId, uint256 indexed toClusterId);
-    event PokeName(string indexed _name, address indexed poker);
-    event CanonicalName(string indexed _name, uint256 indexed clusterId);
-    event WalletName(string indexed _walletName, address indexed wallet);
-
-    event BidPlaced(string indexed _name, address indexed bidder, uint256 indexed amount);
-    event BidRefunded(string indexed _name, address indexed bidder, uint256 indexed amount);
-    event BidIncreased(string indexed _name, address indexed bidder, uint256 indexed amount);
-    event BidReduced(string indexed _name, address indexed bidder, uint256 indexed amount);
-    event BidRevoked(string indexed _name, address indexed bidder, uint256 indexed amount);
 
     uint256 internal constant BID_TIMELOCK = 30 days;
 
@@ -60,19 +39,30 @@ contract NameManager {
     mapping(address wallet => bytes32 walletName) public reverseLookup;
 
     /// @notice Data required for proper harberger tax calculation when pokeName() is called
-    mapping(bytes32 name => ClusterData.PriceIntegral integral) public priceIntegral;
-
-    /// @notice Amount of eth that's transferred from ethBacking to the protocol
-    uint256 public protocolRevenue;
+    mapping(bytes32 name => IClusters.PriceIntegral integral) public priceIntegral;
 
     /// @notice The amount of money backing each name registration
-    mapping(bytes32 name => uint256 amount) public ethBacking;
+    mapping(bytes32 name => uint256 amount) public nameBacking;
 
     /// @notice Bid info storage, all bidIds are incremental and are not sorted by name
-    mapping(bytes32 name => ClusterData.Bid bidData) public bids;
+    mapping(bytes32 name => IClusters.Bid bidData) public bids;
 
     /// @notice Failed bid refunds are pooled so we don't have to revert when the highest bid is outbid
     mapping(address bidder => uint256 refund) public bidRefunds;
+
+    /**
+     * PROTOCOL INVARIANT TRACKING
+     * address(this).balance >= protocolRevenue + totalNameBacking + totalBidBacking
+     */
+
+    /// @notice Amount of eth that's transferred from nameBacking to the protocol
+    uint256 public protocolRevenue;
+
+    /// @notice Amount of eth that's backing names
+    uint256 public totalNameBacking;
+
+    /// @notice Amount of eth that's sitting in active bids and canceled but not-yet-withdrawn bids
+    uint256 public totalBidBacking;
 
     /// @notice Ensure msg.sender has a cluster or owns a name
     modifier checkPrivileges(string memory _name) {
@@ -83,6 +73,7 @@ contract NameManager {
             _;
         } else {
             // Otherwise make sure name belongs to msg.sender's clusterId
+            console2.log(addressLookup[msg.sender], nameLookup[_toBytes32(_name)]);
             if (addressLookup[msg.sender] != nameLookup[_toBytes32(_name)]) revert Unauthorized();
             _;
         }
@@ -102,22 +93,26 @@ contract NameManager {
 
     /// @notice Get Bid struct from storage
     /// @return bid Bid struct
-    function getBid(bytes32 name) external view returns (ClusterData.Bid memory bid) {
+    function getBid(bytes32 name) external view returns (IClusters.Bid memory bid) {
         return bids[name];
     }
 
     /// ECONOMIC FUNCTIONS ///
 
     /// @notice Buy unregistered name. Must pay at least minimum yearly payment.
-    function buyName(string memory _name, uint256 clusterId) external payable checkPrivileges("") {
+    function buyName(string memory _name) external payable checkPrivileges("") {
         bytes32 name = _toBytes32(_name);
+        uint256 clusterId = addressLookup[msg.sender];
+        console2.log(_name, clusterId);
         if (name == bytes32("")) revert Invalid();
         // Check that name is unused and sufficient payment is made
         if (nameLookup[name] != 0) revert Registered();
         if (msg.value < pricing.minAnnualPrice()) revert Insufficient();
         // Process price accounting updates
-        ethBacking[name] += msg.value;
-        priceIntegral[name] = ClusterData.PriceIntegral({
+        unchecked {
+            nameBacking[name] += msg.value;
+        }
+        priceIntegral[name] = IClusters.PriceIntegral({
             name: name,
             lastUpdatedTimestamp: block.timestamp,
             lastUpdatedPrice: pricing.minAnnualPrice(),
@@ -132,7 +127,9 @@ contract NameManager {
         bytes32 name = _toBytes32(_name);
         if (name == bytes32("")) revert Invalid();
         if (nameLookup[name] == 0) revert Unregistered();
-        ethBacking[name] += msg.value;
+        unchecked {
+            nameBacking[name] += msg.value;
+        }
         emit FundName(_name, msg.sender, msg.value);
     }
 
@@ -175,32 +172,39 @@ contract NameManager {
         bytes32 name = _toBytes32(_name);
         if (name == bytes32("")) revert Invalid();
         if (nameLookup[name] == 0) revert Unregistered();
-        ClusterData.PriceIntegral memory integral = priceIntegral[name];
+        IClusters.PriceIntegral memory integral = priceIntegral[name];
         (uint256 spent, uint256 newPrice) = pricing.getIntegratedPrice(
             integral.lastUpdatedPrice,
             block.timestamp - integral.lastUpdatedTimestamp,
             block.timestamp - integral.lastUpdatedTimestamp
         );
         // If out of backing (expired), transfer to highest sufficient bidder or delete registration
-        uint256 backing = ethBacking[name];
+        uint256 backing = nameBacking[name];
         if (spent >= backing) {
-            delete ethBacking[name];
-            protocolRevenue += backing;
+            delete nameBacking[name];
+            unchecked {
+                protocolRevenue += backing;
+            }
             // If there is a valid bid, transfer to the bidder
             address bidder;
             uint256 bid = bids[name].ethAmount;
             if (bid > 0) {
                 bidder = bids[name].bidder;
-                ethBacking[name] += bid;
+                unchecked {
+                    nameBacking[name] += bid;
+                }
                 delete bids[name];
             }
             // If there isn't a highest bidder, name will expire and be deleted as bidder is address(0)
             _transferName(name, nameLookup[name], addressLookup[bidder]);
         } else {
-            protocolRevenue += spent;
-            ethBacking[name] -= spent;
-            backing -= spent; // Backing is adjusted to use it in maxExpiry calculation instead of reading storage
-            priceIntegral[name] = ClusterData.PriceIntegral({
+            // Process price data update
+            unchecked {
+                protocolRevenue += spent;
+                nameBacking[name] -= spent;
+                backing -= spent;
+            }
+            priceIntegral[name] = IClusters.PriceIntegral({
                 name: name,
                 lastUpdatedTimestamp: block.timestamp,
                 lastUpdatedPrice: newPrice,
@@ -241,7 +245,7 @@ contract NameManager {
         // Process new highest bid
         else {
             // Overwrite previous bid
-            bids[name] = ClusterData.Bid(msg.value, block.timestamp, msg.sender);
+            bids[name] = IClusters.Bid(msg.value, block.timestamp, msg.sender);
             emit BidPlaced(_name, msg.sender, msg.value);
             // Process bid refund if there is one. Store balance for recipient if transfer fails instead of reverting.
             if (prevBid > 0) {
@@ -297,7 +301,7 @@ contract NameManager {
     /// @dev Retrieves bid, adjusts state, then sends payment to avoid reentrancy
     function acceptBid(string memory _name) external checkPrivileges(_name) returns (uint256 bidAmount) {
         bytes32 name = _toBytes32(_name);
-        ClusterData.Bid memory bid = bids[name];
+        Bid memory bid = bids[name];
         if (bid.ethAmount == 0) revert NoBid();
         delete bids[name];
         _transferName(name, nameLookup[name], addressLookup[bid.bidder]);
@@ -331,18 +335,19 @@ contract NameManager {
     }
 
     /// @notice Set wallet name for msg.sender or erase it by setting ""
-    function setWalletName(string memory _walletName) external checkPrivileges("") {
+    function setWalletName(address _addr, string memory _walletName) external checkPrivileges("") {
         bytes32 walletName = _toBytes32(_walletName);
         uint256 clusterId = addressLookup[msg.sender];
+        if (clusterId != addressLookup[_addr]) revert Unauthorized();
         if (bytes(_walletName).length == 0) {
-            walletName = reverseLookup[msg.sender];
+            walletName = reverseLookup[_addr];
             delete forwardLookup[clusterId][walletName];
-            delete reverseLookup[msg.sender];
-            emit WalletName("", msg.sender);
+            delete reverseLookup[_addr];
+            emit WalletName("", _addr);
         } else {
-            forwardLookup[clusterId][walletName] = msg.sender;
-            reverseLookup[msg.sender] = walletName;
-            emit WalletName(_walletName, msg.sender);
+            forwardLookup[clusterId][walletName] = _addr;
+            reverseLookup[_addr] = walletName;
+            emit WalletName(_walletName, _addr);
         }
     }
 

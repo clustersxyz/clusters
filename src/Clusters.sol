@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {EnumerableSet} from "openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import {EnumerableSet} from "../lib/openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 
 import {NameManager} from "./NameManager.sol";
+
+import {IClusters} from "./IClusters.sol";
 
 // Can a cluster have multiple names? (yes) Can it not have a name? (yes)
 // Where do we store expiries (we dont, do we need to?) and how do we clear state? (pokeName() wipes state before
@@ -29,14 +31,11 @@ contract Clusters is NameManager {
     /// @dev Enumerate all addresses in a cluster
     mapping(uint256 clusterId => EnumerableSet.AddressSet addrs) internal _clusterAddresses;
 
-    error MulticallFailed();
-
     constructor(address _pricing) NameManager(_pricing) {}
 
-    // TODO: Make this payable and pass along msg.value? As it stands insecure to make payable because of msg.value
-    // reuse (I don't think this is a good idea because all payable NameManager functions would need a value param, or
-    // we would have to externalize NameManager so TXs to it can be individually payable)
-    function multicall(bytes[] calldata _data) external returns (bytes[] memory results) {
+    /// @dev For payable multicall to be secure, we cannot trust msg.value params in other external methods
+    /// @dev Must instead do strict protocol invariant checking at the end of methods like Uniswap V2
+    function multicall(bytes[] calldata _data) external payable returns (bytes[] memory results) {
         results = new bytes[](_data.length);
         bool success;
         unchecked {
