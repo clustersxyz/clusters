@@ -61,7 +61,7 @@ interface IClusters {
         view
         returns (bytes32 name, uint256 lastUpdatedTimestamp, uint256 lastUpdatedPrice, uint256 maxExpiry);
     function protocolRevenue() external view returns (uint256 revenue);
-    function ethBacking(bytes32 _name) external view returns (uint256 ethAmount);
+    function nameBacking(bytes32 _name) external view returns (uint256 ethAmount);
     function bids(bytes32 _name) external view returns (uint256 ethAmount, uint256 createdTimestamp, address bidder);
     function bidRefunds(address _bidder) external view returns (uint256 refund);
 

@@ -41,17 +41,28 @@ abstract contract NameManager is IClusters {
     /// @notice Data required for proper harberger tax calculation when pokeName() is called
     mapping(bytes32 name => IClusters.PriceIntegral integral) public priceIntegral;
 
-    /// @notice Amount of eth that's transferred from ethBacking to the protocol
-    uint256 public protocolRevenue;
-
     /// @notice The amount of money backing each name registration
-    mapping(bytes32 name => uint256 amount) public ethBacking;
+    mapping(bytes32 name => uint256 amount) public nameBacking;
 
     /// @notice Bid info storage, all bidIds are incremental and are not sorted by name
     mapping(bytes32 name => IClusters.Bid bidData) public bids;
 
     /// @notice Failed bid refunds are pooled so we don't have to revert when the highest bid is outbid
     mapping(address bidder => uint256 refund) public bidRefunds;
+
+    /**
+     * PROTOCOL INVARIANT TRACKING
+     * address(this).balance >= protocolRevenue + totalNameBacking + totalBidBacking
+     */
+
+    /// @notice Amount of eth that's transferred from nameBacking to the protocol
+    uint256 public protocolRevenue;
+
+    /// @notice Amount of eth that's backing names
+    uint256 public totalNameBacking;
+
+    /// @notice Amount of eth that's sitting in active bids and canceled but not-yet-withdrawn bids
+    uint256 public totalBidBacking;
 
     /// @notice Ensure msg.sender has a cluster or owns a name
     modifier checkPrivileges(string memory _name) {
@@ -99,7 +110,7 @@ abstract contract NameManager is IClusters {
         if (msg.value < pricing.minAnnualPrice()) revert Insufficient();
         // Process price accounting updates
         unchecked {
-            ethBacking[name] += msg.value;
+            nameBacking[name] += msg.value;
         }
         priceIntegral[name] = IClusters.PriceIntegral({
             name: name,
@@ -117,7 +128,7 @@ abstract contract NameManager is IClusters {
         if (name == bytes32("")) revert Invalid();
         if (nameLookup[name] == 0) revert Unregistered();
         unchecked {
-            ethBacking[name] += msg.value;
+            nameBacking[name] += msg.value;
         }
         emit FundName(_name, msg.sender, msg.value);
     }
@@ -165,9 +176,9 @@ abstract contract NameManager is IClusters {
             block.timestamp - integral.lastUpdatedTimestamp
         );
         // If out of backing (expired), transfer to highest sufficient bidder or delete registration
-        uint256 backing = ethBacking[name];
+        uint256 backing = nameBacking[name];
         if (spent >= backing) {
-            delete ethBacking[name];
+            delete nameBacking[name];
             unchecked {
                 protocolRevenue += backing;
             }
@@ -177,7 +188,7 @@ abstract contract NameManager is IClusters {
             if (bid > 0) {
                 bidder = bids[name].bidder;
                 unchecked {
-                    ethBacking[name] += bid;
+                    nameBacking[name] += bid;
                 }
                 delete bids[name];
             }
@@ -187,7 +198,7 @@ abstract contract NameManager is IClusters {
             // Process price data update
             unchecked {
                 protocolRevenue += spent;
-                ethBacking[name] -= spent;
+                nameBacking[name] -= spent;
             }
             priceIntegral[name] = IClusters.PriceIntegral({
                 name: name,
