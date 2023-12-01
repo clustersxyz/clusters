@@ -105,11 +105,11 @@ abstract contract NameManager is IClusters {
     /// ECONOMIC FUNCTIONS ///
 
     /// @notice Buy unregistered name. Must pay at least minimum yearly payment.
-    function buyName(string memory _name) external payable {
+    function buyName(string memory name_) external payable {
         _checkZeroCluster(msg.sender);
-        bytes32 name = _toBytes32(_name);
+        bytes32 name = _toBytes32(name_);
         uint256 clusterId = addressLookup[msg.sender];
-        console2.log(_name, clusterId);
+        console2.log(name_, clusterId);
         if (name == bytes32("")) revert Invalid();
         // Check that name is unused and sufficient payment is made
         if (nameLookup[name] != 0) revert Registered();
@@ -125,25 +125,25 @@ abstract contract NameManager is IClusters {
             maxExpiry: block.timestamp + uint256(pricing.getMaxDuration(pricing.minAnnualPrice(), msg.value))
         });
         _assignName(name, clusterId);
-        emit BuyName(_name, clusterId);
+        emit BuyName(name_, clusterId);
     }
 
     /// @notice Fund an existing and specific name, callable by anyone
-    function fundName(string memory _name) external payable {
-        bytes32 name = _toBytes32(_name);
+    function fundName(string memory name_) external payable {
+        bytes32 name = _toBytes32(name_);
         if (name == bytes32("")) revert Invalid();
         if (nameLookup[name] == 0) revert Unregistered();
         unchecked {
             nameBacking[name] += msg.value;
         }
-        emit FundName(_name, msg.sender, msg.value);
+        emit FundName(name_, msg.sender, msg.value);
     }
 
     /// @notice Move name from one cluster to another without payment
-    function transferName(string memory _name, uint256 toClusterId) external {
+    function transferName(string memory name_, uint256 toClusterId) external {
         _checkZeroCluster(msg.sender);
-        _checkNameOwnership(msg.sender, _name);
-        bytes32 name = _toBytes32(_name);
+        _checkNameOwnership(msg.sender, name_);
+        bytes32 name = _toBytes32(name_);
         if (name == bytes32("")) revert Invalid();
         if (toClusterId >= nextClusterId) revert Unregistered();
         uint256 currentCluster = addressLookup[msg.sender];
@@ -173,8 +173,8 @@ abstract contract NameManager is IClusters {
 
     /// @notice Move accrued revenue from ethBacked to protocolRevenue, and transfer names upon expiry to highest
     ///         sufficient bidder. If no bids above yearly minimum, delete name registration.
-    function pokeName(string memory _name) public {
-        bytes32 name = _toBytes32(_name);
+    function pokeName(string memory name_) public {
+        bytes32 name = _toBytes32(name_);
         if (name == bytes32("")) revert Invalid();
         if (nameLookup[name] == 0) revert Unregistered();
         IClusters.PriceIntegral memory integral = priceIntegral[name];
@@ -214,7 +214,7 @@ abstract contract NameManager is IClusters {
                 lastUpdatedPrice: newPrice,
                 maxExpiry: 0 // TODO: Correct this value
             });
-            emit PokeName(_name, msg.sender);
+            emit PokeName(name_, msg.sender);
         }
     }
 
@@ -223,9 +223,9 @@ abstract contract NameManager is IClusters {
     ///         resets the timelock.
     /// @dev Should work smoothly for fully expired names and names partway through their duration
     /// @dev Needs to be onchain ETH bid escrowed in one place because otherwise prices shift
-    function bidName(string memory _name) external payable {
+    function bidName(string memory name_) external payable {
         _checkZeroCluster(msg.sender);
-        bytes32 name = _toBytes32(_name);
+        bytes32 name = _toBytes32(name_);
         if (name == bytes32("")) revert Invalid();
         if (msg.value == 0) revert NoBid();
         uint256 clusterId = nameLookup[name];
@@ -246,27 +246,27 @@ abstract contract NameManager is IClusters {
             }
             // TODO: Determine which way is best to handle bid update timestamps
             // bids[name].createdTimestamp = block.timestamp;
-            emit BidIncreased(_name, msg.sender, prevBid + msg.value);
+            emit BidIncreased(name_, msg.sender, prevBid + msg.value);
         }
         // Process new highest bid
         else {
             // Overwrite previous bid
             bids[name] = IClusters.Bid(msg.value, block.timestamp, msg.sender);
-            emit BidPlaced(_name, msg.sender, msg.value);
+            emit BidPlaced(name_, msg.sender, msg.value);
             // Process bid refund if there is one. Store balance for recipient if transfer fails instead of reverting.
             if (prevBid > 0) {
                 (bool success,) = payable(prevBidder).call{value: prevBid}("");
                 if (!success) bidRefunds[prevBidder] += prevBid;
-                else emit BidRefunded(_name, prevBidder, msg.value);
+                else emit BidRefunded(name_, prevBidder, msg.value);
             }
         }
         // Update name status and transfer to highest bidder if expired
-        pokeName(_name);
+        pokeName(name_);
     }
 
-    /// @notice Reduce bid and refund difference. Revoke if _amount is the total bid or is the max uint256 value.
-    function reduceBid(string memory _name, uint256 _amount) external {
-        bytes32 name = _toBytes32(_name);
+    /// @notice Reduce bid and refund difference. Revoke if amount_ is the total bid or is the max uint256 value.
+    function reduceBid(string memory name_, uint256 amount_) external {
+        bytes32 name = _toBytes32(name_);
         // Ensure the caller is the highest bidder
         if (bids[name].bidder != msg.sender) revert Unauthorized();
 
@@ -274,47 +274,47 @@ abstract contract NameManager is IClusters {
         if (block.timestamp < bids[name].createdTimestamp + BID_TIMELOCK) revert Timelock();
 
         // Poke name to update backing and ownership (if required) prior to bid adjustment
-        pokeName(_name);
+        pokeName(name_);
 
         // Calculate difference in unchecked block to allow underflow when using type(uint256).max
         uint256 bid = bids[name].ethAmount;
         uint256 diff;
         unchecked {
-            diff = bid - _amount;
+            diff = bid - amount_;
         }
 
         // Only process bid if it's still present after the poke, which implies name wasn't transferred
         if (bid == 0) revert NoBid();
-        // Revert if _amount is larger than the bid but isn't the max
+        // Revert if amount_ is larger than the bid but isn't the max
         // Bypassing this check for the max value eliminates the need for the frontend or bidder to find their bid prior
-        if (_amount > bid && _amount != type(uint256).max) revert Insufficient();
+        if (amount_ > bid && amount_ != type(uint256).max) revert Insufficient();
         // Also revert if bid is reduced beneath minimum annual price
         if (diff != 0 && diff < pricing.minAnnualPrice()) revert Insufficient();
 
         // If reducing bid to 0 or by maximum uint256 value, revoke altogether
-        if (diff == 0 || _amount == type(uint256).max) {
+        if (diff == 0 || amount_ == type(uint256).max) {
             delete bids[name];
-            emit BidRevoked(_name, msg.sender, bid);
+            emit BidRevoked(name_, msg.sender, bid);
         }
         // Otherwise, decrease bid and update timestamp
         else {
             unchecked {
-                bids[name].ethAmount -= _amount;
+                bids[name].ethAmount -= amount_;
             }
             // TODO: Determine which way is best to handle bid update timestamps
             // bids[name].createdTimestamp = block.timestamp;
-            emit BidReduced(_name, msg.sender, _amount);
+            emit BidReduced(name_, msg.sender, amount_);
         }
         // Overwrite type(uint256).max with bid so transfer doesn't fail
-        if (_amount == type(uint256).max) _amount = bid;
+        if (amount_ == type(uint256).max) amount_ = bid;
         // Transfer bid reduction after all state is purged to prevent reentrancy
         // This bid refund reverts upon failure because it isn't happening in a forced context such as being outbid
-        (bool success,) = payable(msg.sender).call{value: _amount}("");
+        (bool success,) = payable(msg.sender).call{value: amount_}("");
         if (!success) revert NativeTokenTransferFailed();
     }
 
     // TODO: implementation
-    function acceptBid(string memory _name) external returns (uint256) {}
+    function acceptBid(string memory name_) external returns (uint256) {}
 
     /// @notice Allow failed bid refunds to be withdrawn
     function refundBid() external {
@@ -328,27 +328,27 @@ abstract contract NameManager is IClusters {
     /// LOCAL NAME MANAGEMENT ///
 
     /// @notice Set canonical name or erase it by setting ""
-    function setCanonicalName(string memory _name) external {
+    function setCanonicalName(string memory name_) external {
         _checkZeroCluster(msg.sender);
-        bytes32 name = _toBytes32(_name);
+        bytes32 name = _toBytes32(name_);
         uint256 clusterId = addressLookup[msg.sender];
-        if (bytes(_name).length == 0) {
+        if (bytes(name_).length == 0) {
             delete canonicalClusterName[clusterId];
             emit CanonicalName("", clusterId);
         } else {
-            _checkNameOwnership(msg.sender, _name);
+            _checkNameOwnership(msg.sender, name_);
             canonicalClusterName[clusterId] = name;
-            emit CanonicalName(_name, clusterId);
+            emit CanonicalName(name_, clusterId);
         }
     }
 
     /// @notice Set wallet name for msg.sender or erase it by setting ""
-    function setWalletName(address _addr, string memory _walletName) external {
+    function setWalletName(address _addr, string memory walletName_) external {
         _checkZeroCluster(msg.sender);
-        bytes32 walletName = _toBytes32(_walletName);
+        bytes32 walletName = _toBytes32(walletName_);
         uint256 clusterId = addressLookup[msg.sender];
         if (clusterId != addressLookup[_addr]) revert Unauthorized();
-        if (bytes(_walletName).length == 0) {
+        if (bytes(walletName_).length == 0) {
             walletName = reverseLookup[_addr];
             delete forwardLookup[clusterId][walletName];
             delete reverseLookup[_addr];
@@ -356,7 +356,7 @@ abstract contract NameManager is IClusters {
         } else {
             forwardLookup[clusterId][walletName] = _addr;
             reverseLookup[_addr] = walletName;
-            emit WalletName(_walletName, _addr);
+            emit WalletName(walletName_, _addr);
         }
     }
 
@@ -379,26 +379,26 @@ abstract contract NameManager is IClusters {
     /// STRING HELPERS ///
 
     /// @dev Returns bytes32 representation of string < 32 characters, used in name-related state vars and functions
-    function _toBytes32(string memory _smallString) internal pure returns (bytes32 result) {
-        bytes memory smallBytes = bytes(_smallString);
+    function _toBytes32(string memory smallString) internal pure returns (bytes32 result) {
+        bytes memory smallBytes = bytes(smallString);
         if (smallBytes.length > 32) revert Invalid();
         return bytes32(smallBytes);
     }
 
     /// @dev Returns a string from a small bytes32 string.
-    function _toString(bytes32 _smallBytes) internal pure returns (string memory result) {
-        if (_smallBytes == bytes32("")) return result;
+    function _toString(bytes32 smallBytes) internal pure returns (string memory result) {
+        if (smallBytes == bytes32("")) return result;
         /// @solidity memory-safe-assembly
         assembly {
             result := mload(0x40)
             let n
             for {} 1 {} {
                 n := add(n, 1)
-                if iszero(byte(n, _smallBytes)) { break } // Scan for '\0'.
+                if iszero(byte(n, smallBytes)) { break } // Scan for '\0'.
             }
             mstore(result, n)
             let o := add(result, 0x20)
-            mstore(o, _smallBytes)
+            mstore(o, smallBytes)
             mstore(add(o, n), 0)
             mstore(0x40, add(result, 0x40))
         }
