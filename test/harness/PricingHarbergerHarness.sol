@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {Pricing} from "../../src/Pricing.sol";
+import {PricingHarberger} from "../../src/PricingHarberger.sol";
 
-contract PricingHarness is Pricing {
+contract PricingHarbergerHarness is PricingHarberger {
     /// EXPOSED INTERNAL FUNCTIONS ///
 
     function exposed_getIntegratedMaxPrice(uint256 numSeconds) public view returns (uint256) {

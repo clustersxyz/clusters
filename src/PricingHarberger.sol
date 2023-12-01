@@ -24,7 +24,7 @@ for months >= 1
 /// @notice A stateless computation library for price, bids, decays, etc
 /// @dev All state is stored in clusters so we can replace the Pricing module while providing guarantees to existing
 /// holders
-contract Pricing is IPricing {
+contract PricingHarberger is IPricing {
     uint256 internal constant SECONDS_IN_MONTH = 30 days;
     uint256 internal constant SECONDS_IN_YEAR = 365 days;
     uint256 internal constant DENOMINATOR = 10_000;
@@ -32,8 +32,6 @@ contract Pricing is IPricing {
     uint256 public minAnnualPrice = 0.01 ether;
     uint256 public maxPriceBase = 0.02 ether;
     uint256 public maxPriceIncrement = 0.01 ether;
-
-    constructor() {}
 
     /// PUBLIC FUNCTIONS ///
 
