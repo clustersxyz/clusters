@@ -7,6 +7,8 @@ import {Pricing} from "./Pricing.sol";
 
 import {IClusters} from "./IClusters.sol";
 
+import {console2} from "forge-std/Test.sol";
+
 /// @notice The bidding, accepting, eth storing component of Clusters. Handles name assignment
 ///         to cluster ids and checks auth of cluster membership before acting on one of its names
 abstract contract NameManager is IClusters {
@@ -60,6 +62,7 @@ abstract contract NameManager is IClusters {
             _;
         } else {
             // Otherwise make sure name belongs to msg.sender's clusterId
+            console2.log(addressLookup[msg.sender], nameLookup[_toBytes32(_name)]);
             if (addressLookup[msg.sender] != nameLookup[_toBytes32(_name)]) revert Unauthorized();
             _;
         }
@@ -87,6 +90,29 @@ abstract contract NameManager is IClusters {
 
     /// @notice Buy unregistered name. Must pay at least minimum yearly payment.
     function buyName(string memory _name) external payable checkPrivileges("") {
+        bytes32 name = _toBytes32(_name);
+        uint256 clusterId = addressLookup[msg.sender];
+        console2.log(_name, clusterId);
+        if (name == bytes32("")) revert Invalid();
+        // Check that name is unused and sufficient payment is made
+        if (nameLookup[name] != 0) revert Registered();
+        if (msg.value < pricing.minAnnualPrice()) revert Insufficient();
+        // Process price accounting updates
+        unchecked {
+            ethBacking[name] += msg.value;
+        }
+        priceIntegral[name] = IClusters.PriceIntegral({
+            name: name,
+            lastUpdatedTimestamp: block.timestamp,
+            lastUpdatedPrice: pricing.minAnnualPrice(),
+            maxExpiry: block.timestamp + uint256(pricing.getMaxDuration(pricing.minAnnualPrice(), msg.value))
+        });
+        _assignName(name, clusterId);
+        emit BuyName(_name, clusterId);
+    }
+
+    /// @notice Buy unregistered name. Must pay at least minimum yearly payment.
+    function buyName(string memory _name, uint256 clusterId) public payable checkPrivileges("") {
         bytes32 name = _toBytes32(_name);
         uint256 clusterId = nameLookup[name];
         if (name == bytes32("")) revert Invalid();
