@@ -357,7 +357,7 @@ contract ClustersTest is Test {
         require(names.length == 1, "names array length error");
         require(names[0] == name, "name array error");
         require(clusters.nameLookup(name) == 1, "name not assigned to cluster");
-        require(clusters.ethBacking(name) == _buyAmount, "ethBacking incorrect");
+        require(clusters.nameBacking(name) == _buyAmount, "nameBacking incorrect");
         require(address(clusters).balance == _buyAmount, "contract balance issue");
     }
 
@@ -449,7 +449,7 @@ contract ClustersTest is Test {
         require(names.length == 1, "names array length error");
         require(names[0] == name, "name array error");
         require(clusters.nameLookup(name) == 2, "name not assigned to proper cluster");
-        require(clusters.ethBacking(name) == _buyAmount, "ethBacking incorrect");
+        require(clusters.nameBacking(name) == _buyAmount, "nameBacking incorrect");
         require(address(clusters).balance == _buyAmount, "contract balance issue");
     }
 
@@ -589,7 +589,7 @@ contract ClustersTest is Test {
 
         require(clusters.addressLookup(caller) == 1, "address(this) not assigned to cluster");
         require(clusters.nameLookup(name) == 1, "name not assigned to cluster");
-        require(_buyAmount > clusters.ethBacking(name), "ethBacking not adjusting");
+        require(_buyAmount > clusters.nameBacking(name), "nameBacking not adjusting");
         require(address(clusters).balance == _buyAmount, "contract balance issue");
     }
 
@@ -1124,7 +1124,7 @@ contract ClustersTest is Test {
         require(clusters.nameLookup(name) == 1, "name not assigned to cluster");
         bytes32[] memory names = clusters.getClusterNames(1);
         require(name == names[0], "cluster name array incorrect");
-        require(clusters.ethBacking(name) < 0.1 ether, "ethBacking incorrect");
+        require(clusters.nameBacking(name) < 0.1 ether, "nameBacking incorrect");
         require(address(clusters).balance == 0.1 ether, "contract balance issue");
         IClusters.Bid memory bid = clusters.getBid(name);
         require(bid.ethAmount == 0, "bid ethAmount not purged");
