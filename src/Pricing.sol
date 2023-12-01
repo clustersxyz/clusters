@@ -33,15 +33,6 @@ contract Pricing {
 
     constructor() {}
 
-    /// @notice If no bids occur and name price starts at p0, how many seconds until ethAmount runs out?
-    function getMaxDuration(uint256 p0, uint256 ethAmount) external view returns (int256) {
-        if (p0 <= minAnnualPrice) {
-            return unsafeWadDiv(unsafeWadMul(toWadUnsafe(SECONDS_IN_YEAR), toWadUnsafe(ethAmount)), toWadUnsafe(p0));
-        } else {
-            return 0;
-        }
-    }
-
     /// @notice The amount of eth that's been spent on a name since last update
     /// @param lastUpdatedPrice Can be greater than max price, used to calculate decay times
     /// @param secondsAfterUpdate How many seconds it's been since lastUpdatedPrice
