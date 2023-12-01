@@ -8,11 +8,9 @@ import {NameManager} from "./NameManager.sol";
 import {IClusters} from "./IClusters.sol";
 
 /**
-OPEN QUESTIONS/TODOS
-Can you create a cluster without registering a name? No, there needs to be a bounty for adding others to your cluster
-What does the empty foobar/ resolver point to?
-
-
+ * OPEN QUESTIONS/TODOS
+ * Can you create a cluster without registering a name? No, there needs to be a bounty for adding others to your cluster
+ * What does the empty foobar/ resolver point to?
  */
 
 contract Clusters is NameManager {
