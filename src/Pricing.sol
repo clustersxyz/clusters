@@ -4,6 +4,8 @@ pragma solidity ^0.8.23;
 import {toWadUnsafe, wadExp, wadLn, unsafeWadMul, unsafeWadDiv} from "../lib/solmate/src/utils/SignedWadMath.sol";
 import {FixedPointMathLib} from "../lib/solady/src/utils/FixedPointMathLib.sol";
 
+import {IPricing} from "./IPricing.sol";
+
 import {console2} from "../lib/forge-std/src/Test.sol";
 
 /*
@@ -22,7 +24,7 @@ for months >= 1
 /// @notice A stateless computation library for price, bids, decays, etc
 /// @dev All state is stored in clusters so we can replace the Pricing module while providing guarantees to existing
 /// holders
-contract Pricing {
+contract Pricing is IPricing {
     uint256 internal constant SECONDS_IN_MONTH = 30 days;
     uint256 internal constant SECONDS_IN_YEAR = 365 days;
     uint256 internal constant DENOMINATOR = 10_000;

@@ -3,7 +3,7 @@ pragma solidity ^0.8.23;
 
 import {EnumerableSet} from "../lib/openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 
-import {Pricing} from "./Pricing.sol";
+import {IPricing} from "./IPricing.sol";
 
 import {IClusters} from "./IClusters.sol";
 
@@ -18,7 +18,7 @@ abstract contract NameManager is IClusters {
 
     uint256 internal constant BID_TIMELOCK = 30 days;
 
-    Pricing internal pricing;
+    IPricing internal pricing;
 
     uint256 public nextClusterId = 1;
 
@@ -84,7 +84,7 @@ abstract contract NameManager is IClusters {
     }
 
     constructor(address _pricing, address _endpoint) {
-        pricing = Pricing(_pricing);
+        pricing = IPricing(_pricing);
         endpoint = _endpoint;
     }
 
