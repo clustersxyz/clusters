@@ -9,10 +9,12 @@ import {IClusters} from "../src/IClusters.sol";
 contract GasBenchmarkTest is Test {
     Pricing public pricing;
     Clusters public clusters;
+    uint256 public minPrice;
 
     function setUp() public {
         pricing = new Pricing();
         clusters = new Clusters(address(pricing));
+        minPrice = pricing.minAnnualPrice();
         vm.deal(address(this), 1 ether);
     }
 
@@ -23,12 +25,25 @@ contract GasBenchmarkTest is Test {
     function testBenchmark() public {
         bytes32 callerSalt = "caller";
         bytes32 addrSalt = "addr";
+        bytes32 bidderSalt = "bidder";
         address caller = _bytesToAddress(callerSalt);
         address addr = _bytesToAddress(addrSalt);
+        address bidder = _bytesToAddress(bidderSalt);
 
         vm.startPrank(caller);
+        vm.deal(caller, minPrice);
         clusters.create();
         clusters.add(addr);
+        clusters.buyName{value: minPrice}("foobar");
+        vm.stopPrank();
+
+        vm.startPrank(bidder);
+        vm.deal(bidder, 1 ether);
+        // TODO: Should people be able to bid on names without owning a cluster themselves?
+        clusters.create();
+        clusters.bidName{value: 0.5 ether}("foobar");
+        vm.warp(block.timestamp + 30 days);
+        clusters.pokeName("foobar");
         vm.stopPrank();
     }
 }
