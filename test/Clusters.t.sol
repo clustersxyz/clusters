@@ -3,7 +3,7 @@ pragma solidity ^0.8.13;
 
 import {Test, console2} from "forge-std/Test.sol";
 import {Clusters, NameManager} from "../src/Clusters.sol";
-import {Pricing} from "../src/Pricing.sol";
+import {PricingMinFlatMaxLinearDecayExponential} from "../src/PricingMinFlatMaxLinearDecayExponential.sol";
 import {Endpoint} from "../src/Endpoint.sol";
 import {IClusters} from "../src/IClusters.sol";
 

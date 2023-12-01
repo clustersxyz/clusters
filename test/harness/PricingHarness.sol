@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {Pricing} from "../../src/Pricing.sol";
+import {PricingMinFlatMaxLinearDecayExponential} from "../../src/PricingMinFlatMaxLinearDecayExponential.sol";
 
-contract PricingHarness is Pricing {
+contract PricingHarness is PricingMinFlatMaxLinearDecayExponential {
     /// EXPOSED INTERNAL FUNCTIONS ///
 
     function exposed_getIntegratedMaxPrice(uint256 numSeconds) public view returns (uint256) {
