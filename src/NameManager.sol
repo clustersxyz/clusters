@@ -180,7 +180,7 @@ abstract contract NameManager is IClusters {
         (uint256 spent, uint256 newPrice) = pricing.getIntegratedPrice(
             integral.lastUpdatedPrice,
             block.timestamp - integral.lastUpdatedTimestamp,
-            block.timestamp - integral.lastUpdatedTimestamp
+            block.timestamp - integral.lastUpdatedTimestamp // TOOD: this isn't accurate, but we're not tracking creation time atm. Need to do that or relax pricing algo params
         );
         // If out of backing (expired), transfer to highest sufficient bidder or delete registration
         uint256 backing = nameBacking[name];
