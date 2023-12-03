@@ -286,8 +286,20 @@ abstract contract NameManager is IClusters {
         if (!success) revert NativeTokenTransferFailed();
     }
 
-    // TODO: implementation
-    function acceptBid(string memory name_) external returns (uint256) {}
+    /// @notice Accept bid and transfer name to bidder
+    /// @dev Retrieves bid, adjusts state, then sends payment to avoid reentrancy
+    function acceptBid(string memory name_) external returns (uint256 bidAmount) {
+        _checkZeroCluster(msg.sender);
+        _checkNameOwnership(msg.sender, name_);
+        bytes32 name = _toBytes32(name_);
+        Bid memory bid = bids[name];
+        if (bid.ethAmount == 0) revert NoBid();
+        delete bids[name];
+        _transferName(name, nameToClusterId[name], addressToClusterId[bid.bidder]);
+        (bool success,) = payable(msg.sender).call{value: bid.ethAmount}("");
+        if (!success) revert NativeTokenTransferFailed();
+        return bid.ethAmount;
+    }
 
     /// @notice Allow failed bid refunds to be withdrawn
     function refundBid() external {
