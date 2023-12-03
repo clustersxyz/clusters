@@ -38,6 +38,7 @@ interface IClusters {
     error SelfBid();
     error Invalid();
     error Timelock();
+    error LongName();
     error Insolvent();
     error EmptyName();
     error NoCluster();
@@ -67,7 +68,7 @@ interface IClusters {
     function bidRefunds(address _bidder) external view returns (uint256 refund);
 
     function clusterAddresses(uint256 clusterId) external view returns (address[] memory addresses);
-    function getClusterNames(uint256 clusterId) external view returns (bytes32[] memory names);
+    function getClusterNamesBytes32(uint256 clusterId) external view returns (bytes32[] memory names);
     function getBid(bytes32 name_) external view returns (Bid memory bid);
 
     /// EXTERNAL FUNCTIONS ///

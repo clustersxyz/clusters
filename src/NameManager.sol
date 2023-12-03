@@ -72,6 +72,7 @@ abstract contract NameManager is IClusters {
 
     function _checkNameValid(string memory name) internal pure {
         if (bytes(name).length == 0) revert EmptyName();
+        if (bytes(name).length > 32) revert LongName();
     }
 
     function _checkNameOwnership(address addr, string memory name) internal view {
@@ -90,10 +91,21 @@ abstract contract NameManager is IClusters {
 
     /// VIEW FUNCTIONS ///
 
-    /// @notice Get all names owned by a cluster
+    /// @notice Get all names owned by a cluster in bytes32 format
     /// @return names Array of names in bytes32 format
-    function getClusterNames(uint256 clusterId) external view returns (bytes32[] memory names) {
+    function getClusterNamesBytes32(uint256 clusterId) external view returns (bytes32[] memory names) {
         return _clusterNames[clusterId].values();
+    }
+
+    /// @notice Get all names owned by a cluster in string format
+    /// @dev Do not use this onchain as it is a denial-of-service vector due to loop potentially exceeding gas ceiling
+    /// @return names Array of names in string format
+    function getClusterNamesString(uint256 clusterId) external view returns (string[] memory names) {
+        bytes32[] memory namesBytes32 = _clusterNames[clusterId].values();
+        names = new string[](namesBytes32.length);
+        for (uint256 i; i < namesBytes32.length;) {
+            names[i] = _toString(namesBytes32[i]);
+        }
     }
 
     /// @notice Get Bid struct from storage
@@ -106,8 +118,8 @@ abstract contract NameManager is IClusters {
 
     /// @notice Buy unregistered name. Must pay at least minimum yearly payment.
     function buyName(string memory name_) external payable {
-        _checkZeroCluster(msg.sender);
         _checkNameValid(name_);
+        _checkZeroCluster(msg.sender);
         bytes32 name = _toBytes32(name_);
         uint256 clusterId = addressToClusterId[msg.sender];
         console2.log(name_, clusterId);
@@ -127,8 +139,8 @@ abstract contract NameManager is IClusters {
 
     /// @notice Fund an existing and specific name, callable by anyone
     function fundName(string memory name_) external payable {
+        _checkNameValid(name_);
         bytes32 name = _toBytes32(name_);
-        if (name == bytes32("")) revert Invalid();
         if (nameToClusterId[name] == 0) revert Unregistered();
         nameBacking[name] += msg.value;
         emit FundName(name_, msg.sender, msg.value);
@@ -136,10 +148,10 @@ abstract contract NameManager is IClusters {
 
     /// @notice Move name from one cluster to another without payment
     function transferName(string memory name_, uint256 toClusterId) external {
+        _checkNameValid(name_);
         _checkZeroCluster(msg.sender);
         _checkNameOwnership(msg.sender, name_);
         bytes32 name = _toBytes32(name_);
-        if (name == bytes32("")) revert Invalid();
         if (toClusterId >= nextClusterId) revert Unregistered();
         uint256 clusterId = addressToClusterId[msg.sender];
         _transferName(name, clusterId, toClusterId);
@@ -169,8 +181,8 @@ abstract contract NameManager is IClusters {
     /// @notice Move accrued revenue from ethBacked to protocolRevenue, and transfer names upon expiry to highest
     ///         sufficient bidder. If no bids above yearly minimum, delete name registration.
     function pokeName(string memory name_) public {
+        _checkNameValid(name_);
         bytes32 name = _toBytes32(name_);
-        if (name == bytes32("")) revert Invalid();
         if (nameToClusterId[name] == 0) revert Unregistered();
         IClusters.PriceIntegral memory integral = priceIntegral[name];
         (uint256 spent, uint256 newPrice) = pricing.getIntegratedPrice(
@@ -209,10 +221,10 @@ abstract contract NameManager is IClusters {
     /// @dev Should work smoothly for fully expired names and names partway through their duration
     /// @dev Needs to be onchain ETH bid escrowed in one place because otherwise prices shift
     function bidName(string memory name_) external payable {
+        _checkNameValid(name_);
         _checkZeroCluster(msg.sender);
-        bytes32 name = _toBytes32(name_);
-        if (name == bytes32("")) revert Invalid();
         if (msg.value == 0) revert NoBid();
+        bytes32 name = _toBytes32(name_);
         uint256 clusterId = nameToClusterId[name];
         if (clusterId == 0) revert Unregistered();
         // Prevent name owner from bidding on their own name
@@ -249,6 +261,7 @@ abstract contract NameManager is IClusters {
 
     /// @notice Reduce bid and refund difference. Revoke if amount_ is the total bid or is the max uint256 value.
     function reduceBid(string memory name_, uint256 amount_) external {
+        _checkNameValid(name_);
         bytes32 name = _toBytes32(name_);
         uint256 bid = bids[name].ethAmount;
         if (bid == 0) revert NoBid();
@@ -289,6 +302,7 @@ abstract contract NameManager is IClusters {
     /// @notice Accept bid and transfer name to bidder
     /// @dev Retrieves bid, adjusts state, then sends payment to avoid reentrancy
     function acceptBid(string memory name_) external returns (uint256 bidAmount) {
+        _checkNameValid(name_);
         _checkZeroCluster(msg.sender);
         _checkNameOwnership(msg.sender, name_);
         bytes32 name = _toBytes32(name_);
@@ -314,6 +328,7 @@ abstract contract NameManager is IClusters {
 
     /// @notice Set canonical name or erase it by setting ""
     function setCanonicalName(string memory name_) external {
+        if (bytes(name_).length > 32) revert LongName();
         _checkZeroCluster(msg.sender);
         bytes32 name = _toBytes32(name_);
         uint256 clusterId = addressToClusterId[msg.sender];
@@ -328,20 +343,21 @@ abstract contract NameManager is IClusters {
     }
 
     /// @notice Set wallet name for msg.sender or erase it by setting ""
-    function setWalletName(address _addr, string memory walletName_) external {
+    function setWalletName(address addr, string memory walletName_) external {
+        if (bytes(walletName_).length > 32) revert LongName();
         _checkZeroCluster(msg.sender);
         bytes32 walletName = _toBytes32(walletName_);
         uint256 clusterId = addressToClusterId[msg.sender];
-        if (clusterId != addressToClusterId[_addr]) revert Unauthorized();
+        if (clusterId != addressToClusterId[addr]) revert Unauthorized();
         if (bytes(walletName_).length == 0) {
-            walletName = reverseLookup[_addr];
+            walletName = reverseLookup[addr];
             delete forwardLookup[clusterId][walletName];
-            delete reverseLookup[_addr];
-            emit WalletName("", _addr);
+            delete reverseLookup[addr];
+            emit WalletName("", addr);
         } else {
-            forwardLookup[clusterId][walletName] = _addr;
-            reverseLookup[_addr] = walletName;
-            emit WalletName(walletName_, _addr);
+            forwardLookup[clusterId][walletName] = addr;
+            reverseLookup[addr] = walletName;
+            emit WalletName(walletName_, addr);
         }
     }
 
@@ -366,11 +382,11 @@ abstract contract NameManager is IClusters {
     /// @dev Returns bytes32 representation of string < 32 characters, used in name-related state vars and functions
     function _toBytes32(string memory smallString) internal pure returns (bytes32 result) {
         bytes memory smallBytes = bytes(smallString);
-        if (smallBytes.length > 32) revert Invalid();
+        if (smallBytes.length > 32) revert LongName();
         return bytes32(smallBytes);
     }
 
-    /// @dev Returns a string from a small bytes32 string.
+    /// @dev Returns a string from a right-padded bytes32 representation.
     function _toString(bytes32 smallBytes) internal pure returns (string memory result) {
         if (smallBytes == bytes32("")) return result;
         /// @solidity memory-safe-assembly
