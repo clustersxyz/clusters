@@ -207,8 +207,11 @@ abstract contract NameManager is IClusters {
             // Process price data update
             protocolRevenue += spent;
             nameBacking[_name] -= spent;
-            priceIntegral[_name] =
-                IClusters.PriceIntegral({name: _name, lastUpdatedTimestamp: block.timestamp, lastUpdatedPrice: newPrice});
+            priceIntegral[_name] = IClusters.PriceIntegral({
+                name: _name,
+                lastUpdatedTimestamp: block.timestamp,
+                lastUpdatedPrice: newPrice
+            });
             emit PokeName(name, msg.sender);
         }
     }
