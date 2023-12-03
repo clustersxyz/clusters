@@ -43,47 +43,23 @@ contract Clusters is NameManager {
 
     /// EXTERNAL FUNCTIONS ///
 
-    function _determineCallValue(bytes memory _data) internal pure returns (uint256) {
-        // Extract the function signature
-        bytes4 sig;
-        assembly {
-            sig := mload(add(_data, 32))
-        }
-
-        // Match the function signature of a payable function
-        if (sig == BUY_NAME_SIG || sig == FUND_NAME_SIG || sig == BID_NAME_SIG) {
-            if (_data.length != 132) revert Invalid();
-            // Assume string is always 32 bytes or less, and is stored as a 32-byte word in calldata
-            uint256 valueOffset = 68; // 4 bytes (sig) + 32 bytes (offset) + 32 bytes (length)
-
-            // Extract the _value parameter
-            uint256 _value;
-            assembly {
-                _value := mload(add(_data, valueOffset))
-            }
-            return _value;
-        }
-        // Handle unmatched function signatures
-        return 0;
-    }
-
     /// @dev For payable multicall to be secure, we cannot trust msg.value params in other external methods
     /// @dev Must instead do strict protocol invariant checking at the end of methods like Uniswap V2
-    function multicall(bytes[] calldata _data) external payable returns (bytes[] memory results) {
-        results = new bytes[](_data.length);
+    function multicall(bytes[] calldata data) external payable returns (bytes[] memory results) {
+        results = new bytes[](data.length);
         uint256 totalValue;
         bool success;
 
         // Iterate through each call, check for payable functions' _value param, and tally up total value used
         unchecked {
-            for (uint256 i = 0; i < _data.length; ++i) {
+            for (uint256 i = 0; i < data.length; ++i) {
                 // Retrieve each call's calldata looking for a _value parameter to ensure no double-spending
-                uint256 callValue = _determineCallValue(_data[i]);
+                uint256 callValue = _determineCallValue(data[i]);
                 if (totalValue + callValue > msg.value) revert Insufficient();
 
                 // Execute each call
                 //slither-disable-next-line calls-loop,delegatecall-loop
-                (success, results[i]) = address(this).delegatecall(_data[i]);
+                (success, results[i]) = address(this).delegatecall(data[i]);
                 if (!success) revert MulticallFailed();
 
                 // After the call, tally _value, if any, and confirm internal accounting invariant still holds
@@ -157,5 +133,29 @@ contract Clusters is NameManager {
 
     function _addressToBytes32(address _addr) internal pure returns (bytes32 addr) {
         return bytes32(uint256(uint160(_addr)));
+    }
+
+    function _determineCallValue(bytes memory _data) internal pure returns (uint256) {
+        // Extract the function signature
+        bytes4 sig;
+        assembly {
+            sig := mload(add(_data, 32))
+        }
+
+        // Match the function signature of a payable function
+        if (sig == BUY_NAME_SIG || sig == FUND_NAME_SIG || sig == BID_NAME_SIG) {
+            if (_data.length != 132) revert Invalid();
+            // Assume string is always 32 bytes or less, and is stored as a 32-byte word in calldata
+            uint256 valueOffset = 68; // 4 bytes (sig) + 32 bytes (offset) + 32 bytes (length)
+
+            // Extract the _value parameter
+            uint256 _value;
+            assembly {
+                _value := mload(add(_data, valueOffset))
+            }
+            return _value;
+        }
+        // Handle unmatched function signatures
+        return 0;
     }
 }

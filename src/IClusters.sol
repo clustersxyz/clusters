@@ -51,6 +51,7 @@ interface IClusters {
 
     /// STORAGE / VIEW FUNCTIONS ///
 
+    function endpoint() external view returns (address endpoint);
     function nextClusterId() external view returns (uint256 clusterId);
     function addressToClusterId(address addr) external view returns (uint256 clusterId);
     function nameToClusterId(bytes32 name_) external view returns (uint256 clusterId);
@@ -62,20 +63,29 @@ interface IClusters {
         external
         view
         returns (bytes32 name, uint256 lastUpdatedTimestamp, uint256 lastUpdatedPrice);
-    function protocolRevenue() external view returns (uint256 revenue);
     function nameBacking(bytes32 name_) external view returns (uint256 ethAmount);
     function bids(bytes32 name_) external view returns (uint256 ethAmount, uint256 createdTimestamp, address bidder);
     function bidRefunds(address _bidder) external view returns (uint256 refund);
 
+    function protocolRevenue() external view returns (uint256 revenue);
+    function totalNameBacking() external view returns (uint256 nameBacking);
+    function totalBidBacking() external view returns (uint256 bidBacking);
+
     function clusterAddresses(uint256 clusterId) external view returns (address[] memory addresses);
     function getClusterNamesBytes32(uint256 clusterId) external view returns (bytes32[] memory names);
+    function getClusterNamesString(uint256 clusterId) external view returns (string[] memory names);
     function getBid(bytes32 name_) external view returns (Bid memory bid);
 
     /// EXTERNAL FUNCTIONS ///
 
+    function multicall(bytes[] calldata data) external payable returns (bytes[] memory results);
+
     function create() external;
+    function create(address msgSender) external;
     function add(address addr) external;
+    function add(address msgSender, address addr) external;
     function remove(address addr) external;
+    function remove(address msgSender, address addr) external;
 
     function buyName(string memory name_) external payable;
     function fundName(string memory name_) external payable;
