@@ -107,17 +107,15 @@ abstract contract NameManager is IClusters {
     /// @notice Buy unregistered name. Must pay at least minimum yearly payment.
     function buyName(string memory name_) external payable {
         _checkZeroCluster(msg.sender);
+        _checkNameValid(name_);
         bytes32 name = _toBytes32(name_);
         uint256 clusterId = addressToClusterId[msg.sender];
         console2.log(name_, clusterId);
-        if (name == bytes32("")) revert Invalid();
         // Check that name is unused and sufficient payment is made
         if (nameToClusterId[name] != 0) revert Registered();
         if (msg.value < pricing.minAnnualPrice()) revert Insufficient();
         // Process price accounting updates
-        unchecked {
-            nameBacking[name] += msg.value;
-        }
+        nameBacking[name] += msg.value;
         priceIntegral[name] = IClusters.PriceIntegral({
             name: name,
             lastUpdatedTimestamp: block.timestamp,
@@ -132,9 +130,7 @@ abstract contract NameManager is IClusters {
         bytes32 name = _toBytes32(name_);
         if (name == bytes32("")) revert Invalid();
         if (nameToClusterId[name] == 0) revert Unregistered();
-        unchecked {
-            nameBacking[name] += msg.value;
-        }
+        nameBacking[name] += msg.value;
         emit FundName(name_, msg.sender, msg.value);
     }
 
@@ -186,27 +182,21 @@ abstract contract NameManager is IClusters {
         uint256 backing = nameBacking[name];
         if (spent >= backing) {
             delete nameBacking[name];
-            unchecked {
-                protocolRevenue += backing;
-            }
+            protocolRevenue += backing;
             // If there is a valid bid, transfer to the bidder
             address bidder;
             uint256 bid = bids[name].ethAmount;
             if (bid > 0) {
                 bidder = bids[name].bidder;
-                unchecked {
-                    nameBacking[name] += bid;
-                }
+                nameBacking[name] += bid;
                 delete bids[name];
             }
             // If there isn't a highest bidder, name will expire and be deleted as bidder is address(0)
             _transferName(name, nameToClusterId[name], addressToClusterId[bidder]);
         } else {
             // Process price data update
-            unchecked {
-                protocolRevenue += spent;
-                nameBacking[name] -= spent;
-            }
+            protocolRevenue += spent;
+            nameBacking[name] -= spent;
             priceIntegral[name] =
                 IClusters.PriceIntegral({name: name, lastUpdatedTimestamp: block.timestamp, lastUpdatedPrice: newPrice});
             emit PokeName(name_, msg.sender);
@@ -236,9 +226,7 @@ abstract contract NameManager is IClusters {
         }
         // If the caller is the highest bidder, increase their bid and reset the timestamp
         else if (prevBidder == msg.sender) {
-            unchecked {
-                bids[name].ethAmount += msg.value;
-            }
+            bids[name].ethAmount += msg.value;
             // TODO: Determine which way is best to handle bid update timestamps
             // bids[name].createdTimestamp = block.timestamp;
             emit BidIncreased(name_, msg.sender, prevBid + msg.value);
@@ -262,46 +250,36 @@ abstract contract NameManager is IClusters {
     /// @notice Reduce bid and refund difference. Revoke if amount_ is the total bid or is the max uint256 value.
     function reduceBid(string memory name_, uint256 amount_) external {
         bytes32 name = _toBytes32(name_);
-        // Ensure the caller is the highest bidder
+        uint256 bid = bids[name].ethAmount;
+        if (bid == 0) revert NoBid();
         if (bids[name].bidder != msg.sender) revert Unauthorized();
-
         // Prevent reducing or revoking a bid before the bid timelock is up
         if (block.timestamp < bids[name].createdTimestamp + BID_TIMELOCK) revert Timelock();
+        // Overwrite amount with total bid in assumption caller is revoking bid
+        if (amount_ > bid) amount_ = bid;
 
         // Poke name to update backing and ownership (if required) prior to bid adjustment
         pokeName(name_);
+        // Short circuit if pokeName() processed transfer to bidder due to name expiry
+        if (bids[name].ethAmount == 0) return;
 
-        // Calculate difference in unchecked block to allow underflow when using type(uint256).max
-        uint256 bid = bids[name].ethAmount;
-        uint256 diff;
-        unchecked {
-            diff = bid - amount_;
-        }
-
-        // Only process bid if it's still present after the poke, which implies name wasn't transferred
-        if (bid == 0) revert NoBid();
-        // Revert if amount_ is larger than the bid but isn't the max
-        // Bypassing this check for the max value eliminates the need for the frontend or bidder to find their bid prior
-        if (amount_ > bid && amount_ != type(uint256).max) revert Insufficient();
-        // Also revert if bid is reduced beneath minimum annual price
+        // Revert if reduction will push bid beneath minAnnualPrice
+        uint256 diff = bid - amount_;
         if (diff != 0 && diff < pricing.minAnnualPrice()) revert Insufficient();
 
         // If reducing bid to 0 or by maximum uint256 value, revoke altogether
-        if (diff == 0 || amount_ == type(uint256).max) {
+        if (diff == 0) {
             delete bids[name];
             emit BidRevoked(name_, msg.sender, bid);
         }
         // Otherwise, decrease bid and update timestamp
         else {
-            unchecked {
-                bids[name].ethAmount -= amount_;
-            }
+            bids[name].ethAmount -= amount_;
             // TODO: Determine which way is best to handle bid update timestamps
             // bids[name].createdTimestamp = block.timestamp;
             emit BidReduced(name_, msg.sender, amount_);
         }
-        // Overwrite type(uint256).max with bid so transfer doesn't fail
-        if (amount_ == type(uint256).max) amount_ = bid;
+
         // Transfer bid reduction after all state is purged to prevent reentrancy
         // This bid refund reverts upon failure because it isn't happening in a forced context such as being outbid
         (bool success,) = payable(msg.sender).call{value: amount_}("");
