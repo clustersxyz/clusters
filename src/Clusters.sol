@@ -9,6 +9,8 @@ import {NameManager} from "./NameManager.sol";
 
 import {IClusters} from "./IClusters.sol";
 
+import {console2} from "../lib/forge-std/src/Test.sol";
+
 /**
  * OPEN QUESTIONS/TODOS
  * Can you create a cluster without registering a name? No, there needs to be a bounty for adding others to your cluster
@@ -22,9 +24,9 @@ contract Clusters is NameManager {
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
-    bytes4 internal constant BUY_NAME_SIG = bytes4(keccak256("buyName(string,uint256)"));
-    bytes4 internal constant FUND_NAME_SIG = bytes4(keccak256("fundName(string,uint256)"));
-    bytes4 internal constant BID_NAME_SIG = bytes4(keccak256("bidName(string,uint256)"));
+    bytes4 internal constant BUY_NAME_SIG = bytes4(keccak256("buyName(uint256,string)"));
+    bytes4 internal constant FUND_NAME_SIG = bytes4(keccak256("fundName(uint256,string)"));
+    bytes4 internal constant BID_NAME_SIG = bytes4(keccak256("bidName(uint256,string)"));
 
     address public immutable endpoint;
 
@@ -77,6 +79,10 @@ contract Clusters is NameManager {
     }
 
     function create() external {
+        create(msg.sender);
+    }
+
+    function create(uint256) external payable onlyMulticall {
         create(msg.sender);
     }
 
@@ -135,25 +141,20 @@ contract Clusters is NameManager {
         return bytes32(uint256(uint160(addr)));
     }
 
-    function _determineCallValue(bytes memory data) internal pure returns (uint256) {
+    function _determineCallValue(bytes calldata data) internal pure returns (uint256) {
         // Extract the function signature
-        bytes4 sig;
-        assembly {
-            sig := mload(add(data, 32))
-        }
+        bytes4 sig = bytes4(data[:4]);
 
         // Match the function signature of a payable function
         if (sig == BUY_NAME_SIG || sig == FUND_NAME_SIG || sig == BID_NAME_SIG) {
+            // Assume string parameter is always 32 bytes or less
             if (data.length != 132) revert Invalid();
-            // Assume string is always 32 bytes or less, and is stored as a 32-byte word in calldata
-            uint256 valueOffset = 68; // 4 bytes (sig) + 32 bytes (offset) + 32 bytes (length)
 
-            // Extract the _value parameter
-            uint256 _value;
-            assembly {
-                _value := mload(add(data, valueOffset))
-            }
-            return _value;
+            // Extract the value parameter
+            console2.logBytes(data);
+            uint256 value = abi.decode(data[4:], (uint256));
+            console2.log(value);
+            return value;
         }
         // Handle unmatched function signatures
         return 0;

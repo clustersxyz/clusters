@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.23;
 
-import "forge-std/Test.sol";
+import "../lib/forge-std/src/Test.sol";
 import {Clusters, NameManager} from "../src/Clusters.sol";
 import {IPricing} from "../src/IPricing.sol";
 import {PricingFlat} from "../src/PricingFlat.sol";
@@ -23,7 +23,7 @@ contract ClustersTest is Test {
     function setUp() public {
         pricing = new PricingHarberger();
         endpoint = new Endpoint();
-        clusters = new Clusters(address(pricing), address(clusters));
+        clusters = new Clusters(address(pricing), address(endpoint));
         minPrice = pricing.minAnnualPrice();
         vm.deal(address(this), 1 ether);
     }

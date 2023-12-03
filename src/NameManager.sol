@@ -140,7 +140,6 @@ abstract contract NameManager is IClusters {
         _checkZeroCluster(msg.sender);
         bytes32 _name = _toBytes32(name);
         uint256 clusterId = addressToClusterId[msg.sender];
-        console2.log(name, clusterId);
         // Check that name is unused and sufficient payment is made
         if (nameToClusterId[_name] != 0) revert Registered();
         if (msg.value < pricing.minAnnualPrice()) revert Insufficient();
@@ -157,13 +156,12 @@ abstract contract NameManager is IClusters {
     }
 
     /// @notice buyName() override for use in multicall() only
-    function buyName(string memory name, uint256 value) external payable onlyMulticall {
+    function buyName(uint256 value, string memory name) external payable onlyMulticall {
         _checkValue(value);
         _checkNameValid(name);
         _checkZeroCluster(msg.sender);
         bytes32 _name = _toBytes32(name);
         uint256 clusterId = addressToClusterId[msg.sender];
-        console2.log(name, clusterId);
         // Check that name is unused and sufficient payment is made
         if (nameToClusterId[_name] != 0) revert Registered();
         if (value < pricing.minAnnualPrice()) revert Insufficient();
@@ -190,7 +188,7 @@ abstract contract NameManager is IClusters {
     }
 
     /// @notice fundName() override for use in multicall() only
-    function fundName(string memory name, uint256 value) external payable onlyMulticall {
+    function fundName(uint256 value, string memory name) external payable onlyMulticall {
         _checkValue(value);
         _checkNameValid(name);
         bytes32 _name = _toBytes32(name);
@@ -326,7 +324,7 @@ abstract contract NameManager is IClusters {
     }
 
     /// @notice bidName() override for use in multicall() only
-    function bidName(string memory name, uint256 value) external payable onlyMulticall {
+    function bidName(uint256 value, string memory name) external payable onlyMulticall {
         _checkValue(value);
         _checkNameValid(name);
         _checkZeroCluster(msg.sender);

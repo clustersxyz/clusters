@@ -80,9 +80,10 @@ interface IClusters {
 
     function multicall(bytes[] calldata data) external payable returns (bytes[] memory results);
     // You must use these versions of the functions when using multicall()
-    function buyName(string memory name, uint256 value) external payable;
-    function fundName(string memory name, uint256 value) external payable;
-    function bidName(string memory name, uint256 value) external payable;
+    function create(uint256) external payable;
+    function buyName(uint256 value, string memory name) external payable;
+    function fundName(uint256 value, string memory name) external payable;
+    function bidName(uint256 value, string memory name) external payable;
 
     function create() external;
     function create(address msgSender) external;
