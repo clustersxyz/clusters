@@ -214,6 +214,8 @@ contract ClustersTest is Test {
                 IClusters.sol
     \\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\*/
 
+    /// buyName() TESTS ///
+
     function testBuyName(bytes32 callerSalt, string memory name_, uint256 buyAmount) public {
         vm.assume(bytes(name_).length > 0 && bytes(name_).length <= 32);
         address caller = _bytesToAddress(callerSalt);
@@ -288,6 +290,8 @@ contract ClustersTest is Test {
         vm.stopPrank();
     }
 
+    /// fundName() TESTS ///
+
     function testFundName(bytes32 callerSalt, string memory name_, uint256 buyAmount, uint256 fundAmount) public {
         vm.assume(bytes(name_).length > 0 && bytes(name_).length <= 32);
         address caller = _bytesToAddress(callerSalt);
@@ -310,7 +314,13 @@ contract ClustersTest is Test {
         assertEq(address(clusters).balance, buyAmount + fundAmount, "contract balance issue");
     }
 
-    function testFundNameNotOwner(bytes32 callerSalt, bytes32 addrSalt, string memory name_, uint256 buyAmount, uint256 fundAmount) public {
+    function testFundNameNotOwner(
+        bytes32 callerSalt,
+        bytes32 addrSalt,
+        string memory name_,
+        uint256 buyAmount,
+        uint256 fundAmount
+    ) public {
         vm.assume(callerSalt != addrSalt);
         vm.assume(bytes(name_).length > 0 && bytes(name_).length <= 32);
         address caller = _bytesToAddress(callerSalt);
@@ -355,7 +365,6 @@ contract ClustersTest is Test {
     function testFundNameRevertUnregistered(bytes32 callerSalt, string memory name_, uint256 fundAmount) public {
         vm.assume(bytes(name_).length > 0 && bytes(name_).length <= 32);
         address caller = _bytesToAddress(callerSalt);
-        bytes32 name = _toBytes32(name_);
         fundAmount = bound(fundAmount, minPrice, 10 ether);
         vm.deal(caller, fundAmount);
 
@@ -363,6 +372,8 @@ contract ClustersTest is Test {
         vm.expectRevert(IClusters.Unregistered.selector);
         clusters.fundName{value: fundAmount}(name_);
     }
+
+    /// transferName() TESTS ///
 
     function testTransferName(bytes32 callerSalt, bytes32 addrSalt, string memory name_, uint256 buyAmount) public {
         vm.assume(callerSalt != addrSalt);
@@ -503,6 +514,8 @@ contract ClustersTest is Test {
         assertEq(clusters.canonicalClusterName(2), bytes32(""), "canonicalClusterName possibly transferred");
     }
 
+    /// pokeName() TESTS ///
+
     function testPokeName(
         bytes32 callerSalt,
         bytes32 addrSalt,
@@ -559,6 +572,8 @@ contract ClustersTest is Test {
         clusters.pokeName(name_);
         vm.stopPrank();
     }
+
+    /// bidName() TESTS ///
 
     function testBidName(
         bytes32 callerSalt,
@@ -819,6 +834,8 @@ contract ClustersTest is Test {
         assertEq(bid.createdTimestamp, block.timestamp, "bid createdTimestamp incorrect");
         assertEq(bid.bidder, PRANKED_ADDRESS, "bid bidder incorrect");
     }
+
+    /// reduceBid() TESTS ///
 
     function testReduceBid(
         bytes32 callerSalt,
@@ -1132,6 +1149,8 @@ contract ClustersTest is Test {
         assertEq(bid.bidder, address(0), "bid bidder not purged");
     }
 
+    /// acceptBid() TESTS ///
+
     function testAcceptBid(
         bytes32 callerSalt,
         bytes32 addrSalt,
@@ -1282,6 +1301,8 @@ contract ClustersTest is Test {
         assertEq(names.length, 1, "names array length error");
         assertEq(names[0], name, "name array error");
     }
+
+    /// CANONICAL AND WALLET NAME TESTS ///
 
     function testSetCanonicalNameUpdate(bytes32 callerSalt, string memory name1, string memory name2, uint256 buyAmount)
         public
@@ -1458,7 +1479,11 @@ contract ClustersTest is Test {
         vm.stopPrank();
     }
 
-    function _toBytes32(string memory smallString) internal returns (bytes32 result) {
+    /*\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\
+                INTERNAL FUNCTIONS
+    \\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\*/
+
+    function _toBytes32(string memory smallString) internal pure returns (bytes32 result) {
         bytes memory smallBytes = bytes(smallString);
         return bytes32(smallBytes);
     }
