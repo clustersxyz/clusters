@@ -64,9 +64,12 @@ abstract contract NameManager is IClusters {
     /// @notice Amount of eth that's sitting in active bids and canceled but not-yet-withdrawn bids
     uint256 public totalBidBacking;
 
-    /// @dev Ensure addr has a cluster
-    function _checkZeroCluster(address addr) internal view {
-        if (addressToClusterId[addr] == 0) revert NoCluster();
+    /// @dev Used to prevent multicallable functions from being called outside of the context of multicall()
+    bool internal _inMulticall;
+
+    /// @dev Ensure value isn't less than minimum annual price and is covered by msg.value
+    function _checkValue(uint256 value) internal view {
+        if (value > msg.value) revert Insufficient();
     }
 
     /// @dev Ensure name is valid (not empty or too long)
@@ -75,12 +78,29 @@ abstract contract NameManager is IClusters {
         if (bytes(name).length > 32) revert LongName();
     }
 
+    /// @dev Ensure addr has a cluster
+    function _checkZeroCluster(address addr) internal view {
+        if (addressToClusterId[addr] == 0) revert NoCluster();
+    }
+
     /// @dev Ensure addr owns name, make sure you always check name and cluster validity before this function!
     function _checkNameOwnership(address addr, string memory name) internal view {
         // Short circuit if name is empty and caller has cluster to allow resets
         // This is why name and cluster validity must be checked before using this
         if (addressToClusterId[addr] != 0 && bytes(name).length == 0) return;
         if (addressToClusterId[addr] != nameToClusterId[_toBytes32(name)]) revert Unauthorized();
+    }
+
+    /// @notice Prevents modified functions from being callable outside of the context of multicall()
+    modifier onlyMulticall() {
+        if (!_inMulticall) revert MulticallFailed();
+        _;
+    }
+
+    /// @notice Prevents modified functions from being called inside of the context of a multicall()
+    modifier noMulticall() {
+        if (_inMulticall) revert MulticallFailed();
+        _;
     }
 
     constructor(address pricing_) {
@@ -115,7 +135,7 @@ abstract contract NameManager is IClusters {
     /// ECONOMIC FUNCTIONS ///
 
     /// @notice Buy unregistered name. Must pay at least minimum yearly payment.
-    function buyName(string memory name) external payable {
+    function buyName(string memory name) external payable noMulticall {
         _checkNameValid(name);
         _checkZeroCluster(msg.sender);
         bytes32 _name = _toBytes32(name);
@@ -126,6 +146,30 @@ abstract contract NameManager is IClusters {
         if (msg.value < pricing.minAnnualPrice()) revert Insufficient();
         // Process price accounting updates
         nameBacking[_name] += msg.value;
+        totalNameBacking += msg.value;
+        priceIntegral[_name] = IClusters.PriceIntegral({
+            name: _name,
+            lastUpdatedTimestamp: block.timestamp,
+            lastUpdatedPrice: pricing.minAnnualPrice()
+        });
+        _assignName(_name, clusterId);
+        emit BuyName(name, clusterId);
+    }
+
+    /// @notice buyName() override for use in multicall() only
+    function buyName(string memory name, uint256 value) external payable onlyMulticall {
+        _checkValue(value);
+        _checkNameValid(name);
+        _checkZeroCluster(msg.sender);
+        bytes32 _name = _toBytes32(name);
+        uint256 clusterId = addressToClusterId[msg.sender];
+        console2.log(name, clusterId);
+        // Check that name is unused and sufficient payment is made
+        if (nameToClusterId[_name] != 0) revert Registered();
+        if (value < pricing.minAnnualPrice()) revert Insufficient();
+        // Process price accounting updates
+        nameBacking[_name] += value;
+        totalNameBacking += value;
         priceIntegral[_name] = IClusters.PriceIntegral({
             name: _name,
             lastUpdatedTimestamp: block.timestamp,
@@ -136,12 +180,24 @@ abstract contract NameManager is IClusters {
     }
 
     /// @notice Fund an existing and specific name, callable by anyone
-    function fundName(string memory name) external payable {
+    function fundName(string memory name) external payable noMulticall {
         _checkNameValid(name);
         bytes32 _name = _toBytes32(name);
         if (nameToClusterId[_name] == 0) revert Unregistered();
         nameBacking[_name] += msg.value;
+        totalNameBacking += msg.value;
         emit FundName(name, msg.sender, msg.value);
+    }
+
+    /// @notice fundName() override for use in multicall() only
+    function fundName(string memory name, uint256 value) external payable onlyMulticall {
+        _checkValue(value);
+        _checkNameValid(name);
+        bytes32 _name = _toBytes32(name);
+        if (nameToClusterId[_name] == 0) revert Unregistered();
+        nameBacking[_name] += value;
+        totalNameBacking += value;
+        emit FundName(name, msg.sender, value);
     }
 
     /// @notice Move name from one cluster to another without payment
@@ -192,6 +248,7 @@ abstract contract NameManager is IClusters {
         uint256 backing = nameBacking[_name];
         if (spent >= backing) {
             delete nameBacking[_name];
+            totalNameBacking -= backing;
             protocolRevenue += backing;
             // If there is a valid bid, transfer to the bidder
             address bidder;
@@ -199,14 +256,16 @@ abstract contract NameManager is IClusters {
             if (bid > 0) {
                 bidder = bids[_name].bidder;
                 nameBacking[_name] += bid;
+                totalNameBacking += bid;
                 delete bids[_name];
             }
             // If there isn't a highest bidder, name will expire and be deleted as bidder is address(0)
             _transferName(_name, nameToClusterId[_name], addressToClusterId[bidder]);
         } else {
             // Process price data update
-            protocolRevenue += spent;
             nameBacking[_name] -= spent;
+            totalNameBacking -= spent;
+            protocolRevenue += spent;
             priceIntegral[_name] = IClusters.PriceIntegral({
                 name: _name,
                 lastUpdatedTimestamp: block.timestamp,
@@ -221,7 +280,7 @@ abstract contract NameManager is IClusters {
     ///         resets the timelock.
     /// @dev Should work smoothly for fully expired names and names partway through their duration
     /// @dev Needs to be onchain ETH bid escrowed in one place because otherwise prices shift
-    function bidName(string memory name) external payable {
+    function bidName(string memory name) external payable noMulticall {
         _checkNameValid(name);
         _checkZeroCluster(msg.sender);
         if (msg.value == 0) revert NoBid();
@@ -240,6 +299,7 @@ abstract contract NameManager is IClusters {
         // If the caller is the highest bidder, increase their bid and reset the timestamp
         else if (prevBidder == msg.sender) {
             bids[_name].ethAmount += msg.value;
+            totalBidBacking += msg.value;
             // TODO: Determine which way is best to handle bid update timestamps
             // bids[_name].createdTimestamp = block.timestamp;
             emit BidIncreased(name, msg.sender, prevBid + msg.value);
@@ -248,12 +308,62 @@ abstract contract NameManager is IClusters {
         else {
             // Overwrite previous bid
             bids[_name] = IClusters.Bid(msg.value, block.timestamp, msg.sender);
+            totalBidBacking += msg.value;
             emit BidPlaced(name, msg.sender, msg.value);
             // Process bid refund if there is one. Store balance for recipient if transfer fails instead of reverting.
             if (prevBid > 0) {
                 (bool success,) = payable(prevBidder).call{value: prevBid}("");
                 if (!success) bidRefunds[prevBidder] += prevBid;
-                else emit BidRefunded(name, prevBidder, msg.value);
+                else {
+                    totalBidBacking -= prevBid;
+                    emit BidRefunded(name, prevBidder, msg.value);
+                }
+            }
+        }
+        // Update name status and transfer to highest bidder if expired
+        pokeName(name);
+    }
+
+    /// @notice bidName() override for use in multicall() only
+    function bidName(string memory name, uint256 value) external payable onlyMulticall {
+        _checkValue(value);
+        _checkNameValid(name);
+        _checkZeroCluster(msg.sender);
+        if (value == 0) revert NoBid();
+        bytes32 _name = _toBytes32(name);
+        uint256 clusterId = nameToClusterId[_name];
+        if (clusterId == 0) revert Unregistered();
+        // Prevent name owner from bidding on their own name
+        if (clusterId == addressToClusterId[msg.sender]) revert SelfBid();
+        // Retrieve bidder values to process refund in case they're outbid
+        uint256 prevBid = bids[_name].ethAmount;
+        address prevBidder = bids[_name].bidder;
+        // Revert if bid isn't sufficient or greater than the highest bid, bypass for highest bidder
+        if (prevBidder != msg.sender && (value <= prevBid || value < pricing.minAnnualPrice())) {
+            revert Insufficient();
+        }
+        // If the caller is the highest bidder, increase their bid and reset the timestamp
+        else if (prevBidder == msg.sender) {
+            bids[_name].ethAmount += value;
+            totalBidBacking += value;
+            // TODO: Determine which way is best to handle bid update timestamps
+            // bids[_name].createdTimestamp = block.timestamp;
+            emit BidIncreased(name, msg.sender, prevBid + value);
+        }
+        // Process new highest bid
+        else {
+            // Overwrite previous bid
+            bids[_name] = IClusters.Bid(value, block.timestamp, msg.sender);
+            totalBidBacking += value;
+            emit BidPlaced(name, msg.sender, value);
+            // Process bid refund if there is one. Store balance for recipient if transfer fails instead of reverting.
+            if (prevBid > 0) {
+                (bool success,) = payable(prevBidder).call{value: prevBid}("");
+                if (!success) bidRefunds[prevBidder] += prevBid;
+                else {
+                    totalBidBacking -= prevBid;
+                    emit BidRefunded(name, prevBidder, value);
+                }
             }
         }
         // Update name status and transfer to highest bidder if expired
@@ -284,11 +394,13 @@ abstract contract NameManager is IClusters {
         // If reducing bid to 0 or by maximum uint256 value, revoke altogether
         if (diff == 0) {
             delete bids[_name];
+            totalBidBacking -= bid;
             emit BidRevoked(name, msg.sender, bid);
         }
         // Otherwise, decrease bid and update timestamp
         else {
             bids[_name].ethAmount -= amount;
+            totalBidBacking -= amount;
             // TODO: Determine which way is best to handle bid update timestamps
             // bids[_name].createdTimestamp = block.timestamp;
             emit BidReduced(name, msg.sender, amount);
@@ -310,6 +422,7 @@ abstract contract NameManager is IClusters {
         Bid memory bid = bids[_name];
         if (bid.ethAmount == 0) revert NoBid();
         delete bids[_name];
+        totalBidBacking -= bid.ethAmount;
         _transferName(_name, nameToClusterId[_name], addressToClusterId[bid.bidder]);
         (bool success,) = payable(msg.sender).call{value: bid.ethAmount}("");
         if (!success) revert NativeTokenTransferFailed();
@@ -321,6 +434,7 @@ abstract contract NameManager is IClusters {
         uint256 refund = bidRefunds[msg.sender];
         if (refund == 0) revert NoBid();
         delete bidRefunds[msg.sender];
+        totalBidBacking -= refund;
         (bool success,) = payable(msg.sender).call{value: refund}("");
         if (!success) revert NativeTokenTransferFailed();
     }

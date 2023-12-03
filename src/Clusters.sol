@@ -47,26 +47,22 @@ contract Clusters is NameManager {
     /// @dev Must instead do strict protocol invariant checking at the end of methods like Uniswap V2
     function multicall(bytes[] calldata data) external payable returns (bytes[] memory results) {
         results = new bytes[](data.length);
+        _inMulticall = true;
         uint256 totalValue;
         bool success;
 
         // Iterate through each call, check for payable functions' _value param, and tally up total value used
-        unchecked {
-            for (uint256 i = 0; i < data.length; ++i) {
-                // Retrieve each call's calldata looking for a _value parameter to ensure no double-spending
-                uint256 callValue = _determineCallValue(data[i]);
-                if (totalValue + callValue > msg.value) revert Insufficient();
+        for (uint256 i = 0; i < data.length; ++i) {
+            // Retrieve each call's calldata looking for a _value parameter to ensure no double-spending
+            uint256 callValue = _determineCallValue(data[i]);
+            totalValue += callValue;
 
-                // Execute each call
-                //slither-disable-next-line calls-loop,delegatecall-loop
-                (success, results[i]) = address(this).delegatecall(data[i]);
-                if (!success) revert MulticallFailed();
-
-                // After the call, tally _value, if any, and confirm internal accounting invariant still holds
-                totalValue += callValue;
-                if (address(this).balance != protocolRevenue + totalNameBacking + totalBidBacking) revert Insolvent();
-            }
+            // Execute each call
+            //slither-disable-next-line calls-loop,delegatecall-loop
+            (success, results[i]) = address(this).delegatecall(data[i]);
+            if (!success) revert MulticallFailed();
         }
+        if (totalValue > msg.value) revert Insufficient();
 
         // If caller overpaid, refund difference
         uint256 excessValue = msg.value - totalValue;
@@ -74,6 +70,10 @@ contract Clusters is NameManager {
             (success,) = payable(msg.sender).call{value: excessValue}("");
             if (!success) revert NativeTokenTransferFailed();
         }
+
+        // Confirm contract balance invariant
+        if (address(this).balance != protocolRevenue + totalNameBacking + totalBidBacking) revert Insolvent();
+        _inMulticall = false;
     }
 
     function create() external {
