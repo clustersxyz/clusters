@@ -37,8 +37,8 @@ contract Clusters is NameManager {
         _;
     }
 
-    constructor(address _pricing, address _endpoint) NameManager(_pricing) {
-        endpoint = _endpoint;
+    constructor(address pricing_, address endpoint_) NameManager(pricing_) {
+        endpoint = endpoint_;
     }
 
     /// EXTERNAL FUNCTIONS ///
@@ -131,27 +131,27 @@ contract Clusters is NameManager {
         }
     }
 
-    function _addressToBytes32(address _addr) internal pure returns (bytes32 addr) {
-        return bytes32(uint256(uint160(_addr)));
+    function _addressToBytes32(address addr) internal pure returns (bytes32) {
+        return bytes32(uint256(uint160(addr)));
     }
 
-    function _determineCallValue(bytes memory _data) internal pure returns (uint256) {
+    function _determineCallValue(bytes memory data) internal pure returns (uint256) {
         // Extract the function signature
         bytes4 sig;
         assembly {
-            sig := mload(add(_data, 32))
+            sig := mload(add(data, 32))
         }
 
         // Match the function signature of a payable function
         if (sig == BUY_NAME_SIG || sig == FUND_NAME_SIG || sig == BID_NAME_SIG) {
-            if (_data.length != 132) revert Invalid();
+            if (data.length != 132) revert Invalid();
             // Assume string is always 32 bytes or less, and is stored as a 32-byte word in calldata
             uint256 valueOffset = 68; // 4 bytes (sig) + 32 bytes (offset) + 32 bytes (length)
 
             // Extract the _value parameter
             uint256 _value;
             assembly {
-                _value := mload(add(_data, valueOffset))
+                _value := mload(add(data, valueOffset))
             }
             return _value;
         }
