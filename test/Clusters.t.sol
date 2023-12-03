@@ -234,6 +234,11 @@ contract ClustersTest is Test {
         assertEq(clusters.nameToClusterId(name), 1, "name not assigned to cluster");
         assertEq(clusters.nameBacking(name), buyAmount, "nameBacking incorrect");
         assertEq(address(clusters).balance, buyAmount, "contract balance issue");
+        assertEq(
+            address(clusters).balance,
+            clusters.protocolRevenue() + clusters.totalNameBacking() + clusters.totalBidBacking(),
+            "invariant balance error"
+        );
     }
 
     function testBuyNameRevertInvalidName(bytes32 callerSalt, string memory name_, uint256 buyAmount) public {
@@ -312,6 +317,11 @@ contract ClustersTest is Test {
         assertEq(clusters.nameToClusterId(name), 1, "name not assigned to cluster");
         assertEq(clusters.nameBacking(name), buyAmount + fundAmount, "nameBacking incorrect");
         assertEq(address(clusters).balance, buyAmount + fundAmount, "contract balance issue");
+        assertEq(
+            address(clusters).balance,
+            clusters.protocolRevenue() + clusters.totalNameBacking() + clusters.totalBidBacking(),
+            "invariant balance error"
+        );
     }
 
     function testFundNameNotOwner(
@@ -345,6 +355,11 @@ contract ClustersTest is Test {
         assertEq(clusters.nameToClusterId(name), 1, "name not assigned to cluster");
         assertEq(clusters.nameBacking(name), buyAmount + fundAmount, "nameBacking incorrect");
         assertEq(address(clusters).balance, buyAmount + fundAmount, "contract balance issue");
+        assertEq(
+            address(clusters).balance,
+            clusters.protocolRevenue() + clusters.totalNameBacking() + clusters.totalBidBacking(),
+            "invariant balance error"
+        );
     }
 
     function testFundNameRevertInvalidName(bytes32 callerSalt, string memory name_, uint256 fundAmount) public {
@@ -401,6 +416,11 @@ contract ClustersTest is Test {
         assertEq(clusters.nameToClusterId(name), 2, "name not assigned to proper cluster");
         assertEq(clusters.nameBacking(name), buyAmount, "nameBacking incorrect");
         assertEq(address(clusters).balance, buyAmount, "contract balance issue");
+        assertEq(
+            address(clusters).balance,
+            clusters.protocolRevenue() + clusters.totalNameBacking() + clusters.totalBidBacking(),
+            "invariant balance error"
+        );
     }
 
     function testTransferNamePurgesCanonicalName(
@@ -432,6 +452,11 @@ contract ClustersTest is Test {
 
         assertEq(clusters.canonicalClusterName(1), bytes32(""), "canonicalClusterName wasn't cleared");
         assertEq(clusters.canonicalClusterName(2), bytes32(""), "canonicalClusterName possibly transferred");
+        assertEq(
+            address(clusters).balance,
+            clusters.protocolRevenue() + clusters.totalNameBacking() + clusters.totalBidBacking(),
+            "invariant balance error"
+        );
     }
 
     function testTransferNameRevertInvalidName(bytes32 callerSalt, string memory name_, uint256 clusterId) public {
@@ -548,6 +573,11 @@ contract ClustersTest is Test {
         assertEq(clusters.nameToClusterId(name), 1, "name not assigned to cluster");
         assertFalse(buyAmount <= clusters.nameBacking(name), "nameBacking not adjusting");
         assertEq(address(clusters).balance, buyAmount, "contract balance issue");
+        assertEq(
+            address(clusters).balance,
+            clusters.protocolRevenue() + clusters.totalNameBacking() + clusters.totalBidBacking(),
+            "invariant balance error"
+        );
     }
 
     function testPokeNameRevertInvalidName(bytes32 callerSalt, string memory name_) public {
@@ -611,6 +641,11 @@ contract ClustersTest is Test {
         assertEq(bid.createdTimestamp, block.timestamp, "bid createdTimestamp incorrect");
         assertEq(bid.bidder, addr, "bid bidder incorrect");
         assertEq(address(clusters).balance, buyAmount + bidAmount, "contract balance issue");
+        assertEq(
+            address(clusters).balance,
+            clusters.protocolRevenue() + clusters.totalNameBacking() + clusters.totalBidBacking(),
+            "invariant balance error"
+        );
     }
 
     function testBidNameIncreaseBid(
@@ -646,6 +681,11 @@ contract ClustersTest is Test {
         assertEq(bid.createdTimestamp, block.timestamp, "bid createdTimestamp incorrect");
         assertEq(bid.bidder, addr, "bid bidder incorrect");
         assertEq(address(clusters).balance, buyAmount + bidAmount, "contract balance issue");
+        assertEq(
+            address(clusters).balance,
+            clusters.protocolRevenue() + clusters.totalNameBacking() + clusters.totalBidBacking(),
+            "invariant balance error"
+        );
 
         clusters.bidName{value: bidIncrease}(name_);
         vm.stopPrank();
@@ -655,6 +695,11 @@ contract ClustersTest is Test {
         assertEq(bid.createdTimestamp, block.timestamp, "bid createdTimestamp incorrect");
         assertEq(bid.bidder, addr, "bid bidder incorrect");
         assertEq(address(clusters).balance, buyAmount + bidAmount + bidIncrease, "contract balance issue");
+        assertEq(
+            address(clusters).balance,
+            clusters.protocolRevenue() + clusters.totalNameBacking() + clusters.totalBidBacking(),
+            "invariant balance error"
+        );
     }
 
     function testBidNameOutbid(
@@ -697,6 +742,11 @@ contract ClustersTest is Test {
         assertEq(bid.ethAmount, bidAmount + 1, "bid ethAmount incorrect");
         assertEq(bid.createdTimestamp, block.timestamp, "bid createdTimestamp incorrect");
         assertEq(bid.bidder, PRANKED_ADDRESS, "bid bidder incorrect");
+        assertEq(
+            address(clusters).balance,
+            clusters.protocolRevenue() + clusters.totalNameBacking() + clusters.totalBidBacking(),
+            "invariant balance error"
+        );
     }
 
     function testBidNameRevertInvalidName(bytes32 callerSalt, string memory name_, uint256 buyAmount) public {
@@ -832,6 +882,11 @@ contract ClustersTest is Test {
         assertEq(bid.createdTimestamp, block.timestamp, "bid createdTimestamp incorrect");
         assertEq(bid.bidder, PRANKED_ADDRESS, "bid bidder incorrect");
         assertEq(address(clusters).balance, buyAmount + bidAmount, "contract balance issue");
+        assertEq(
+            address(clusters).balance,
+            clusters.protocolRevenue() + clusters.totalNameBacking() + clusters.totalBidBacking(),
+            "invariant balance error"
+        );
 
         vm.prank(addr);
         vm.expectRevert(IClusters.Insufficient.selector);
@@ -879,6 +934,11 @@ contract ClustersTest is Test {
         // TODO: Update implementation once bid update timestamp handling is added
         assertEq(bid.createdTimestamp, block.timestamp - 31 days, "bid createdTimestamp incorrect");
         assertEq(bid.bidder, addr, "bid bidder incorrect");
+        assertEq(
+            address(clusters).balance,
+            clusters.protocolRevenue() + clusters.totalNameBacking() + clusters.totalBidBacking(),
+            "invariant balance error"
+        );
     }
 
     function testReduceBidUint256Max(
@@ -920,6 +980,11 @@ contract ClustersTest is Test {
         assertEq(bid.ethAmount, 0, "bid ethAmount not purged");
         assertEq(bid.createdTimestamp, 0, "bid createdTimestamp not purged");
         assertEq(bid.bidder, address(0), "bid bidder not purged");
+        assertEq(
+            address(clusters).balance,
+            clusters.protocolRevenue() + clusters.totalNameBacking() + clusters.totalBidBacking(),
+            "invariant balance error"
+        );
     }
 
     function testReduceBidTotalBid(
@@ -961,6 +1026,11 @@ contract ClustersTest is Test {
         assertEq(bid.ethAmount, 0, "bid ethAmount not purged");
         assertEq(bid.createdTimestamp, 0, "bid createdTimestamp not purged");
         assertEq(bid.bidder, address(0), "bid bidder not purged");
+        assertEq(
+            address(clusters).balance,
+            clusters.protocolRevenue() + clusters.totalNameBacking() + clusters.totalBidBacking(),
+            "invariant balance error"
+        );
     }
 
     function testReduceBidExceedsBid(
@@ -1004,6 +1074,11 @@ contract ClustersTest is Test {
         assertEq(bid.ethAmount, 0, "bid ethAmount not purged");
         assertEq(bid.createdTimestamp, 0, "bid createdTimestamp not purged");
         assertEq(bid.bidder, address(0), "bid bidder not purged");
+        assertEq(
+            address(clusters).balance,
+            clusters.protocolRevenue() + clusters.totalNameBacking() + clusters.totalBidBacking(),
+            "invariant balance error"
+        );
     }
 
     function testReduceBidRevertInvalidName(bytes32 callerSalt, string memory name_, uint256 bidDecrease) public {
@@ -1194,6 +1269,11 @@ contract ClustersTest is Test {
         assertEq(clusters.nameBacking(name), buyAmount, "ethBacking incorrect");
         assertEq(address(clusters).balance, buyAmount, "contract balance issue");
         assertEq(address(caller).balance, balance + bidAmount, "bid payment issue");
+        assertEq(
+            address(clusters).balance,
+            clusters.protocolRevenue() + clusters.totalNameBacking() + clusters.totalBidBacking(),
+            "invariant balance error"
+        );
     }
 
     function testAcceptBidRevertInvalidName(bytes32 callerSalt, string memory name_) public {
@@ -1305,6 +1385,11 @@ contract ClustersTest is Test {
         bytes32[] memory names = clusters.getClusterNamesBytes32(1);
         assertEq(names.length, 1, "names array length error");
         assertEq(names[0], name, "name array error");
+        assertEq(
+            address(clusters).balance,
+            clusters.protocolRevenue() + clusters.totalNameBacking() + clusters.totalBidBacking(),
+            "invariant balance error"
+        );
     }
 
     function testSetCanonicalNameUpdate(bytes32 callerSalt, string memory name1, string memory name2, uint256 buyAmount)
@@ -1336,6 +1421,11 @@ contract ClustersTest is Test {
         assertEq(names.length, 2, "names array length error");
         assertEq(names[0], _name1, "name array error");
         assertEq(names[1], _name2, "name array error");
+        assertEq(
+            address(clusters).balance,
+            clusters.protocolRevenue() + clusters.totalNameBacking() + clusters.totalBidBacking(),
+            "invariant balance error"
+        );
     }
 
     function testSetCanonicalNameDelete(bytes32 callerSalt, string memory name_, uint256 buyAmount) public {
@@ -1357,6 +1447,11 @@ contract ClustersTest is Test {
         bytes32[] memory names = clusters.getClusterNamesBytes32(1);
         assertEq(names.length, 1, "names array length error");
         assertEq(names[0], name, "name array error");
+        assertEq(
+            address(clusters).balance,
+            clusters.protocolRevenue() + clusters.totalNameBacking() + clusters.totalBidBacking(),
+            "invariant balance error"
+        );
     }
 
     function testSetCanonicalNameRevertLongName(bytes32 callerSalt, string memory name_, uint256 buyAmount) public {
