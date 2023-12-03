@@ -45,6 +45,42 @@ contract Clusters is NameManager {
 
     /// EXTERNAL FUNCTIONS ///
 
+    function create() external {
+        create(msg.sender);
+    }
+
+    function add(address addr) external {
+        add(msg.sender, addr);
+    }
+
+    function remove(address addr) external {
+        remove(msg.sender, addr);
+    }
+
+    function clusterAddresses(uint256 clusterId) external view returns (address[] memory) {
+        return _clusterAddresses[clusterId].values();
+    }
+
+    /// PUBLIC FUNCTIONS ///
+
+    function create(address msgSender) public onlyEndpoint(msgSender) {
+        _add(msgSender, nextClusterId++);
+    }
+
+    function add(address msgSender, address addr) public onlyEndpoint(msgSender) {
+        _checkZeroCluster(msgSender);
+        if (addressToClusterId[addr] != 0) revert Registered();
+        _add(addr, addressToClusterId[msgSender]);
+    }
+
+    function remove(address msgSender, address addr) public onlyEndpoint(msgSender) {
+        _checkZeroCluster(msgSender);
+        if (addressToClusterId[msgSender] != addressToClusterId[addr]) revert Unauthorized();
+        _remove(addr);
+    }
+
+    /// MULTICALL FUNCTIONS ///
+
     /// @dev For payable multicall to be secure, we cannot trust msg.value params in other external methods
     /// @dev Must instead do strict protocol invariant checking at the end of methods like Uniswap V2
     function multicall(bytes[] calldata data) external payable returns (bytes[] memory results) {
@@ -78,42 +114,16 @@ contract Clusters is NameManager {
         _inMulticall = false;
     }
 
-    function create() external {
-        create(msg.sender);
-    }
-
     function create(uint256) external payable onlyMulticall {
         create(msg.sender);
     }
 
-    function add(address addr) external {
+    function add(uint256, address addr) external payable onlyMulticall {
         add(msg.sender, addr);
     }
 
-    function remove(address addr) external {
+    function remove(uint256, address addr) external payable onlyMulticall {
         remove(msg.sender, addr);
-    }
-
-    function clusterAddresses(uint256 clusterId) external view returns (address[] memory) {
-        return _clusterAddresses[clusterId].values();
-    }
-
-    /// PUBLIC FUNCTIONS ///
-
-    function create(address msgSender) public onlyEndpoint(msgSender) {
-        _add(msgSender, nextClusterId++);
-    }
-
-    function add(address msgSender, address addr) public onlyEndpoint(msgSender) {
-        _checkZeroCluster(msgSender);
-        if (addressToClusterId[addr] != 0) revert Registered();
-        _add(addr, addressToClusterId[msgSender]);
-    }
-
-    function remove(address msgSender, address addr) public onlyEndpoint(msgSender) {
-        _checkZeroCluster(msgSender);
-        if (addressToClusterId[msgSender] != addressToClusterId[addr]) revert Unauthorized();
-        _remove(addr);
     }
 
     /// INTERNAL FUNCTIONS ///
