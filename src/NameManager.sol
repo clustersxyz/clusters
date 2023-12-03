@@ -66,19 +66,26 @@ abstract contract NameManager is IClusters {
     /// @notice Amount of eth that's sitting in active bids and canceled but not-yet-withdrawn bids
     uint256 public totalBidBacking;
 
+    /// @dev Ensure addr has a cluster
     function _checkZeroCluster(address addr) internal view {
         if (addressToClusterId[addr] == 0) revert NoCluster();
     }
 
+    /// @dev Ensure name is valid (not empty or too long)
     function _checkNameValid(string memory name) internal pure {
         if (bytes(name).length == 0) revert EmptyName();
         if (bytes(name).length > 32) revert LongName();
     }
 
+    /// @dev Ensure addr owns name, make sure you always check name and cluster validity before this function!
     function _checkNameOwnership(address addr, string memory name) internal view {
+        // Short circuit if name is empty and caller has cluster to allow resets
+        // This is why name and cluster validity must be checked before using this
+        if (addressToClusterId[addr] != 0 && bytes(name).length == 0) return;
         if (addressToClusterId[addr] != nameToClusterId[_toBytes32(name)]) revert Unauthorized();
     }
 
+    /// @notice Used to restrict external functions to
     modifier onlyEndpoint(address msgSender) {
         if (msg.sender != msgSender && msg.sender != endpoint) revert Unauthorized();
         _;
@@ -330,13 +337,13 @@ abstract contract NameManager is IClusters {
     function setCanonicalName(string memory name_) external {
         if (bytes(name_).length > 32) revert LongName();
         _checkZeroCluster(msg.sender);
+        _checkNameOwnership(msg.sender, name_);
         bytes32 name = _toBytes32(name_);
         uint256 clusterId = addressToClusterId[msg.sender];
         if (bytes(name_).length == 0) {
             delete canonicalClusterName[clusterId];
             emit CanonicalName("", clusterId);
         } else {
-            _checkNameOwnership(msg.sender, name_);
             canonicalClusterName[clusterId] = name;
             emit CanonicalName(name_, clusterId);
         }
