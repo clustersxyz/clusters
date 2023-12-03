@@ -26,10 +26,20 @@ contract Clusters is NameManager {
     bytes4 internal constant FUND_NAME_SIG = bytes4(keccak256("fundName(string,uint256)"));
     bytes4 internal constant BID_NAME_SIG = bytes4(keccak256("bidName(string,uint256)"));
 
+    address public immutable endpoint;
+
     /// @dev Enumerate all addresses in a cluster
     mapping(uint256 clusterId => EnumerableSet.AddressSet addrs) internal _clusterAddresses;
 
-    constructor(address _pricing, address _endpoint) NameManager(_pricing, _endpoint) {}
+    /// @notice Used to restrict external functions to
+    modifier onlyEndpoint(address msgSender) {
+        if (msg.sender != msgSender && msg.sender != endpoint) revert Unauthorized();
+        _;
+    }
+
+    constructor(address _pricing, address _endpoint) NameManager(_pricing) {
+        endpoint = _endpoint;
+    }
 
     /// EXTERNAL FUNCTIONS ///
 

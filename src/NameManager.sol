@@ -14,8 +14,6 @@ import {console2} from "../lib/forge-std/src/Test.sol";
 abstract contract NameManager is IClusters {
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
-    address public immutable endpoint;
-
     uint256 internal constant BID_TIMELOCK = 30 days;
 
     IPricing internal pricing;
@@ -85,15 +83,8 @@ abstract contract NameManager is IClusters {
         if (addressToClusterId[addr] != nameToClusterId[_toBytes32(name)]) revert Unauthorized();
     }
 
-    /// @notice Used to restrict external functions to
-    modifier onlyEndpoint(address msgSender) {
-        if (msg.sender != msgSender && msg.sender != endpoint) revert Unauthorized();
-        _;
-    }
-
-    constructor(address _pricing, address _endpoint) {
+    constructor(address _pricing) {
         pricing = IPricing(_pricing);
-        endpoint = _endpoint;
     }
 
     /// VIEW FUNCTIONS ///
