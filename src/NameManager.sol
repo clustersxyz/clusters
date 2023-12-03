@@ -313,8 +313,9 @@ abstract contract NameManager is IClusters {
             // Process bid refund if there is one. Store balance for recipient if transfer fails instead of reverting.
             if (prevBid > 0) {
                 (bool success,) = payable(prevBidder).call{value: prevBid}("");
-                if (!success) bidRefunds[prevBidder] += prevBid;
-                else {
+                if (!success) {
+                    bidRefunds[prevBidder] += prevBid;
+                } else {
                     totalBidBacking -= prevBid;
                     emit BidRefunded(name, prevBidder, msg.value);
                 }
@@ -359,8 +360,9 @@ abstract contract NameManager is IClusters {
             // Process bid refund if there is one. Store balance for recipient if transfer fails instead of reverting.
             if (prevBid > 0) {
                 (bool success,) = payable(prevBidder).call{value: prevBid}("");
-                if (!success) bidRefunds[prevBidder] += prevBid;
-                else {
+                if (!success) {
+                    bidRefunds[prevBidder] += prevBid;
+                } else {
                     totalBidBacking -= prevBid;
                     emit BidRefunded(name, prevBidder, value);
                 }
