@@ -29,9 +29,9 @@ contract PricingHarberger is IPricing {
     uint256 internal constant SECONDS_IN_YEAR = 365 days;
     uint256 internal constant DENOMINATOR = 10_000;
 
-    uint256 public minAnnualPrice = 0.01 ether;
-    uint256 public maxPriceBase = 0.02 ether;
-    uint256 public maxPriceIncrement = 0.01 ether;
+    uint256 public constant minAnnualPrice = 0.01 ether;
+    uint256 public constant maxPriceBase = 0.02 ether;
+    uint256 public constant maxPriceIncrement = 0.01 ether;
 
     /// PUBLIC FUNCTIONS ///
 
@@ -42,7 +42,7 @@ contract PricingHarberger is IPricing {
     /// @return price The current un-truncated price, which can be greater than maxPrice
     function getIntegratedPrice(uint256 lastUpdatedPrice, uint256 secondsAfterUpdate, uint256 secondsAfterCreation)
         public
-        view
+        pure
         returns (uint256, uint256)
     {
         if (lastUpdatedPrice <= minAnnualPrice) {
@@ -124,13 +124,13 @@ contract PricingHarberger is IPricing {
     /// INTERNAL FUNCTIONS ///
 
     /// @notice The annual max price integrated over its duration
-    function getIntegratedMaxPrice(uint256 numSeconds) internal view returns (uint256) {
+    function getIntegratedMaxPrice(uint256 numSeconds) internal pure returns (uint256) {
         return maxPriceBase * numSeconds / SECONDS_IN_YEAR
             + (maxPriceIncrement * numSeconds ** 2) / (2 * SECONDS_IN_YEAR ** 2);
     }
 
     /// @notice The annual max price at an instantaneous point in time, derivative of getIntegratedMaxPrice
-    function getMaxPrice(uint256 numSeconds) internal view returns (uint256) {
+    function getMaxPrice(uint256 numSeconds) internal pure returns (uint256) {
         return maxPriceBase + (maxPriceIncrement * numSeconds) / SECONDS_IN_YEAR;
     }
 

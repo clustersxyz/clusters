@@ -44,6 +44,25 @@ contract ClustersTest is Test {
                 Clusters.sol
     \\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\*/
 
+    function testMulticall() public {
+        bytes32 callerSalt = "caller";
+        bytes32 addrSalt = "addr";
+        //bytes32 bidderSalt = "bidder";
+        address caller = _bytesToAddress(callerSalt);
+        address addr = _bytesToAddress(addrSalt);
+        //address bidder = _bytesToAddress(bidderSalt);
+
+        vm.startPrank(caller);
+        vm.deal(caller, minPrice);
+        clusters.create();
+        clusters.buyName{value: minPrice}(minPrice, "foobar");
+        bytes[] memory batchData = new bytes[](2);
+        batchData[0] = abi.encodeWithSignature("add(address)", addr);
+        batchData[1] = abi.encodeWithSelector(IClusters.setWalletName.selector, addr, "hot");
+        clusters.multicall(batchData);
+        vm.stopPrank();
+    }
+
     function testCreateCluster(bytes32 callerSalt) public {
         address caller = _bytesToAddress(callerSalt);
 
@@ -1526,6 +1545,16 @@ contract ClustersTest is Test {
         vm.stopPrank();
 
         assertEq(clusters.addressToClusterId(caller), 1, "addressToClusterId failed");
+        assertEq(clusters.forwardLookup(1, name), caller, "forwardLookup failed");
+        assertEq(clusters.reverseLookup(caller), name, "reverseLookup failed");
+
+        // Set to new name
+        name_ = "newtest";
+        name = _toBytes32(name_);
+        vm.startPrank(caller);
+        clusters.setWalletName(caller, name_);
+        vm.stopPrank();
+
         assertEq(clusters.forwardLookup(1, name), caller, "forwardLookup failed");
         assertEq(clusters.reverseLookup(caller), name, "reverseLookup failed");
     }
