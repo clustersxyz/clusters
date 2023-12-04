@@ -78,6 +78,10 @@ abstract contract NameManager is IClusters {
         if (addressToClusterId[addr] != nameToClusterId[_toBytes32(name)]) revert Unauthorized();
     }
 
+    function _checkInvariant() internal view {
+        if (address(this).balance < protocolRevenue + totalNameBacking + totalBidBacking) revert BadInvariant();
+    }
+
     modifier onlyEndpoint(address msgSender) {
         if (msg.sender != msgSender && msg.sender != endpoint) revert Unauthorized();
         _;
@@ -125,6 +129,8 @@ abstract contract NameManager is IClusters {
         });
         _assignName(name, clusterId);
         emit BuyName(name_, clusterId);
+
+        _checkInvariant();
     }
 
     /// @notice Fund an existing and specific name, callable by anyone
@@ -136,6 +142,8 @@ abstract contract NameManager is IClusters {
             nameBacking[name] += msg.value;
         }
         emit FundName(name_, msg.sender, msg.value);
+
+        _checkInvariant();
     }
 
     /// @notice Move name from one cluster to another without payment
@@ -257,6 +265,8 @@ abstract contract NameManager is IClusters {
         }
         // Update name status and transfer to highest bidder if expired
         pokeName(name_);
+
+        _checkInvariant();
     }
 
     /// @notice Reduce bid and refund difference. Revoke if amount_ is the total bid or is the max uint256 value.

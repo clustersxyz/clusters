@@ -34,6 +34,7 @@ interface IClusters {
 
     /// ERRORS ///
 
+    error BadInvariant();
     error EmptyName();
     error NoBid();
     error SelfBid();
