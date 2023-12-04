@@ -24,10 +24,6 @@ contract Clusters is NameManager {
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
-    bytes4 internal constant BUY_NAME_SIG = bytes4(keccak256("buyName(uint256,string)"));
-    bytes4 internal constant FUND_NAME_SIG = bytes4(keccak256("fundName(uint256,string)"));
-    bytes4 internal constant BID_NAME_SIG = bytes4(keccak256("bidName(uint256,string)"));
-
     address public immutable endpoint;
 
     /// @dev Enumerate all addresses in a cluster
@@ -51,7 +47,7 @@ contract Clusters is NameManager {
         results = new bytes[](data.length);
         bool success;
 
-        // Iterate through each call, check for payable functions' _value param, and tally up total value used
+        // Iterate through each call
         for (uint256 i = 0; i < data.length; ++i) {
             //slither-disable-next-line calls-loop,delegatecall-loop
             (success, results[i]) = address(this).delegatecall(data[i]);
