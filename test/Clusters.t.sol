@@ -58,7 +58,7 @@ contract ClustersTest is Test {
         clusters.buyName{value: minPrice}(minPrice, "foobar");
         bytes[] memory batchData = new bytes[](2);
         batchData[0] = abi.encodeWithSignature("add(address)", addr);
-        batchData[1] = abi.encodeWithSelector(IClusters.setWalletName.selector, addr, "hot");
+        batchData[1] = abi.encodeWithSignature("setWalletName(address,string)", addr, "hot");
         clusters.multicall(batchData);
         vm.stopPrank();
     }

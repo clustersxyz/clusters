@@ -89,15 +89,24 @@ interface IClusters {
     function remove(address msgSender, address addr) external payable;
 
     function buyName(uint256 msgValue, string memory name) external payable;
+    function buyName(address msgSender, uint256 msgValue, string memory name) external payable;
     function fundName(uint256 msgValue, string memory name) external payable;
+    function fundName(address msgSender, uint256 msgValue, string memory name) external payable;
     function transferName(string memory name, uint256 toClusterId) external payable;
+    function transferName(address msgSender, string memory name, uint256 toClusterId) external payable;
     function pokeName(string memory name) external payable;
+    function pokeName(address msgSender, string memory name) external payable;
 
     function bidName(uint256 msgValue, string memory name) external payable;
+    function bidName(address msgSender, uint256 msgValue, string memory name) external payable;
     function reduceBid(string memory name, uint256 amount) external payable;
+    function reduceBid(address msgSender, string memory name, uint256 amount) external payable;
     function acceptBid(string memory name) external payable returns (uint256 bidAmount);
+    function acceptBid(address msgSender, string memory name) external payable returns (uint256 bidAmount);
     function refundBid() external payable;
 
     function setCanonicalName(string memory name) external payable;
+    function setCanonicalName(address msgSender, string memory name) external payable;
     function setWalletName(address addr, string memory walletname) external payable;
+    function setWalletName(address msgSender, address addr, string memory walletname) external payable;
 }
