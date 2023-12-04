@@ -109,7 +109,7 @@ abstract contract NameManager is IClusters {
     /// ECONOMIC FUNCTIONS ///
 
     /// @notice Buy unregistered name. Must pay at least minimum yearly payment.
-    function buyName(uint256 value, string memory name_) external payable {
+    function buyName(uint256 msgValue, string memory name_) external payable {
         _checkZeroCluster(msg.sender);
         bytes32 name = _toBytes32(name_);
         uint256 clusterId = addressToClusterId[msg.sender];
@@ -117,11 +117,10 @@ abstract contract NameManager is IClusters {
         if (name == bytes32("")) revert Invalid();
         // Check that name is unused and sufficient payment is made
         if (nameToClusterId[name] != 0) revert Registered();
-        if (msg.value < pricing.minAnnualPrice()) revert Insufficient();
-        // Process price accounting updates
-        unchecked {
-            nameBacking[name] += msg.value;
-        }
+        if (msgValue < pricing.minAnnualPrice()) revert Insufficient();
+        // Process price accounting updates, this must be checked arithmetic so we don't get malicious overflow
+        nameBacking[name] += msgValue;
+        totalNameBacking += msgValue;
         priceIntegral[name] = IClusters.PriceIntegral({
             name: name,
             lastUpdatedTimestamp: block.timestamp,

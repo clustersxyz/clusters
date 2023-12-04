@@ -225,6 +225,22 @@ contract ClustersTest is Test {
         require(address(clusters).balance == buyAmount, "contract balance issue");
     }
 
+    function testBuyNameRevertFakeMsgValue(bytes32 callerSalt, bytes32 name_, uint256 buyAmount) public {
+        vm.assume(name_ != bytes32(""));
+        address caller = _bytesToAddress(callerSalt);
+        string memory _string = _toString(_removePadding(name_));
+        bytes32 name = _toBytes32(_string);
+        buyAmount = bound(buyAmount, minPrice, 10 ether);
+        vm.deal(caller, buyAmount);
+
+        vm.startPrank(caller);
+        clusters.create();
+        // Insert FAKE buyAmount, then send less eth than protocol expects
+        clusters.buyName{value: buyAmount-1}(buyAmount, _string);
+        vm.expectRevert(IClusters.BadInvariant.selector);
+        vm.stopPrank();
+    }
+
     function testBuyNameRevertNoCluster(bytes32 callerSalt, bytes32 name_) public {
         vm.assume(name_ != bytes32(""));
         address caller = _bytesToAddress(callerSalt);
