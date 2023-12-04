@@ -109,7 +109,7 @@ abstract contract NameManager is IClusters {
     /// ECONOMIC FUNCTIONS ///
 
     /// @notice Buy unregistered name. Must pay at least minimum yearly payment.
-    function buyName(string memory name_) external payable {
+    function buyName(uint256 value, string memory name_) external payable {
         _checkZeroCluster(msg.sender);
         bytes32 name = _toBytes32(name_);
         uint256 clusterId = addressToClusterId[msg.sender];

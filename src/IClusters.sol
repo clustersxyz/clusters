@@ -76,7 +76,7 @@ interface IClusters {
     function add(address addr) external;
     function remove(address addr) external;
 
-    function buyName(string memory name_) external payable;
+    function buyName(uint256 value, string memory name_) external payable;
     function fundName(string memory name_) external payable;
     function transferName(string memory name_, uint256 toClusterId) external;
     function pokeName(string memory name_) external;

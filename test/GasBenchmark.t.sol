@@ -37,7 +37,7 @@ contract GasBenchmarkTest is Test {
         vm.deal(caller, minPrice);
         clusters.create();
         clusters.add(addr);
-        clusters.buyName{value: minPrice}("foobar");
+        clusters.buyName{value: minPrice}(minPrice, "foobar");
         vm.stopPrank();
 
         vm.startPrank(bidder);

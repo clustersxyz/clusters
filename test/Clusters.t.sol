@@ -32,18 +32,11 @@ contract ClustersTest is Test {
 
     fallback() external payable {}
 
-    function testInternalFunctions() public pure {
-        bytes32 _bytes = _toBytes32("Manual Test");
+    function testInternalFunctions() public {
+        bytes32 _bytes = _toBytes32(NAME);
         string memory _string = _toString(_removePadding(_bytes));
-        require(
-            keccak256(abi.encodePacked("Manual Test")) == keccak256(abi.encodePacked(_string)),
-            "internal conversion error"
-        );
+        assertEq(keccak256(abi.encodePacked(NAME)), keccak256(abi.encodePacked(_string)), "string conversion error");
     }
-
-    /*\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\
-                Clusters.sol
-    \\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\*/
 
     function testCreateCluster(bytes32 callerSalt) public {
         address caller = _bytesToAddress(callerSalt);
@@ -205,15 +198,11 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: buyAmount}("Test String");
+        clusters.buyName{value: buyAmount}(buyAmount, NAME);
         vm.expectRevert(IClusters.Invalid.selector);
         clusters.remove(caller);
         vm.stopPrank();
     }
-
-    /*\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\
-                IClusters.sol
-    \\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\*/
 
     function testBuyName(bytes32 callerSalt, bytes32 name_, uint256 buyAmount) public {
         vm.assume(name_ != bytes32(""));
@@ -225,7 +214,7 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: buyAmount}(_string);
+        clusters.buyName{value: buyAmount}(buyAmount, _string);
         vm.stopPrank();
 
         bytes32[] memory names = clusters.getClusterNames(1);
@@ -244,17 +233,17 @@ contract ClustersTest is Test {
 
         vm.prank(caller);
         vm.expectRevert(IClusters.NoCluster.selector);
-        clusters.buyName{value: minPrice}(_string);
+        clusters.buyName{value: minPrice}(minPrice, _string);
     }
 
-    function testBuyNameRevertInvalid(bytes32 callerSalt) public {
+    function testBuyNameRevertInvalidEmpty(bytes32 callerSalt) public {
         address caller = _bytesToAddress(callerSalt);
         vm.deal(caller, minPrice);
 
         vm.startPrank(caller);
         clusters.create();
         vm.expectRevert(IClusters.Invalid.selector);
-        clusters.buyName{value: minPrice}("");
+        clusters.buyName{value: minPrice}(minPrice, "");
         vm.stopPrank();
     }
 
@@ -266,7 +255,7 @@ contract ClustersTest is Test {
         vm.startPrank(caller);
         clusters.create();
         vm.expectRevert(IClusters.Invalid.selector);
-        clusters.buyName{value: minPrice}(name_);
+        clusters.buyName{value: minPrice}(minPrice, name_);
         vm.stopPrank();
     }
 
@@ -280,7 +269,7 @@ contract ClustersTest is Test {
         vm.startPrank(caller);
         clusters.create();
         vm.expectRevert(IClusters.Insufficient.selector);
-        clusters.buyName{value: buyAmount}(_string);
+        clusters.buyName{value: buyAmount}(buyAmount, _string);
         vm.stopPrank();
     }
 
@@ -293,9 +282,9 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: buyAmount}(_string);
+        clusters.buyName{value: buyAmount}(buyAmount, _string);
         vm.expectRevert(IClusters.Registered.selector);
-        clusters.buyName{value: buyAmount}(_string);
+        clusters.buyName{value: buyAmount}(buyAmount, _string);
         vm.stopPrank();
     }
 
@@ -311,7 +300,7 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: buyAmount}(_string);
+        clusters.buyName{value: buyAmount}(buyAmount, _string);
         vm.stopPrank();
 
         vm.prank(addr);
@@ -341,7 +330,7 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: buyAmount}(_string);
+        clusters.buyName{value: buyAmount}(buyAmount, _string);
         vm.stopPrank();
 
         vm.prank(addr);
@@ -362,7 +351,7 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: buyAmount}(_string);
+        clusters.buyName{value: buyAmount}(buyAmount, _string);
         vm.stopPrank();
 
         vm.startPrank(addr);
@@ -380,7 +369,7 @@ contract ClustersTest is Test {
         vm.startPrank(caller);
         clusters.create();
         vm.expectRevert(IClusters.Invalid.selector);
-        clusters.buyName{value: buyAmount}("");
+        clusters.buyName{value: buyAmount}(buyAmount, "");
         vm.stopPrank();
     }
 
@@ -399,7 +388,7 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: buyAmount}(_string);
+        clusters.buyName{value: buyAmount}(buyAmount, _string);
         vm.expectRevert(IClusters.Unregistered.selector);
         clusters.transferName(_string, _toClusterId);
         vm.stopPrank();
@@ -418,7 +407,7 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: buyAmount}(_string);
+        clusters.buyName{value: buyAmount}(buyAmount, _string);
         clusters.setCanonicalName(_string);
         vm.stopPrank();
 
@@ -452,7 +441,7 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: buyAmount}(_string);
+        clusters.buyName{value: buyAmount}(buyAmount, _string);
         vm.stopPrank();
 
         vm.warp(block.timestamp + _timeSkew);
@@ -503,7 +492,7 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: buyAmount}(_string);
+        clusters.buyName{value: buyAmount}(buyAmount, _string);
         vm.stopPrank();
 
         vm.startPrank(addr);
@@ -538,7 +527,7 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: buyAmount}(_string);
+        clusters.buyName{value: buyAmount}(buyAmount, _string);
         vm.stopPrank();
 
         vm.prank(addr);
@@ -569,7 +558,7 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: buyAmount}(_string);
+        clusters.buyName{value: buyAmount}(buyAmount, _string);
         vm.stopPrank();
 
         vm.startPrank(addr);
@@ -602,7 +591,7 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: buyAmount}(_string);
+        clusters.buyName{value: buyAmount}(buyAmount, _string);
         vm.expectRevert(IClusters.SelfBid.selector);
         clusters.bidName{value: bidAmount}(_string);
         vm.stopPrank();
@@ -629,7 +618,7 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: buyAmount}(_string);
+        clusters.buyName{value: buyAmount}(buyAmount, _string);
         vm.stopPrank();
 
         vm.startPrank(addr);
@@ -676,7 +665,7 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: buyAmount}(_string);
+        clusters.buyName{value: buyAmount}(buyAmount, _string);
         vm.stopPrank();
 
         vm.startPrank(addr);
@@ -720,7 +709,7 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: buyAmount}(_string);
+        clusters.buyName{value: buyAmount}(buyAmount, _string);
         vm.stopPrank();
 
         vm.startPrank(addr);
@@ -764,7 +753,7 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: buyAmount}(_string);
+        clusters.buyName{value: buyAmount}(buyAmount, _string);
         vm.stopPrank();
 
         vm.startPrank(addr);
@@ -805,7 +794,7 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: buyAmount}(_string);
+        clusters.buyName{value: buyAmount}(buyAmount, _string);
         vm.stopPrank();
 
         vm.startPrank(addr);
@@ -841,7 +830,7 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: buyAmount}(_string);
+        clusters.buyName{value: buyAmount}(buyAmount, _string);
         vm.stopPrank();
 
         vm.startPrank(addr);
@@ -880,7 +869,7 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: buyAmount}(_string);
+        clusters.buyName{value: buyAmount}(buyAmount, _string);
         vm.stopPrank();
 
         vm.startPrank(addr);
@@ -917,7 +906,7 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: buyAmount}(_string);
+        clusters.buyName{value: buyAmount}(buyAmount, _string);
         vm.stopPrank();
 
         vm.startPrank(addr);
@@ -959,7 +948,7 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: buyAmount}(_string);
+        clusters.buyName{value: buyAmount}(buyAmount, _string);
         vm.stopPrank();
 
         vm.startPrank(addr);
@@ -981,7 +970,7 @@ contract ClustersTest is Test {
 
     function testRevokeBid() public {
         clusters.create();
-        clusters.buyName{value: 0.1 ether}(NAME);
+        clusters.buyName{value: 0.1 ether}(0.1 ether, NAME);
         bytes32 name = _toBytes32(NAME);
         vm.deal(PRANKED_ADDRESS, 1 ether);
         vm.startPrank(PRANKED_ADDRESS);
@@ -1012,7 +1001,7 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: buyAmount}(_string);
+        clusters.buyName{value: buyAmount}(buyAmount, _string);
         clusters.setCanonicalName(_string);
         vm.stopPrank();
 
@@ -1037,8 +1026,8 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: buyAmount}(_string1);
-        clusters.buyName{value: buyAmount}(_string2);
+        clusters.buyName{value: buyAmount}(buyAmount, _string1);
+        clusters.buyName{value: buyAmount}(buyAmount, _string2);
         clusters.setCanonicalName(_string1);
         clusters.setCanonicalName(_string2);
         vm.stopPrank();
@@ -1062,7 +1051,7 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: buyAmount}(_string);
+        clusters.buyName{value: buyAmount}(buyAmount, _string);
         clusters.setCanonicalName(_string);
         clusters.setCanonicalName("");
         vm.stopPrank();
@@ -1090,7 +1079,7 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: buyAmount}(_string);
+        clusters.buyName{value: buyAmount}(buyAmount, _string);
         vm.stopPrank();
 
         vm.startPrank(addr);
@@ -1113,7 +1102,7 @@ contract ClustersTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        clusters.buyName{value: buyAmount}(_string);
+        clusters.buyName{value: buyAmount}(buyAmount, _string);
         vm.stopPrank();
 
         vm.prank(addr);
