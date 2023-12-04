@@ -9,6 +9,8 @@ import {NameManager} from "./NameManager.sol";
 
 import {IClusters} from "./IClusters.sol";
 
+import {console2} from "../lib/forge-std/src/Test.sol";
+
 /**
  * OPEN QUESTIONS/TODOS
  * Can you create a cluster without registering a name? No, there needs to be a bounty for adding others to your cluster
@@ -22,36 +24,48 @@ contract Clusters is NameManager {
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
+    address public immutable endpoint;
+
     /// @dev Enumerate all addresses in a cluster
     mapping(uint256 clusterId => EnumerableSet.AddressSet addrs) internal _clusterAddresses;
 
-    constructor(address _pricing, address _endpoint) NameManager(_pricing, _endpoint) {}
+    /// @notice Used to restrict external functions to
+    modifier onlyEndpoint(address msgSender) {
+        if (msg.sender != msgSender && msg.sender != endpoint) revert Unauthorized();
+        _;
+    }
+
+    constructor(address pricing_, address endpoint_) NameManager(pricing_) {
+        endpoint = endpoint_;
+    }
 
     /// EXTERNAL FUNCTIONS ///
 
     /// @dev For payable multicall to be secure, we cannot trust msg.value params in other external methods
     /// @dev Must instead do strict protocol invariant checking at the end of methods like Uniswap V2
-    function multicall(bytes[] calldata _data) external payable returns (bytes[] memory results) {
-        results = new bytes[](_data.length);
+    function multicall(bytes[] calldata data) external payable returns (bytes[] memory results) {
+        results = new bytes[](data.length);
         bool success;
-        unchecked {
-            for (uint256 i = 0; i < _data.length; ++i) {
-                //slither-disable-next-line calls-loop,delegatecall-loop
-                (success, results[i]) = address(this).delegatecall(_data[i]);
-                if (!success) revert MulticallFailed();
-            }
+
+        // Iterate through each call
+        for (uint256 i = 0; i < data.length; ++i) {
+            //slither-disable-next-line calls-loop,delegatecall-loop
+            (success, results[i]) = address(this).delegatecall(data[i]);
+            if (!success) revert MulticallFailed();
         }
+
+        _checkInvariant();
     }
 
-    function create() external {
+    function create() external payable {
         create(msg.sender);
     }
 
-    function add(address addr) external {
+    function add(address addr) external payable {
         add(msg.sender, addr);
     }
 
-    function remove(address addr) external {
+    function remove(address addr) external payable {
         remove(msg.sender, addr);
     }
 
@@ -61,17 +75,17 @@ contract Clusters is NameManager {
 
     /// PUBLIC FUNCTIONS ///
 
-    function create(address msgSender) public onlyEndpoint(msgSender) {
+    function create(address msgSender) public payable onlyEndpoint(msgSender) {
         _add(msgSender, nextClusterId++);
     }
 
-    function add(address msgSender, address addr) public onlyEndpoint(msgSender) {
+    function add(address msgSender, address addr) public payable onlyEndpoint(msgSender) {
         _checkZeroCluster(msgSender);
         if (addressToClusterId[addr] != 0) revert Registered();
         _add(addr, addressToClusterId[msgSender]);
     }
 
-    function remove(address msgSender, address addr) public onlyEndpoint(msgSender) {
+    function remove(address msgSender, address addr) public payable onlyEndpoint(msgSender) {
         _checkZeroCluster(msgSender);
         if (addressToClusterId[msgSender] != addressToClusterId[addr]) revert Unauthorized();
         _remove(addr);
@@ -96,5 +110,9 @@ contract Clusters is NameManager {
             delete forwardLookup[clusterId][walletName];
             delete reverseLookup[addr];
         }
+    }
+
+    function _addressToBytes32(address addr) internal pure returns (bytes32) {
+        return bytes32(uint256(uint160(addr)));
     }
 }
