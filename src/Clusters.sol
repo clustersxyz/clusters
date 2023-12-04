@@ -24,20 +24,10 @@ contract Clusters is NameManager {
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
-    address public immutable endpoint;
-
     /// @dev Enumerate all addresses in a cluster
     mapping(uint256 clusterId => EnumerableSet.AddressSet addrs) internal _clusterAddresses;
 
-    /// @notice Used to restrict external functions to
-    modifier onlyEndpoint(address msgSender) {
-        if (msg.sender != msgSender && msg.sender != endpoint) revert Unauthorized();
-        _;
-    }
-
-    constructor(address pricing_, address endpoint_) NameManager(pricing_) {
-        endpoint = endpoint_;
-    }
+    constructor(address pricing_, address endpoint_) NameManager(pricing_, endpoint_) {}
 
     /// EXTERNAL FUNCTIONS ///
 
