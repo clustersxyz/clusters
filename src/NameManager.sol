@@ -14,6 +14,8 @@ import {console2} from "../lib/forge-std/src/Test.sol";
 abstract contract NameManager is IClusters {
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
+    address public immutable endpoint;
+
     uint256 internal constant BID_TIMELOCK = 30 days;
 
     IPricing internal pricing;
@@ -88,8 +90,15 @@ abstract contract NameManager is IClusters {
         if (addressToClusterId[addr] != nameToClusterId[_toBytes32(name)]) revert Unauthorized();
     }
 
-    constructor(address pricing_) {
+    /// @notice Used to restrict external functions to
+    modifier onlyEndpoint(address msgSender) {
+        if (msg.sender != msgSender && msg.sender != endpoint) revert Unauthorized();
+        _;
+    }
+
+    constructor(address pricing_, address endpoint_) {
         pricing = IPricing(pricing_);
+        endpoint = endpoint_;
     }
 
     /// VIEW FUNCTIONS ///
@@ -119,12 +128,17 @@ abstract contract NameManager is IClusters {
 
     /// ECONOMIC FUNCTIONS ///
 
-    /// @notice Buy unregistered name. Must pay at least minimum yearly payment.
+    /// @notice Override to 
     function buyName(uint256 msgValue, string memory name) external payable {
+        buyName(msg.sender, msgValue, name);
+    }
+
+    /// @notice Buy unregistered name. Must pay at least minimum yearly payment.
+    function buyName(address msgSender, uint256 msgValue, string memory name) public payable {
         _checkNameValid(name);
-        _checkZeroCluster(msg.sender);
+        _checkZeroCluster(msgSender);
         bytes32 _name = _toBytes32(name);
-        uint256 clusterId = addressToClusterId[msg.sender];
+        uint256 clusterId = addressToClusterId[msgSender];
         // Check that name is unused and sufficient payment is made
         if (nameToClusterId[_name] != 0) revert Registered();
         if (msgValue < pricing.minAnnualPrice()) revert Insufficient();
