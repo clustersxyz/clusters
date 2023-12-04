@@ -256,7 +256,7 @@ abstract contract NameManager is IClusters {
         bidName(msg.sender, msgValue, name);
     }
 
-    /// @notice bidName() overload used in endpoint
+    /// @notice bidName() overload used in endpoint, msgSender must be msg.sender or endpoint
     function bidName(address msgSender, uint256 msgValue, string memory name) public payable onlyEndpoint(msgSender) {
         _checkNameValid(name);
         _checkZeroCluster(msgSender);
