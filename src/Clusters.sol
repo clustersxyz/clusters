@@ -45,6 +45,22 @@ contract Clusters is NameManager {
 
     /// EXTERNAL FUNCTIONS ///
 
+    /// @dev For payable multicall to be secure, we cannot trust msg.value params in other external methods
+    /// @dev Must instead do strict protocol invariant checking at the end of methods like Uniswap V2
+    function multicall(bytes[] calldata data) external payable returns (bytes[] memory results) {
+        results = new bytes[](data.length);
+        bool success;
+
+        // Iterate through each call, check for payable functions' _value param, and tally up total value used
+        for (uint256 i = 0; i < data.length; ++i) {
+            //slither-disable-next-line calls-loop,delegatecall-loop
+            (success, results[i]) = address(this).delegatecall(data[i]);
+            if (!success) revert MulticallFailed();
+        }
+
+        _checkInvariant();
+    }
+
     function create() external payable {
         create(msg.sender);
     }
@@ -79,38 +95,6 @@ contract Clusters is NameManager {
         _remove(addr);
     }
 
-    /// MULTICALL FUNCTIONS ///
-
-    /// @dev For payable multicall to be secure, we cannot trust msg.value params in other external methods
-    /// @dev Must instead do strict protocol invariant checking at the end of methods like Uniswap V2
-    function multicall(bytes[] calldata data) external payable returns (bytes[] memory results) {
-        results = new bytes[](data.length);
-        uint256 totalValue;
-        bool success;
-
-        // Iterate through each call, check for payable functions' _value param, and tally up total value used
-        for (uint256 i = 0; i < data.length; ++i) {
-            // Retrieve each call's calldata looking for a _value parameter to ensure no double-spending
-            uint256 callValue = _determineCallValue(data[i]);
-            totalValue += callValue;
-
-            // Execute each call
-            //slither-disable-next-line calls-loop,delegatecall-loop
-            (success, results[i]) = address(this).delegatecall(data[i]);
-            if (!success) revert MulticallFailed();
-        }
-        if (totalValue > msg.value) revert Insufficient();
-
-        // If caller overpaid, refund difference
-        uint256 excessValue = msg.value - totalValue;
-        if (excessValue > 0) {
-            (success,) = payable(msg.sender).call{value: excessValue}("");
-            if (!success) revert NativeTokenTransferFailed();
-        }
-
-        _checkInvariant();
-    }
-
     /// INTERNAL FUNCTIONS ///
 
     function _add(address addr, uint256 clusterId) internal {
@@ -134,24 +118,5 @@ contract Clusters is NameManager {
 
     function _addressToBytes32(address addr) internal pure returns (bytes32) {
         return bytes32(uint256(uint160(addr)));
-    }
-
-    function _determineCallValue(bytes calldata data) internal pure returns (uint256) {
-        // Extract the function signature
-        bytes4 sig = bytes4(data[:4]);
-
-        // Match the function signature of a payable function
-        if (sig == BUY_NAME_SIG || sig == FUND_NAME_SIG || sig == BID_NAME_SIG) {
-            // Assume string parameter is always 32 bytes or less
-            if (data.length != 132) revert Invalid();
-
-            // Extract the value parameter
-            console2.logBytes(data);
-            uint256 value = abi.decode(data[4:], (uint256));
-            console2.log(value);
-            return value;
-        }
-        // Handle unmatched function signatures
-        return 0;
     }
 }
