@@ -6,11 +6,11 @@ import {PricingHarberger} from "../../src/PricingHarberger.sol";
 contract PricingHarbergerHarness is PricingHarberger {
     /// EXPOSED INTERNAL FUNCTIONS ///
 
-    function exposed_getIntegratedMaxPrice(uint256 numSeconds) public view returns (uint256) {
+    function exposed_getIntegratedMaxPrice(uint256 numSeconds) public pure returns (uint256) {
         return getIntegratedMaxPrice(numSeconds);
     }
 
-    function exposed_getMaxPrice(uint256 numSeconds) public view returns (uint256) {
+    function exposed_getMaxPrice(uint256 numSeconds) public pure returns (uint256) {
         return getMaxPrice(numSeconds);
     }
 
