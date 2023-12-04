@@ -12,17 +12,10 @@ import {IClusters} from "./interfaces/IClusters.sol";
 contract Clusters is NameManager {
     using EnumerableSetLib for EnumerableSetLib.Bytes32Set;
 
-    uint256 public nextClusterId = 1;
+    /// @dev Enumerate all addresses in a cluster
+    mapping(uint256 clusterId => EnumerableSet.AddressSet addrs) internal _clusterAddresses;
 
-    /// @dev Enumerates all unverified addresses in a cluster
-    mapping(uint256 clusterId => EnumerableSetLib.Bytes32Set addrs) internal _unverifiedAddresses;
-
-    /// @dev Enumerates all verified addresses in a cluster
-    mapping(uint256 clusterId => EnumerableSetLib.Bytes32Set addrs) internal _verifiedAddresses;
-
-    constructor(address pricing_, address endpoint_, uint256 marketOpenTimestamp_)
-        NameManager(pricing_, endpoint_, marketOpenTimestamp_)
-    {}
+    constructor(address pricing_, address endpoint_) NameManager(pricing_, endpoint_) {}
 
     /// EXTERNAL FUNCTIONS ///
 
