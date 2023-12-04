@@ -73,7 +73,7 @@ contract MulticallTest is Test {
         vm.deal(caller, buyAmount);
 
         bytes[] memory data = new bytes[](2);
-        data[0] = abi.encodeWithSignature("create(uint256)", 0);
+        data[0] = abi.encodeWithSignature("create()");
         data[1] = abi.encodeWithSignature("buyName(uint256,string)", buyAmount, name);
         console2.logBytes(data[1]);
 

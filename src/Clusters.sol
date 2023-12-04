@@ -45,15 +45,15 @@ contract Clusters is NameManager {
 
     /// EXTERNAL FUNCTIONS ///
 
-    function create() external {
+    function create() external payable {
         create(msg.sender);
     }
 
-    function add(address addr) external {
+    function add(address addr) external payable {
         add(msg.sender, addr);
     }
 
-    function remove(address addr) external {
+    function remove(address addr) external payable {
         remove(msg.sender, addr);
     }
 
@@ -63,17 +63,17 @@ contract Clusters is NameManager {
 
     /// PUBLIC FUNCTIONS ///
 
-    function create(address msgSender) public onlyEndpoint(msgSender) {
+    function create(address msgSender) public payable onlyEndpoint(msgSender) {
         _add(msgSender, nextClusterId++);
     }
 
-    function add(address msgSender, address addr) public onlyEndpoint(msgSender) {
+    function add(address msgSender, address addr) public payable onlyEndpoint(msgSender) {
         _checkZeroCluster(msgSender);
         if (addressToClusterId[addr] != 0) revert Registered();
         _add(addr, addressToClusterId[msgSender]);
     }
 
-    function remove(address msgSender, address addr) public onlyEndpoint(msgSender) {
+    function remove(address msgSender, address addr) public payable onlyEndpoint(msgSender) {
         _checkZeroCluster(msgSender);
         if (addressToClusterId[msgSender] != addressToClusterId[addr]) revert Unauthorized();
         _remove(addr);
@@ -85,7 +85,6 @@ contract Clusters is NameManager {
     /// @dev Must instead do strict protocol invariant checking at the end of methods like Uniswap V2
     function multicall(bytes[] calldata data) external payable returns (bytes[] memory results) {
         results = new bytes[](data.length);
-        _inMulticall = true;
         uint256 totalValue;
         bool success;
 
@@ -109,21 +108,7 @@ contract Clusters is NameManager {
             if (!success) revert NativeTokenTransferFailed();
         }
 
-        // Confirm contract balance invariant
-        if (address(this).balance != protocolRevenue + totalNameBacking + totalBidBacking) revert Insolvent();
-        _inMulticall = false;
-    }
-
-    function create(uint256) external payable onlyMulticall {
-        create(msg.sender);
-    }
-
-    function add(uint256, address addr) external payable onlyMulticall {
-        add(msg.sender, addr);
-    }
-
-    function remove(uint256, address addr) external payable onlyMulticall {
-        remove(msg.sender, addr);
+        _checkInvariant();
     }
 
     /// INTERNAL FUNCTIONS ///

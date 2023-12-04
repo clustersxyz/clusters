@@ -37,14 +37,14 @@ contract GasBenchmarkTest is Test {
         vm.deal(caller, minPrice);
         clusters.create();
         clusters.add(addr);
-        clusters.buyName{value: minPrice}("foobar");
+        clusters.buyName{value: minPrice}(minPrice, "foobar");
         vm.stopPrank();
 
         vm.startPrank(bidder);
         vm.deal(bidder, 1 ether);
         // TODO: Should people be able to bid on names without owning a cluster themselves?
         clusters.create();
-        clusters.bidName{value: 0.5 ether}("foobar");
+        clusters.bidName{value: 0.5 ether}(0.5 ether, "foobar");
         vm.warp(block.timestamp + 30 days);
         clusters.pokeName("foobar");
         vm.stopPrank();

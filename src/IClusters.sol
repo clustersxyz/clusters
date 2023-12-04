@@ -46,6 +46,7 @@ interface IClusters {
     error Unauthorized();
     error Unregistered();
     error Insufficient();
+    error BadInvariant();
     error MulticallFailed();
     error NativeTokenTransferFailed();
 
@@ -78,44 +79,25 @@ interface IClusters {
 
     /// EXTERNAL FUNCTIONS ///
 
-    function create() external;
-    function create(address msgSender) external;
-    function add(address addr) external;
-    function add(address msgSender, address addr) external;
-    function remove(address addr) external;
-    function remove(address msgSender, address addr) external;
-
-    function buyName(string memory name) external payable;
-    function fundName(string memory name) external payable;
-    function transferName(string memory name, uint256 toClusterId) external;
-    function pokeName(string memory name) external;
-
-    function bidName(string memory name) external payable;
-    function reduceBid(string memory name, uint256 amount) external;
-    function acceptBid(string memory name) external returns (uint256 bidAmount);
-    function refundBid() external;
-
-    function setCanonicalName(string memory name) external;
-    function setWalletName(address addr, string memory walletname) external;
-
-    /// MULTICALL FUNCTIONS ///
-
     function multicall(bytes[] calldata data) external payable returns (bytes[] memory results);
 
-    // You must use these versions of the functions when using multicall at all
-    function buyName(uint256 value, string memory name) external payable;
-    function fundName(uint256 value, string memory name) external payable;
-    function bidName(uint256 value, string memory name) external payable;
+    function create() external payable;
+    function create(address msgSender) external payable;
+    function add(address addr) external payable;
+    function add(address msgSender, address addr) external payable;
+    function remove(address addr) external payable;
+    function remove(address msgSender, address addr) external payable;
 
-    // You must use these versions of the functions when any of the three aforementioned functions are multicalled
-    function create(uint256) external payable;
-    function add(uint256, address addr) external payable;
-    function remove(uint256, address addr) external payable;
-    function transferName(uint256, string memory name, uint256 toClusterId) external payable;
-    function pokeName(uint256, string memory name) external payable;
-    function reduceBid(uint256, string memory name, uint256 amount) external payable;
-    function acceptBid(uint256, string memory name) external payable returns (uint256 bidAmount);
-    function refundBid(uint256) external payable;
-    function setCanonicalName(uint256, string memory name) external payable;
-    function setWalletName(uint256, address addr, string memory walletName) external payable;
+    function buyName(uint256 msgValue, string memory name) external payable;
+    function fundName(uint256 msgValue, string memory name) external payable;
+    function transferName(string memory name, uint256 toClusterId) external payable;
+    function pokeName(string memory name) external payable;
+
+    function bidName(uint256 msgValue, string memory name) external payable;
+    function reduceBid(string memory name, uint256 amount) external payable;
+    function acceptBid(string memory name) external payable returns (uint256 bidAmount);
+    function refundBid() external payable;
+
+    function setCanonicalName(string memory name) external payable;
+    function setWalletName(address addr, string memory walletname) external payable;
 }
