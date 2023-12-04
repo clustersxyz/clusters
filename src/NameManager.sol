@@ -124,6 +124,7 @@ abstract contract NameManager is IClusters {
             lastUpdatedPrice: pricing.minAnnualPrice()
         });
         _assignName(name, clusterId);
+        if (canonicalClusterName[clusterId] == "") canonicalClusterName[clusterId] = name;
         emit BuyName(name_, clusterId);
     }
 
