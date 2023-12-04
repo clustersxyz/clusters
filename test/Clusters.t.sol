@@ -236,8 +236,8 @@ contract ClustersTest is Test {
         vm.startPrank(caller);
         clusters.create();
         // Insert FAKE buyAmount, then send less eth than protocol expects
-        clusters.buyName{value: buyAmount - 1}(buyAmount, _string);
         vm.expectRevert(IClusters.BadInvariant.selector);
+        clusters.buyName{value: buyAmount - 1}(buyAmount, _string);
         vm.stopPrank();
     }
 
