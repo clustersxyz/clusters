@@ -1140,7 +1140,7 @@ contract ClustersTest is Test {
         clusters.setCanonicalName(_string);
     }
 
-    function testSetWalletName(bytes32 callerSalt, bytes32 name_) public {
+    function testSetWalletName(bytes32 callerSalt, bytes32 name_, bytes32 newName_) public {
         address caller = _bytesToAddress(callerSalt);
         string memory _string = _toString(_removePadding(name_));
         bytes32 name = _toBytes32(_string);
@@ -1152,6 +1152,16 @@ contract ClustersTest is Test {
         vm.stopPrank();
 
         assertEq(clusters.addressToClusterId(caller), 1, "addressToClusterId failed");
+        assertEq(clusters.forwardLookup(1, name), caller, "forwardLookup failed");
+        assertEq(clusters.reverseLookup(caller), name, "reverseLookup failed");
+
+        // Set to new name
+        _string = "newtest";
+        name = _toBytes32(_string);
+        vm.startPrank(caller);
+        clusters.setWalletName(caller, _string);
+        vm.stopPrank();
+
         assertEq(clusters.forwardLookup(1, name), caller, "forwardLookup failed");
         assertEq(clusters.reverseLookup(caller), name, "reverseLookup failed");
     }
