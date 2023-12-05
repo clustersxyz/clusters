@@ -3,12 +3,24 @@ pragma solidity ^0.8.23;
 
 import {Base_Test} from "./Base.t.sol";
 
-import {IClusters} from "../src/interfaces/IClusters.sol";
+contract GasBenchmarkTest is Test {
+    address constant LZENDPOINT = address(uint160(uint256(keccak256(abi.encode("lzEndpoint")))));
 
-contract GasBenchmarkTest is Base_Test {
-    function setUp() public virtual override {
-        Base_Test.setUp();
-        deployLocalHarberger();
+    PricingHarberger public pricing;
+    Endpoint public endpoint;
+    Clusters public clusters;
+    uint256 public minPrice;
+
+    function setUp() public {
+        pricing = new PricingHarberger();
+        endpoint = new Endpoint(LZENDPOINT);
+        clusters = new Clusters(address(pricing), address(endpoint));
+        minPrice = pricing.minAnnualPrice();
+        vm.deal(address(this), 1 ether);
+    }
+
+    function _bytesToAddress(bytes32 _fuzzedBytes) internal pure returns (address) {
+        return address(uint160(uint256(keccak256(abi.encode(_fuzzedBytes)))));
     }
 
     function testBenchmark() public {

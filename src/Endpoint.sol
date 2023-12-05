@@ -2,144 +2,231 @@
 pragma solidity ^0.8.23;
 
 import {Ownable} from "../lib/solady/src/auth/Ownable.sol";
-import {IClusters} from "./interfaces/IClusters.sol";
-import {IEndpoint} from "./interfaces/IEndpoint.sol";
-import {ECDSA} from "../lib/solady/src/utils/ECDSA.sol";
-
-interface IClustersEndpoint {
-    function multicall(bytes[] calldata data) external payable returns (bytes[] memory results);
-
-    function buyName(bytes32 msgSender, uint256 msgValue, string memory name) external payable;
-
-    function bids(bytes32 name) external view returns (uint256 ethAmount, uint256 createdTimestamp, bytes32 bidder);
-    function bidName(bytes32 msgSender, uint256 msgValue, string memory name) external payable;
-    function acceptBid(bytes32 msgSender, string memory name) external payable returns (uint256 bidAmount);
-}
+import {ILayerZeroReceiver} from "../lib/LayerZero/contracts/interfaces/ILayerZeroReceiver.sol";
+import {ILayerZeroEndpoint} from "../lib/LayerZero/contracts/interfaces/ILayerZeroEndpoint.sol";
+import {IClusters} from "./IClusters.sol";
+import {BytesLib} from "../lib/solidity-bytes-utils/contracts/BytesLib.sol";
 
 // TODO: Make this a proxy contract to swap out logic, ownership can be reverted later
 
-contract Endpoint is Ownable, IEndpoint {
-    bytes4 internal constant _FULFILLORDERSIG =
-        bytes4(keccak256("fulfillOrder(uint256,uint256,uint256,string,bytes,address)"));
-    bytes4 internal constant _INVALIDATEORDERSIG = bytes4(keccak256("invalidateOrder(uint256)"));
-    bytes4 internal constant _MULTICALL = bytes4(keccak256("multicall(bytes[])"));
+contract Endpoint is Ownable, ILayerZeroReceiver {
+    using BytesLib for bytes;
+
+    error InvalidArray();
+    error InvalidTxType();
+    error NoTrustedRemote();
+
+    enum TxType {
+        NONE,
+        MULTICALL,
+        CREATE,
+        ADD,
+        REMOVE,
+        BUY,
+        FUND,
+        TRANSFER,
+        POKE,
+        BID,
+        REDUCE,
+        ACCEPT,
+        CANONICAL,
+        WALLET
+    }
+
+    /// @dev This must always be equal with TxType length or enshrined in production
+    uint8 internal constant TXTYPE_COUNT = 14;
 
     address public clusters;
-    address public signer;
-    mapping(bytes32 addr => uint256 nonce) public nonces;
+    address public immutable lzEndpoint;
+    mapping(uint16 chainId => bytes remote) public lzTrustedRemotes;
 
-    constructor(address owner_, address signer_) {
-        _initializeOwner(owner_);
-        signer = signer_;
-        emit SignerAddr(signer_);
+    modifier onlyLzEndpoint() {
+        if (msg.sender != lzEndpoint) revert Unauthorized();
+        _;
     }
 
-    /// INTERNAL FUNCTIONS ///
-
-    /// @dev Returns bytes32 representation of address
-    function _addressToBytes32(address addr) internal pure returns (bytes32) {
-        return bytes32(uint256(uint160(addr)));
+    modifier onlyClusters() {
+        if (msg.sender != clusters) revert Unauthorized();
+        _;
     }
 
-    /// @dev Returns bytes32 representation of string
-    function _stringToBytes32(string memory smallString) internal pure returns (bytes32) {
-        bytes memory smallBytes = bytes(smallString);
-        return bytes32(smallBytes);
+    constructor(address lzEndpoint_) {
+        lzEndpoint = lzEndpoint_;
+        _initializeOwner(msg.sender);
     }
 
-    /// ECDSA HELPERS ///
-
-    /// @dev Confirms if signature was for Ethereum signed message hash
-    function _verify(bytes32 messageHash, bytes calldata sig, address signer_) internal view returns (bool) {
-        return ECDSA.recoverCalldata(getEthSignedMessageHash(messageHash), sig) == signer_;
+    function _checkLzSrcAddress(uint16 srcChainId, bytes memory srcAddress) internal view returns (bool) {
+        if (srcAddress.equal(lzTrustedRemotes[srcChainId])) return true;
+        else return false;
     }
 
-    function getMulticallHash(bytes[] calldata data) public pure returns (bytes32) {
-        return keccak256(abi.encode(data));
+    function _checkTxType(bytes memory data) internal pure returns (TxType) {
+        uint8 txType = uint8(data[0]);
+        if (txType == 0 || txType >= TXTYPE_COUNT) revert InvalidTxType();
+        return TxType(txType);
     }
 
-    function getOrderHash(
-        uint256 nonce,
-        uint256 expirationTimestamp,
-        uint256 ethAmount,
-        bytes32 bidder,
-        string memory name
-    ) public view returns (bytes32) {
-        bytes32 callerBytes = _addressToBytes32(msg.sender);
-        if (nonces[callerBytes] > nonce) return bytes32("");
-        if (block.timestamp > expirationTimestamp) return bytes32("");
-        return keccak256(abi.encodePacked(nonce, expirationTimestamp, ethAmount, bidder, _stringToBytes32(name)));
-    }
+    function _routeCall(address msgSender, bytes memory data) internal {
+        TxType txType = _checkTxType(data);
+        if (txType == TxType.MULTICALL) {
+            revert InvalidTxType();
+        } // Prevent multicalls from being nested
+        else if (txType == TxType.CREATE) {
+            IClusters(clusters).create(msgSender);
+        } else if (txType == TxType.ADD) {
+            address addr;
+            assembly {
+                addr := mload(add(data, 1))
+            }
+            IClusters(clusters).add(msgSender, addr);
+        } else if (txType == TxType.REMOVE) {
+            address addr;
+            assembly {
+                addr := mload(add(data, 1))
+            }
+            IClusters(clusters).remove(msgSender, addr);
+        } else if (txType == TxType.BUY) {
+            return;
+        } // TODO: Payable function msg.value handling
+        else if (txType == TxType.FUND) {
+            return;
+        } // TODO: Payable function msg.value handling
+        else if (txType == TxType.TRANSFER) {
+            uint8 nameLength = uint8(data[1]);
+            string memory name;
+            assembly {
+                name := mload(0x40)
+                mstore(name, nameLength)
+                let src := add(data, 34)
+                mstore(add(name, 32), mload(src))
+                mstore(0x40, add(add(name, 64), nameLength))
+            }
+            uint256 offset = 2 + nameLength;
+            uint256 toClusterId;
+            assembly {
+                toClusterId := mload(add(add(data, 32), offset))
+            }
+            IClusters(clusters).transferName(msgSender, name, toClusterId);
+        } else if (txType == TxType.POKE) {
+            uint8 nameLength = uint8(data[1]);
+            string memory name;
+            assembly {
+                name := mload(0x40)
+                mstore(name, nameLength)
+                let src := add(data, 34)
+                mstore(add(name, 32), mload(src))
+                mstore(0x40, add(add(name, 64), nameLength))
+            }
+            IClusters(clusters).pokeName(name);
+        } else if (txType == TxType.BID) {
+            return;
+        } // TODO: Payable function msg.value handling
+        else if (txType == TxType.REDUCE) {
+            uint8 nameLength = uint8(data[1]);
+            string memory name;
+            assembly {
+                name := mload(0x40)
+                mstore(name, nameLength)
+                let src := add(data, 34)
+                mstore(add(name, 32), mload(src))
+                mstore(0x40, add(add(name, 64), nameLength))
+            }
+            uint256 offset = 2 + nameLength;
+            uint256 amount;
+            assembly {
+                amount := mload(add(add(data, 32), offset))
+            }
+            IClusters(clusters).reduceBid(msgSender, name, amount);
+        } else if (txType == TxType.ACCEPT) {
+            uint8 nameLength = uint8(data[1]);
+            string memory name;
+            assembly {
+                name := mload(0x40)
+                mstore(name, nameLength)
+                let src := add(data, 34)
+                mstore(add(name, 32), mload(src))
+                mstore(0x40, add(add(name, 64), nameLength))
+            }
+            IClusters(clusters).acceptBid(msgSender, name);
+        } else if (txType == TxType.CANONICAL) {
+            uint8 nameLength = uint8(data[1]);
+            string memory name;
+            assembly {
+                name := mload(0x40)
+                mstore(name, nameLength)
+                let src := add(data, 34)
+                mstore(add(name, 32), mload(src))
+                mstore(0x40, add(add(name, 64), nameLength))
+            }
+            IClusters(clusters).setCanonicalName(msgSender, name);
+        } else if (txType == TxType.WALLET) {
+            uint160 addrRaw;
+            address addr;
+            assembly {
+                addrRaw := mload(add(data, 21))
+            }
+            addr = address(addrRaw);
 
-    function getEthSignedMessageHash(bytes32 messageHash) public pure returns (bytes32) {
-        return ECDSA.toEthSignedMessageHash(messageHash);
-    }
-
-    function verifyOrder(
-        uint256 nonce,
-        uint256 expirationTimestamp,
-        uint256 ethAmount,
-        bytes32 bidder,
-        string memory name,
-        bytes calldata sig,
-        address originator
-    ) public view returns (bool) {
-        if (sig.length == 0) return false;
-        if (nonces[_addressToBytes32(originator)] > nonce) return false;
-        if (block.timestamp > expirationTimestamp) return false;
-        return _verify(getOrderHash(nonce, expirationTimestamp, ethAmount, bidder, name), sig, originator);
-    }
-
-    function verifyMulticall(bytes[] calldata data, bytes calldata sig) public view returns (bool) {
-        return _verify(getMulticallHash(data), sig, signer);
-    }
-
-    /// PERMISSIONED FUNCTIONS ///
-
-    function multicall(bytes[] calldata data, bytes calldata sig) external payable returns (bytes[] memory results) {
-        if (!verifyMulticall(data, sig)) revert ECDSA.InvalidSignature();
-        results = IClustersEndpoint(clusters).multicall{value: msg.value}(data);
-    }
-
-    function fulfillOrder(
-        uint256 msgValue,
-        uint256 nonce,
-        uint256 expirationTimestamp,
-        bytes32 authorized,
-        string memory name,
-        bytes calldata sig,
-        address originator
-    ) external payable {
-        bool isValid = verifyOrder(nonce, expirationTimestamp, msgValue, authorized, name, sig, originator);
-        (uint256 bidAmount,,) = IClustersEndpoint(clusters).bids(_stringToBytes32(name));
-
-        if (msg.value < msgValue || msgValue <= bidAmount) revert Insufficient();
-        if (!isValid) revert Invalid();
-        IClustersEndpoint(clusters).bidName{value: msg.value}(_addressToBytes32(msg.sender), msg.value, name);
-        {
-            bytes32 originatorBytes = _addressToBytes32(originator);
-            IClustersEndpoint(clusters).acceptBid{value: 0}(originatorBytes, name);
-            nonces[originatorBytes] = ++nonce;
-            emit Nonce(originatorBytes, nonce);
+            uint8 nameLength = uint8(data[21]);
+            string memory name;
+            assembly {
+                name := mload(0x40)
+                mstore(name, nameLength)
+                let src := add(data, 54)
+                mstore(add(name, 32), mload(src))
+                mstore(0x40, add(add(name, 64), nameLength))
+            }
+            IClusters(clusters).setWalletName(msgSender, addr, name);
         }
     }
 
-    function invalidateOrder(uint256 nonce) external payable {
-        bytes32 callerBytes = _addressToBytes32(msg.sender);
-        if (nonces[callerBytes] >= nonce) revert Invalid();
-        nonces[callerBytes] = nonce;
-        emit Nonce(callerBytes, nonce);
+    function lzReceive(uint16 srcChainId, bytes calldata srcAddress, uint64, /*nonce*/ bytes calldata payload)
+        external
+        onlyLzEndpoint
+    {
+        // If srcAddress isn't a trusted remote, return to abort in nonblocking fashion
+        if (!_checkLzSrcAddress(srcChainId, srcAddress)) return;
+        TxType txType = _checkTxType(payload);
+        address sender = address(uint160(uint256(bytes32(payload[1:21]))));
+        if (txType == TxType.MULTICALL) {
+            bytes[] memory calls = abi.decode(payload[21:], (bytes[])); // TxType + Sender Address == 21 byte offset
+            for (uint256 i; i < calls.length; ++i) {
+                _routeCall(sender, calls[i]);
+            }
+        } else {
+            _routeCall(sender, payload);
+        }
     }
 
-    /// ADMIN FUNCTIONS ///
-
-    function setSignerAddr(address signer_) external onlyOwner {
-        signer = signer_;
-        emit SignerAddr(signer_);
+    function lzSend(
+        uint16 dstChainId,
+        address zroPaymentAddress,
+        bytes memory payload,
+        uint256 nativeFee,
+        bytes memory adapterParams
+    ) external onlyClusters {
+        ILayerZeroEndpoint(lzEndpoint).send{value: nativeFee}(
+            dstChainId, lzTrustedRemotes[dstChainId], payload, payable(msg.sender), zroPaymentAddress, adapterParams
+        );
     }
 
     function setClustersAddr(address clusters_) external onlyOwner {
         clusters = clusters_;
-        emit ClustersAddr(clusters_);
+    }
+
+    function setTrustedRemote(uint16 dstChainId, address addr, bool status) external onlyOwner {
+        if (status) lzTrustedRemotes[dstChainId] = abi.encodePacked(addr, address(this));
+        else delete lzTrustedRemotes[dstChainId];
+    }
+
+    function setTrustedRemotes(uint16[] memory dstChainId, address[] memory addr, bool[] memory status)
+        external
+        onlyOwner
+    {
+        if (dstChainId.length != addr.length || dstChainId.length != status.length) revert InvalidArray();
+        for (uint256 i; i < dstChainId.length; ++i) {
+            if (status[i]) lzTrustedRemotes[dstChainId[i]] = abi.encodePacked(addr[i], address(this));
+            else delete lzTrustedRemotes[dstChainId[i]];
+        }
     }
 }

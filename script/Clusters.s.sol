@@ -7,17 +7,16 @@ import {PricingHarberger} from "../src/PricingHarberger.sol";
 import {Endpoint} from "../src/Endpoint.sol";
 import {Clusters} from "../src/Clusters.sol";
 
-contract ClustersScript is Script {
-    address constant SIGNER = address(uint160(uint256(keccak256(abi.encodePacked("SIGNER")))));
+contract CounterScript is Script {
+    address constant LZENDPOINT = address(uint160(uint256(keccak256(abi.encode("lzEndpoint")))));
 
     function setUp() public {}
 
     function run() public {
         vm.startBroadcast();
-        PricingHarberger pricing = new PricingHarberger(block.timestamp);
-        Endpoint endpoint = new Endpoint(msg.sender, SIGNER);
-        Clusters clusters = new Clusters(address(pricing), address(endpoint), block.timestamp + 7 days);
-        endpoint.setClustersAddr(address(clusters));
+        PricingHarberger pricing = new PricingHarberger();
+        Endpoint endpoint = new Endpoint(LZENDPOINT);
+        new Clusters(address(pricing), address(endpoint));
         vm.stopBroadcast();
     }
 }

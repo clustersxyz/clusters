@@ -199,13 +199,7 @@ abstract contract NameManager is IClusters {
 
     /// @notice Move amounts from ethBacked to protocolAccrual, and transfer names upon expiry to highest
     ///         sufficient bidder. If no bids above yearly minimum, delete name registration.
-    /// @dev Processing is handled in overload
-    function pokeName(string memory name) external payable {
-        pokeName(msg.sender, name);
-    }
-
-    /// @notice pokeName() overload used by endpoint, msgSender must be msg.sender or endpoint
-    function pokeName(address msgSender, string memory name) public payable onlyEndpoint(msgSender) {
+    function pokeName(string memory name) public payable {
         _checkNameValid(name);
         bytes32 _name = _toBytes32(name);
         if (nameToClusterId[_name] == 0) revert Unregistered();
@@ -241,7 +235,7 @@ abstract contract NameManager is IClusters {
                 lastUpdatedTimestamp: block.timestamp,
                 lastUpdatedPrice: newPrice
             });
-            emit PokeName(name, msgSender);
+            emit PokeName(name);
         }
         emit PokeName(_name);
     }
@@ -299,7 +293,7 @@ abstract contract NameManager is IClusters {
             }
         }
         // Update name status and transfer to highest bidder if expired
-        pokeName(msgSender, name);
+        pokeName(name);
 
         _checkInvariant();
     }
@@ -323,7 +317,7 @@ abstract contract NameManager is IClusters {
         if (amount > bid) amount = bid;
 
         // Poke name to update backing and ownership (if required) prior to bid adjustment
-        pokeName(msgSender, name);
+        pokeName(name);
         // Short circuit if pokeName() processed transfer to bidder due to name expiry
         if (bids[_name].ethAmount == 0) return;
 
