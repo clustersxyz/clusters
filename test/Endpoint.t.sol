@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 import {Test, console2} from "../lib/forge-std/src/Test.sol";
-import {ClustersHubMain, NameManagerMain} from "../src/ClustersHubMain.sol";
+import {ClustersHub, NameManagerHub} from "../src/ClustersHub.sol";
 import {PricingHarberger} from "../src/PricingHarberger.sol";
 import {Endpoint} from "../src/Endpoint.sol";
 import {IClusters} from "../src/IClusters.sol";
@@ -12,13 +12,13 @@ contract EndpointTest is Test {
 
     PricingHarberger public pricing;
     Endpoint public endpoint;
-    ClustersHubMain public clusters;
+    ClustersHub public clusters;
     uint256 public minPrice;
 
     function setUp() public {
         pricing = new PricingHarberger();
         endpoint = new Endpoint(LZENDPOINT);
-        clusters = new ClustersHubMain(address(pricing), address(endpoint));
+        clusters = new ClustersHub(address(pricing), address(endpoint));
         minPrice = pricing.minAnnualPrice();
         vm.deal(address(this), 1 ether);
     }

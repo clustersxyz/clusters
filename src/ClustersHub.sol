@@ -5,7 +5,7 @@ pragma solidity ^0.8.23;
 
 import {EnumerableSetLib} from "./EnumerableSetLib.sol";
 
-import {NameManagerMain} from "./NameManagerMain.sol";
+import {NameManagerHub} from "./NameManagerHub.sol";
 
 import {IClusters, IEndpoint} from "./IClusters.sol";
 
@@ -20,14 +20,14 @@ import {console2} from "../lib/forge-std/src/Test.sol";
  * canonical name
  */
 
-contract ClustersHubMain is NameManagerMain {
+contract ClustersHub is NameManagerHub {
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
     /// @dev Enumerate all addresses in a cluster
     mapping(uint256 clusterId => EnumerableSet.AddressSet addrs) internal _clusterAddresses;
 
-    constructor(address pricing_, address endpoint_) NameManagerMain(pricing_, endpoint_) {}
+    constructor(address pricing_, address endpoint_) NameManagerHub(pricing_, endpoint_) {}
 
     /// USER-FACING FUNCTIONS ///
 
