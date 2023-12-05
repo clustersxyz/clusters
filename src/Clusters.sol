@@ -20,6 +20,16 @@ import {console2} from "../lib/forge-std/src/Test.sol";
  * canonical name
  */
 
+interface IEndpoint {
+    function lzSend(
+        uint16 dstChainId,
+        address zroPaymentAddress,
+        bytes memory payload,
+        uint256 nativeFee,
+        bytes memory adapterParams
+    ) external;
+}
+
 contract Clusters is NameManager {
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.Bytes32Set;
@@ -45,6 +55,11 @@ contract Clusters is NameManager {
         }
 
         _checkInvariant();
+    }
+
+    function lzMulticall(bytes[] calldata data) external payable {
+        bytes memory payload = abi.encodeWithSignature("multicall(bytes[])", data, msg.sender);
+        IEndpoint(endpoint).lzSend(11111, msg.sender, payload, msg.value, bytes(""));
     }
 
     function create() external payable {

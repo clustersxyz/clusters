@@ -5,36 +5,16 @@ import {Ownable} from "../lib/solady/src/auth/Ownable.sol";
 import {ILayerZeroReceiver} from "../lib/LayerZero/contracts/interfaces/ILayerZeroReceiver.sol";
 import {ILayerZeroEndpoint} from "../lib/LayerZero/contracts/interfaces/ILayerZeroEndpoint.sol";
 import {IClusters} from "./IClusters.sol";
-import {BytesLib} from "../lib/solidity-bytes-utils/contracts/BytesLib.sol";
 
 // TODO: Make this a proxy contract to swap out logic, ownership can be reverted later
 
 contract Endpoint is Ownable, ILayerZeroReceiver {
-    using BytesLib for bytes;
 
+    error TxFailed();
     error InvalidArray();
-    error InvalidTxType();
+    error InvalidSender();
     error NoTrustedRemote();
-
-    enum TxType {
-        NONE,
-        MULTICALL,
-        CREATE,
-        ADD,
-        REMOVE,
-        BUY,
-        FUND,
-        TRANSFER,
-        POKE,
-        BID,
-        REDUCE,
-        ACCEPT,
-        DEFAULTNAME,
-        WALLETNAME
-    }
-
-    /// @dev This must always be equal with TxType length or enshrined in production
-    uint8 internal constant TXTYPE_COUNT = 14;
+    error NestedMulticall();
 
     address public clusters;
     address public immutable lzEndpoint;
@@ -56,128 +36,12 @@ contract Endpoint is Ownable, ILayerZeroReceiver {
     }
 
     function _checkLzSrcAddress(uint16 srcChainId, bytes memory srcAddress) internal view returns (bool) {
-        if (srcAddress.equal(lzTrustedRemotes[srcChainId])) return true;
+        if (keccak256(srcAddress) == keccak256(lzTrustedRemotes[srcChainId])) return true;
         else return false;
     }
 
-    function _checkTxType(bytes memory data) internal pure returns (TxType) {
-        uint8 txType = uint8(data[0]);
-        if (txType == 0 || txType >= TXTYPE_COUNT) revert InvalidTxType();
-        return TxType(txType);
-    }
-
-    function _routeCall(address msgSender, bytes memory data) internal {
-        TxType txType = _checkTxType(data);
-        if (txType == TxType.MULTICALL) {
-            revert InvalidTxType();
-        } // Prevent multicalls from being nested
-        else if (txType == TxType.CREATE) {
-            IClusters(clusters).create(msgSender);
-        } else if (txType == TxType.ADD) {
-            address addr;
-            assembly {
-                addr := mload(add(data, 1))
-            }
-            IClusters(clusters).add(msgSender, addr);
-        } else if (txType == TxType.REMOVE) {
-            address addr;
-            assembly {
-                addr := mload(add(data, 1))
-            }
-            IClusters(clusters).remove(msgSender, addr);
-        } else if (txType == TxType.BUY) {
-            return;
-        } // TODO: Payable function msg.value handling
-        else if (txType == TxType.FUND) {
-            return;
-        } // TODO: Payable function msg.value handling
-        else if (txType == TxType.TRANSFER) {
-            uint8 nameLength = uint8(data[1]);
-            string memory name;
-            assembly {
-                name := mload(0x40)
-                mstore(name, nameLength)
-                let src := add(data, 34)
-                mstore(add(name, 32), mload(src))
-                mstore(0x40, add(add(name, 64), nameLength))
-            }
-            uint256 offset = 2 + nameLength;
-            uint256 toClusterId;
-            assembly {
-                toClusterId := mload(add(add(data, 32), offset))
-            }
-            IClusters(clusters).transferName(msgSender, name, toClusterId);
-        } else if (txType == TxType.POKE) {
-            uint8 nameLength = uint8(data[1]);
-            string memory name;
-            assembly {
-                name := mload(0x40)
-                mstore(name, nameLength)
-                let src := add(data, 34)
-                mstore(add(name, 32), mload(src))
-                mstore(0x40, add(add(name, 64), nameLength))
-            }
-            IClusters(clusters).pokeName(name);
-        } else if (txType == TxType.BID) {
-            return;
-        } // TODO: Payable function msg.value handling
-        else if (txType == TxType.REDUCE) {
-            uint8 nameLength = uint8(data[1]);
-            string memory name;
-            assembly {
-                name := mload(0x40)
-                mstore(name, nameLength)
-                let src := add(data, 34)
-                mstore(add(name, 32), mload(src))
-                mstore(0x40, add(add(name, 64), nameLength))
-            }
-            uint256 offset = 2 + nameLength;
-            uint256 amount;
-            assembly {
-                amount := mload(add(add(data, 32), offset))
-            }
-            IClusters(clusters).reduceBid(msgSender, name, amount);
-        } else if (txType == TxType.ACCEPT) {
-            uint8 nameLength = uint8(data[1]);
-            string memory name;
-            assembly {
-                name := mload(0x40)
-                mstore(name, nameLength)
-                let src := add(data, 34)
-                mstore(add(name, 32), mload(src))
-                mstore(0x40, add(add(name, 64), nameLength))
-            }
-            IClusters(clusters).acceptBid(msgSender, name);
-        } else if (txType == TxType.DEFAULTNAME) {
-            uint8 nameLength = uint8(data[1]);
-            string memory name;
-            assembly {
-                name := mload(0x40)
-                mstore(name, nameLength)
-                let src := add(data, 34)
-                mstore(add(name, 32), mload(src))
-                mstore(0x40, add(add(name, 64), nameLength))
-            }
-            IClusters(clusters).setDefaultClusterName(msgSender, name);
-        } else if (txType == TxType.WALLETNAME) {
-            uint160 addrRaw;
-            address addr;
-            assembly {
-                addrRaw := mload(add(data, 21))
-            }
-            addr = address(addrRaw);
-
-            uint8 nameLength = uint8(data[21]);
-            string memory name;
-            assembly {
-                name := mload(0x40)
-                mstore(name, nameLength)
-                let src := add(data, 54)
-                mstore(add(name, 32), mload(src))
-                mstore(0x40, add(add(name, 64), nameLength))
-            }
-            IClusters(clusters).setWalletName(msgSender, addr, name);
-        }
+    function _getFunctionSelector(string memory signature) internal pure returns (bytes4) {
+        return bytes4(keccak256(bytes(signature)));
     }
 
     function lzReceive(uint16 srcChainId, bytes calldata srcAddress, uint64, /*nonce*/ bytes calldata payload)
@@ -186,15 +50,39 @@ contract Endpoint is Ownable, ILayerZeroReceiver {
     {
         // If srcAddress isn't a trusted remote, return to abort in nonblocking fashion
         if (!_checkLzSrcAddress(srcChainId, srcAddress)) return;
-        TxType txType = _checkTxType(payload);
-        address sender = address(uint160(uint256(bytes32(payload[1:21]))));
-        if (txType == TxType.MULTICALL) {
-            bytes[] memory calls = abi.decode(payload[21:], (bytes[])); // TxType + Sender Address == 21 byte offset
-            for (uint256 i; i < calls.length; ++i) {
-                _routeCall(sender, calls[i]);
+        bytes4 selector = bytes4(payload[:4]);
+        bytes4 multicall = _getFunctionSelector("multicall(bytes[])");
+        // If multicall, parse and verify inputs
+        if (selector == multicall) {
+            bytes[] memory data;
+            address sender;
+            (data, sender) = abi.decode(payload[4:], (bytes[], address));
+            bytes4 pokeName = _getFunctionSelector("pokeName(string)");
+            // Iterate through each call
+            for (uint256 i; i < data.length; ++i) {
+                bytes memory currentCall = data[i];
+                assembly {
+                    selector := mload(add(currentCall, 32))
+                }
+                if (selector == multicall) revert NestedMulticall(); // Prevent nested multicalls
+                else {
+                    // Validate msgSender param matches real sender
+                    if (selector != pokeName) { // pokeName() is the only exemption as it has no msgSender param
+                        address msgSender;
+                        assembly {
+                            msgSender := mload(add(currentCall, 36))
+                        }
+                        if (msgSender != sender) revert InvalidSender();
+                    }
+                    // If validation doesn't fail, pass the calldata along
+
+                }
+                (bool success, ) = clusters.call(currentCall);
+                if (!success) revert TxFailed();
             }
         } else {
-            _routeCall(sender, payload);
+            (bool success, ) = clusters.call(payload);
+            if (!success) revert TxFailed();
         }
     }
 
@@ -204,7 +92,7 @@ contract Endpoint is Ownable, ILayerZeroReceiver {
         bytes memory payload,
         uint256 nativeFee,
         bytes memory adapterParams
-    ) external onlyClusters {
+    ) external payable onlyClusters {
         ILayerZeroEndpoint(lzEndpoint).send{value: nativeFee}(
             dstChainId, lzTrustedRemotes[dstChainId], payload, payable(msg.sender), zroPaymentAddress, adapterParams
         );
