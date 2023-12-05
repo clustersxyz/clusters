@@ -376,13 +376,18 @@ abstract contract NameManager is IClusters {
     }
 
     /// @notice Allow failed bid refunds to be withdrawn
-    /// @dev No endpoint overload is provided as I don't see why someone would retry a failed bid refund via bridge
-    function refundBid() public payable {
-        uint256 refund = bidRefunds[msg.sender];
+    /// @dev Processing is handled in overload
+    function refundBid() external payable {
+        refundBid(msg.sender);
+    }
+
+    /// @notice acceptBid() overload used by endpoint, msgSender must be msg.sender or endpoint
+    function refundBid(address msgSender) public payable onlyEndpoint(msgSender) {
+        uint256 refund = bidRefunds[msgSender];
         if (refund == 0) revert NoBid();
         delete bidRefunds[msgSender];
         totalBidBacking -= refund;
-        (bool success,) = payable(_bytesToAddress(msgSender)).call{value: refund}("");
+        (bool success,) = payable(msgSender).call{value: refund}("");
         if (!success) revert NativeTokenTransferFailed();
     }
 

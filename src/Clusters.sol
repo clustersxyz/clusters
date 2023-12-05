@@ -9,6 +9,16 @@ import {NameManager} from "./NameManager.sol";
 
 import {IClusters} from "./interfaces/IClusters.sol";
 
+interface IEndpoint {
+    function lzSend(
+        uint16 dstChainId,
+        address zroPaymentAddress,
+        bytes memory payload,
+        uint256 nativeFee,
+        bytes memory adapterParams
+    ) external;
+}
+
 contract Clusters is NameManager {
     using EnumerableSetLib for EnumerableSetLib.Bytes32Set;
 
@@ -35,8 +45,13 @@ contract Clusters is NameManager {
         _checkInvariant();
     }
 
-    function add(bytes32 addr) external payable {
-        add(_addressToBytes(msg.sender), addr);
+    function lzMulticall(bytes[] calldata data) external payable {
+        bytes memory payload = abi.encodeWithSignature("multicall(bytes[])", data, msg.sender);
+        IEndpoint(endpoint).lzSend(11111, msg.sender, payload, msg.value, bytes(""));
+    }
+
+    function create() external payable {
+        create(msg.sender);
     }
 
     function verify(uint256 clusterId) external payable {
