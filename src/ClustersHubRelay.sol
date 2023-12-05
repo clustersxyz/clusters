@@ -30,7 +30,7 @@ interface IEndpoint {
     ) external;
 }
 
-contract ClustersHubMain is NameManagerSpoke {
+contract ClustersHubRelay is NameManagerSpoke {
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
