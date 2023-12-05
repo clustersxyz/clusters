@@ -35,10 +35,10 @@ abstract contract NameManager is IClusters {
     mapping(uint256 clusterId => EnumerableSet.Bytes32Set names) internal _clusterNames;
 
     /// @notice For example lookup[17]["hot"] -> 0x123...
-    mapping(uint256 clusterId => mapping(bytes32 walletName => address wallet)) public forwardLookup;
+    mapping(uint256 clusterId => mapping(bytes32 walletName => address addr)) public forwardLookup;
 
     /// @notice For example lookup[0x123...] -> "hot", then combine with cluster name in a diff method
-    mapping(address wallet => bytes32 walletName) public reverseLookup;
+    mapping(address addr => bytes32 walletName) public reverseLookup;
 
     /// @notice Data required for proper harberger tax calculation when pokeName() is called
     mapping(bytes32 name => IClusters.PriceIntegral integral) public priceIntegral;
@@ -153,7 +153,7 @@ abstract contract NameManager is IClusters {
         });
         _assignName(_name, clusterId);
         if (defaultClusterName[clusterId] == bytes32("")) defaultClusterName[clusterId] = _name;
-        emit BuyName(name, clusterId, msgValue);
+        emit BuyName(_name, clusterId, msgValue);
 
         _checkInvariant();
     }
@@ -171,7 +171,7 @@ abstract contract NameManager is IClusters {
         if (nameToClusterId[_name] == 0) revert Unregistered();
         nameBacking[_name] += msgValue;
         totalNameBacking += msgValue;
-        emit FundName(name, msgSender, msgValue);
+        emit FundName(_name, msgSender, msgValue);
 
         _checkInvariant();
     }
@@ -264,7 +264,7 @@ abstract contract NameManager is IClusters {
                 lastUpdatedTimestamp: block.timestamp,
                 lastUpdatedPrice: newPrice
             });
-            emit PokeName(name, msgSender);
+            emit PokeName(_name, msgSender);
         }
     }
 
@@ -434,10 +434,10 @@ abstract contract NameManager is IClusters {
         uint256 clusterId = addressToClusterId[msgSender];
         if (bytes(name).length == 0) {
             delete defaultClusterName[clusterId];
-            emit DefaultClusterName("", clusterId);
+            emit DefaultClusterName(bytes32(""), clusterId);
         } else {
             defaultClusterName[clusterId] = _name;
-            emit DefaultClusterName(name, clusterId);
+            emit DefaultClusterName(_name, clusterId);
         }
     }
 
@@ -462,11 +462,11 @@ abstract contract NameManager is IClusters {
             _walletName = reverseLookup[addr];
             delete forwardLookup[clusterId][_walletName];
             delete reverseLookup[addr];
-            emit SetWalletName("", addr);
+            emit SetWalletName(bytes32(""), addr);
         } else {
             forwardLookup[clusterId][_walletName] = addr;
             reverseLookup[addr] = _walletName;
-            emit SetWalletName(walletName, addr);
+            emit SetWalletName(_walletName, addr);
         }
     }
 
