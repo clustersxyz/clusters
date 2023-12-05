@@ -9,7 +9,6 @@ import {IClusters} from "./IClusters.sol";
 // TODO: Make this a proxy contract to swap out logic, ownership can be reverted later
 
 contract Endpoint is Ownable, ILayerZeroReceiver {
-
     error TxFailed();
     error InvalidArray();
     error InvalidSender();
@@ -64,24 +63,26 @@ contract Endpoint is Ownable, ILayerZeroReceiver {
                 assembly {
                     selector := mload(add(currentCall, 32))
                 }
-                if (selector == multicall) revert NestedMulticall(); // Prevent nested multicalls
+                if (selector == multicall) {
+                    revert NestedMulticall();
+                } // Prevent nested multicalls
                 else {
                     // Validate msgSender param matches real sender
-                    if (selector != pokeName) { // pokeName() is the only exemption as it has no msgSender param
+                    if (selector != pokeName) {
+                        // pokeName() is the only exemption as it has no msgSender param
                         address msgSender;
                         assembly {
                             msgSender := mload(add(currentCall, 36))
                         }
                         if (msgSender != sender) revert InvalidSender();
                     }
-                    // If validation doesn't fail, pass the calldata along
-
                 }
-                (bool success, ) = clusters.call(currentCall);
+                // If validation doesn't fail, pass the calldata along
+                (bool success,) = clusters.call(currentCall);
                 if (!success) revert TxFailed();
             }
         } else {
-            (bool success, ) = clusters.call(payload);
+            (bool success,) = clusters.call(payload);
             if (!success) revert TxFailed();
         }
     }
