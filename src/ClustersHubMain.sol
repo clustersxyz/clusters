@@ -7,17 +7,18 @@ import {EnumerableSetLib} from "./EnumerableSetLib.sol";
 
 import {NameManagerMain} from "./NameManagerMain.sol";
 
-import {IClusters} from "./interfaces/IClusters.sol";
+import {IClusters, IEndpoint} from "./IClusters.sol";
 
-interface IEndpoint {
-    function lzSend(
-        uint16 dstChainId,
-        address zroPaymentAddress,
-        bytes memory payload,
-        uint256 nativeFee,
-        bytes memory adapterParams
-    ) external;
-}
+import {console2} from "../lib/forge-std/src/Test.sol";
+
+/**
+ * OPEN QUESTIONS/TODOS
+ * Can you create a cluster without registering a name? No, there needs to be a bounty for adding others to your cluster
+ * What does the empty foobar/ resolver point to?
+ * If listings are offchain, then how can it hook into the onchain transfer function?
+ * The first name added to a cluster should become the canonical name by default, every cluster should always have
+ * canonical name
+ */
 
 contract ClustersHubMain is NameManagerMain {
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -28,7 +29,7 @@ contract ClustersHubMain is NameManagerMain {
 
     constructor(address pricing_, address endpoint_) NameManagerMain(pricing_, endpoint_) {}
 
-    /// EXTERNAL FUNCTIONS ///
+    /// USER-FACING FUNCTIONS ///
 
     /// @dev For payable multicall to be secure, we cannot trust msg.value params in other external methods
     /// @dev Must instead do strict protocol invariant checking at the end of methods like Uniswap V2
@@ -46,22 +47,17 @@ contract ClustersHubMain is NameManagerMain {
         _checkInvariant();
     }
 
-    function lzMulticall(bytes[] calldata data) external payable {
-        bytes memory payload = abi.encodeWithSignature("multicall(bytes[])", data, msg.sender);
-        IEndpoint(endpoint).lzSend(11111, msg.sender, payload, msg.value, bytes(""));
-    }
-
-    function create() external payable returns (bytes memory payload) {
+    function create() public payable returns (bytes memory payload) {
         create(msg.sender);
         return bytes("");
     }
 
-    function add(address addr) external payable returns (bytes memory payload) {
+    function add(address addr) public payable returns (bytes memory payload) {
         add(msg.sender, addr);
         return bytes("");
     }
 
-    function remove(address addr) external payable returns (bytes memory payload) {
+    function remove(address addr) public payable returns (bytes memory payload) {
         remove(msg.sender, addr);
         return bytes("");
     }
@@ -70,8 +66,10 @@ contract ClustersHubMain is NameManagerMain {
         return _unverifiedAddresses[clusterId].values();
     }
 
-    function getVerifiedAddresses(uint256 clusterId) external view returns (bytes32[] memory) {
-        return _verifiedAddresses[clusterId].values();
+    /// ENDPOINT FUNCTIONS ///
+
+    function create(address msgSender) public payable onlyEndpoint(msgSender) {
+        _add(msgSender, nextClusterId++);
     }
 
     /// ENDPOINT FUNCTIONS ///

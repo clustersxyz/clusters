@@ -7,7 +7,7 @@ import {EnumerableSet} from "../lib/openzeppelin-contracts/contracts/utils/struc
 
 import {NameManagerSpoke} from "./NameManagerSpoke.sol";
 
-import {IClusters} from "./IClusters.sol";
+import {IClusters, IEndpoint} from "./IClusters.sol";
 
 import {console2} from "../lib/forge-std/src/Test.sol";
 
@@ -20,16 +20,6 @@ import {console2} from "../lib/forge-std/src/Test.sol";
  * canonical name
  */
 
-interface IEndpoint {
-    function lzSend(
-        uint16 dstChainId,
-        address zroPaymentAddress,
-        bytes memory payload,
-        uint256 nativeFee,
-        bytes memory adapterParams
-    ) external;
-}
-
 contract ClustersHubRelay is NameManagerSpoke {
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.Bytes32Set;
@@ -39,7 +29,7 @@ contract ClustersHubRelay is NameManagerSpoke {
 
     constructor(address pricing_, address endpoint_) NameManagerSpoke(pricing_, endpoint_) {}
 
-    /// EXTERNAL FUNCTIONS ///
+    /// USER-FACING FUNCTIONS ///
 
     /// @dev For payable multicall to be secure, we cannot trust msg.value params in other external methods
     /// @dev Must instead do strict protocol invariant checking at the end of methods like Uniswap V2
@@ -57,22 +47,17 @@ contract ClustersHubRelay is NameManagerSpoke {
         _checkInvariant();
     }
 
-    function lzMulticall(bytes[] calldata data) external payable {
-        bytes memory payload = abi.encodeWithSignature("multicall(bytes[])", data, msg.sender);
-        IEndpoint(endpoint).lzSend(11111, msg.sender, payload, msg.value, bytes(""));
-    }
-
-    function create() external payable returns (bytes memory payload) {
+    function create() public payable returns (bytes memory payload) {
         create(msg.sender);
         return bytes("");
     }
 
-    function add(address addr) external payable returns (bytes memory payload) {
+    function add(address addr) public payable returns (bytes memory payload) {
         add(msg.sender, addr);
         return bytes("");
     }
 
-    function remove(address addr) external payable returns (bytes memory payload) {
+    function remove(address addr) public payable returns (bytes memory payload) {
         remove(msg.sender, addr);
         return bytes("");
     }
@@ -81,7 +66,7 @@ contract ClustersHubRelay is NameManagerSpoke {
         return _clusterAddresses[clusterId].values();
     }
 
-    /// PUBLIC FUNCTIONS ///
+    /// ENDPOINT FUNCTIONS ///
 
     function create(address msgSender) public payable onlyEndpoint {
         _add(msgSender, nextClusterId++);

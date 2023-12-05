@@ -103,8 +103,9 @@ abstract contract NameManagerMain is IClusters {
 
     /// @notice Buy unregistered name. Must pay at least minimum yearly payment.
     /// @dev Processing is handled in overload
-    function buyName(uint256 msgValue, string memory name) external payable {
+    function buyName(uint256 msgValue, string memory name) public payable returns (bytes memory payload) {
         buyName(msg.sender, msgValue, name);
+        return bytes("");
     }
 
     /// @notice buyName() overload used by endpoint, msgSender must be msg.sender or endpoint
@@ -133,8 +134,9 @@ abstract contract NameManagerMain is IClusters {
 
     /// @notice Fund an existing and specific name, callable by anyone
     /// @dev Processing is handled in overload
-    function fundName(uint256 msgValue, string memory name) external payable {
+    function fundName(uint256 msgValue, string memory name) public payable returns (bytes memory payload) {
         fundName(msg.sender, msgValue, name);
+        return bytes("");
     }
 
     /// @notice fundName() overload used by endpoint, msgSender must be msg.sender or endpoint
@@ -151,8 +153,9 @@ abstract contract NameManagerMain is IClusters {
 
     /// @notice Move name from one cluster to another without payment
     /// @dev Processing is handled in overload
-    function transferName(string memory name, uint256 toClusterId) external payable {
+    function transferName(string memory name, uint256 toClusterId) public payable returns (bytes memory payload) {
         transferName(msg.sender, name, toClusterId);
+        return bytes("");
     }
 
     /// @notice transferName() overload used by endpoint, msgSender must be msg.sender or endpoint
@@ -195,7 +198,7 @@ abstract contract NameManagerMain is IClusters {
 
     /// @notice Move amounts from ethBacked to protocolAccrual, and transfer names upon expiry to highest
     ///         sufficient bidder. If no bids above yearly minimum, delete name registration.
-    function pokeName(string memory name) public payable {
+    function pokeName(string memory name) public payable returns (bytes memory payload) {
         _checkNameValid(name);
         bytes32 _name = _toBytes32(name);
         if (nameToClusterId[_name] == 0) revert Unregistered();
@@ -233,7 +236,7 @@ abstract contract NameManagerMain is IClusters {
             });
             emit PokeName(name);
         }
-        emit PokeName(_name);
+        return bytes("");
     }
 
     /// @notice Place bids on valid names. Subsequent calls increases existing bid. If name is expired update ownership.
@@ -242,8 +245,9 @@ abstract contract NameManagerMain is IClusters {
     /// @dev Should work smoothly for fully expired names and names partway through their duration
     /// @dev Needs to be onchain ETH bid escrowed in one place because otherwise prices shift
     /// @dev Processing is handled in overload
-    function bidName(uint256 msgValue, string memory name) external payable {
+    function bidName(uint256 msgValue, string memory name) public payable returns (bytes memory payload) {
         bidName(msg.sender, msgValue, name);
+        return bytes("");
     }
 
     /// @notice bidName() overload used in endpoint, msgSender must be msg.sender or endpoint
@@ -296,8 +300,9 @@ abstract contract NameManagerMain is IClusters {
 
     /// @notice Reduce bid and refund difference. Revoke if amount is the total bid or is the max uint256 value.
     /// @dev Processing is handled in overload
-    function reduceBid(string memory name, uint256 amount) external payable {
+    function reduceBid(string memory name, uint256 amount) public payable returns (bytes memory payload) {
         reduceBid(msg.sender, name, amount);
+        return bytes("");
     }
 
     /// @notice reduceBid() overload used by endpoint, msgSender must be msg.sender or endpoint
@@ -345,8 +350,9 @@ abstract contract NameManagerMain is IClusters {
     /// @notice Accept bid and transfer name to bidder
     /// @dev Retrieves bid, adjusts state, then sends payment to avoid reentrancy
     /// @dev Processing is handled in overload
-    function acceptBid(string memory name) external payable returns (uint256 bidAmount) {
-        return acceptBid(msg.sender, name);
+    function acceptBid(string memory name) public payable returns (bytes memory payload) {
+        acceptBid(msg.sender, name);
+        return bytes("");
     }
 
     /// @notice acceptBid() overload used by endpoint, msgSender must be msg.sender or endpoint
@@ -373,8 +379,9 @@ abstract contract NameManagerMain is IClusters {
 
     /// @notice Allow failed bid refunds to be withdrawn
     /// @dev Processing is handled in overload
-    function refundBid() external payable {
+    function refundBid() public payable returns (bytes memory payload) {
         refundBid(msg.sender);
+        return bytes("");
     }
 
     /// @notice acceptBid() overload used by endpoint, msgSender must be msg.sender or endpoint
@@ -391,8 +398,9 @@ abstract contract NameManagerMain is IClusters {
 
     /// @notice Set canonical name or erase it by setting ""
     /// @dev Processing is handled in overload
-    function setCanonicalName(string memory name) external payable {
-        setCanonicalName(msg.sender, name);
+    function setDefaultClusterName(string memory name) public payable returns (bytes memory payload) {
+        setDefaultClusterName(msg.sender, name);
+        return bytes("");
     }
 
     /// @notice setCanonicalName() overload used by endpoint, msgSender must be msg.sender or endpoint
@@ -413,8 +421,9 @@ abstract contract NameManagerMain is IClusters {
 
     /// @notice Set wallet name for msg.sender or erase it by setting ""
     /// @dev Processing is handled in overload
-    function setWalletName(address addr, string memory walletName) external payable {
+    function setWalletName(address addr, string memory walletName) public payable returns (bytes memory payload) {
         setWalletName(msg.sender, addr, walletName);
+        return bytes("");
     }
 
     /// @notice setWalletName() overload used by endpoint, msgSender must be msg.sender or endpoint
