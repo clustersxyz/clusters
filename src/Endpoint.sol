@@ -13,7 +13,8 @@ contract Endpoint is Ownable, ILayerZeroReceiver {
     error InvalidArray();
     error InvalidSender();
     error NoTrustedRemote();
-    error NestedMulticall();
+
+    event SoftAbort();
 
     address public clusters;
     address public immutable lzEndpoint;
@@ -39,52 +40,17 @@ contract Endpoint is Ownable, ILayerZeroReceiver {
         else return false;
     }
 
-    function _getFunctionSelector(string memory signature) internal pure returns (bytes4) {
-        return bytes4(keccak256(bytes(signature)));
-    }
-
     function lzReceive(uint16 srcChainId, bytes calldata srcAddress, uint64, /*nonce*/ bytes calldata payload)
         external
         onlyLzEndpoint
     {
         // If srcAddress isn't a trusted remote, return to abort in nonblocking fashion
-        if (!_checkLzSrcAddress(srcChainId, srcAddress)) return;
-        bytes4 selector = bytes4(payload[:4]);
-        bytes4 multicall = _getFunctionSelector("multicall(bytes[])");
-        // If multicall, parse and verify inputs
-        if (selector == multicall) {
-            bytes[] memory data;
-            address sender;
-            (data, sender) = abi.decode(payload[4:], (bytes[], address));
-            bytes4 pokeName = _getFunctionSelector("pokeName(string)");
-            // Iterate through each call
-            for (uint256 i; i < data.length; ++i) {
-                bytes memory currentCall = data[i];
-                assembly {
-                    selector := mload(add(currentCall, 32))
-                }
-                if (selector == multicall) {
-                    revert NestedMulticall();
-                } // Prevent nested multicalls
-                else {
-                    // Validate msgSender param matches real sender
-                    if (selector != pokeName) {
-                        // pokeName() is the only exemption as it has no msgSender param
-                        address msgSender;
-                        assembly {
-                            msgSender := mload(add(currentCall, 36))
-                        }
-                        if (msgSender != sender) revert InvalidSender();
-                    }
-                }
-                // If validation doesn't fail, pass the calldata along
-                (bool success,) = clusters.call(currentCall);
-                if (!success) revert TxFailed();
-            }
-        } else {
-            (bool success,) = clusters.call(payload);
-            if (!success) revert TxFailed();
+        if (!_checkLzSrcAddress(srcChainId, srcAddress)) {
+            emit SoftAbort();
+            return;
         }
+        (bool success,) = clusters.call(payload);
+        if (!success) revert TxFailed();
     }
 
     function lzSend(
