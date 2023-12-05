@@ -19,12 +19,15 @@ interface IClusters {
 
     /// EVENTS ///
 
-    event BuyName(string indexed name, uint256 indexed clusterId);
+    event Add(uint256 indexed clusterId, address indexed addr);
+    event Remove(uint256 indexed clusterId, address indexed addr);
+
+    event BuyName(string indexed name, uint256 indexed clusterId, uint256 indexed amount);
     event FundName(string indexed name, address indexed funder, uint256 indexed amount);
     event TransferName(bytes32 indexed name, uint256 indexed fromClusterId, uint256 indexed toClusterId);
     event PokeName(string indexed name);
-    event CanonicalName(string indexed name, uint256 indexed clusterId);
-    event WalletName(string indexed walletname, address indexed wallet);
+    event DefaultClusterName(string indexed name, uint256 indexed clusterId);
+    event SetWalletName(string indexed walletName, address indexed wallet);
 
     event BidPlaced(string indexed name, address indexed bidder, uint256 indexed amount);
     event BidRefunded(string indexed name, address indexed bidder, uint256 indexed amount);
@@ -56,7 +59,7 @@ interface IClusters {
     function nextClusterId() external view returns (uint256 clusterId);
     function addressToClusterId(address addr) external view returns (uint256 clusterId);
     function nameToClusterId(bytes32 name) external view returns (uint256 clusterId);
-    function canonicalClusterName(uint256 clusterId) external view returns (bytes32 name);
+    function defaultClusterName(uint256 clusterId) external view returns (bytes32 name);
     function forwardLookup(uint256 clusterId, bytes32 walletname) external view returns (address addr);
     function reverseLookup(address addr) external view returns (bytes32 walletName);
 
@@ -103,9 +106,10 @@ interface IClusters {
     function acceptBid(string memory name) external payable returns (uint256 bidAmount);
     function acceptBid(address msgSender, string memory name) external payable returns (uint256 bidAmount);
     function refundBid() external payable;
+    function refundBid(address msgSender) external payable;
 
-    function setCanonicalName(string memory name) external payable;
-    function setCanonicalName(address msgSender, string memory name) external payable;
+    function setDefaultClusterName(string memory name) external payable;
+    function setDefaultClusterName(address msgSender, string memory name) external payable;
     function setWalletName(address addr, string memory walletName) external payable;
     function setWalletName(address msgSender, address addr, string memory walletName) external payable;
 }

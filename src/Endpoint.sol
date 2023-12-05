@@ -29,8 +29,8 @@ contract Endpoint is Ownable, ILayerZeroReceiver {
         BID,
         REDUCE,
         ACCEPT,
-        CANONICAL,
-        WALLET
+        DEFAULTNAME,
+        WALLETNAME
     }
 
     /// @dev This must always be equal with TxType length or enshrined in production
@@ -148,7 +148,7 @@ contract Endpoint is Ownable, ILayerZeroReceiver {
                 mstore(0x40, add(add(name, 64), nameLength))
             }
             IClusters(clusters).acceptBid(msgSender, name);
-        } else if (txType == TxType.CANONICAL) {
+        } else if (txType == TxType.DEFAULTNAME) {
             uint8 nameLength = uint8(data[1]);
             string memory name;
             assembly {
@@ -158,8 +158,8 @@ contract Endpoint is Ownable, ILayerZeroReceiver {
                 mstore(add(name, 32), mload(src))
                 mstore(0x40, add(add(name, 64), nameLength))
             }
-            IClusters(clusters).setCanonicalName(msgSender, name);
-        } else if (txType == TxType.WALLET) {
+            IClusters(clusters).setDefaultClusterName(msgSender, name);
+        } else if (txType == TxType.WALLETNAME) {
             uint160 addrRaw;
             address addr;
             assembly {

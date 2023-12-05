@@ -87,6 +87,7 @@ contract Clusters is NameManager {
         if (addressToClusterId[addr] != 0) revert Registered();
         addressToClusterId[addr] = clusterId;
         _clusterAddresses[clusterId].add(addr);
+        emit Add(clusterId, addr);
     }
 
     function _remove(address addr) internal {
@@ -100,6 +101,7 @@ contract Clusters is NameManager {
             delete forwardLookup[clusterId][walletName];
             delete reverseLookup[addr];
         }
+        emit Remove(clusterId, addr);
     }
 
     function _addressToBytes32(address addr) internal pure returns (bytes32) {
