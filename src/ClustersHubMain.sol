@@ -5,7 +5,7 @@ pragma solidity ^0.8.23;
 
 import {EnumerableSet} from "../lib/openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 
-import {NameManager} from "./NameManager.sol";
+import {NameManagerMain} from "./NameManagerMain.sol";
 
 import {IClusters} from "./IClusters.sol";
 
@@ -30,14 +30,14 @@ interface IEndpoint {
     ) external;
 }
 
-contract Clusters is NameManager {
+contract ClustersHubMain is NameManagerMain {
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
     /// @dev Enumerate all addresses in a cluster
     mapping(uint256 clusterId => EnumerableSet.AddressSet addrs) internal _clusterAddresses;
 
-    constructor(address pricing_, address endpoint_) NameManager(pricing_, endpoint_) {}
+    constructor(address pricing_, address endpoint_) NameManagerMain(pricing_, endpoint_) {}
 
     /// EXTERNAL FUNCTIONS ///
 

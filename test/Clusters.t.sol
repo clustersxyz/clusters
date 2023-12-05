@@ -2,17 +2,17 @@
 pragma solidity ^0.8.23;
 
 import "../lib/forge-std/src/Test.sol";
-import {Clusters, NameManager} from "../src/Clusters.sol";
+import {ClustersHubMain, NameManagerMain} from "../src/ClustersHubMain.sol";
 import {IPricing} from "../src/IPricing.sol";
 import {PricingFlat} from "../src/PricingFlat.sol";
 import {PricingHarberger} from "../src/PricingHarberger.sol";
 import {Endpoint} from "../src/Endpoint.sol";
 import {IClusters} from "../src/IClusters.sol";
 
-contract ClustersTest is Test {
+contract ClustersHubMainTest is Test {
     IPricing public pricing;
     Endpoint public endpoint;
-    Clusters public clusters;
+    ClustersHubMain public clusters;
 
     uint256 secondsAfterCreation = 1000 * 365 days;
     uint256 minPrice;
@@ -24,7 +24,7 @@ contract ClustersTest is Test {
     function setUp() public {
         pricing = new PricingHarberger();
         endpoint = new Endpoint(LZENDPOINT);
-        clusters = new Clusters(address(pricing), address(endpoint));
+        clusters = new ClustersHubMain(address(pricing), address(endpoint));
         minPrice = pricing.minAnnualPrice();
         vm.deal(address(this), 1 ether);
     }
@@ -42,7 +42,7 @@ contract ClustersTest is Test {
     }
 
     /*\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\
-                Clusters.sol
+                ClustersHubMain.sol
     \\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\*/
 
     function testMulticall() public {
@@ -1090,7 +1090,7 @@ contract ClustersTest is Test {
 
         assertEq(address(addr).balance, balance + bidAmount, "bid refund balance error");
         assertEq(address(clusters).balance, buyAmount, "contract balance issue");
-        Clusters.Bid memory bid = clusters.getBid(name);
+        IClusters.Bid memory bid = clusters.getBid(name);
         assertEq(bid.ethAmount, 0, "bid ethAmount not purged");
         assertEq(bid.createdTimestamp, 0, "bid createdTimestamp not purged");
         assertEq(bid.bidder, address(0), "bid bidder not purged");
