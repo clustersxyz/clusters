@@ -22,12 +22,12 @@ interface IClusters {
     event Add(uint256 indexed clusterId, address indexed addr);
     event Remove(uint256 indexed clusterId, address indexed addr);
 
-    event BuyName(string indexed name, uint256 indexed clusterId, uint256 indexed amount);
-    event FundName(string indexed name, address indexed funder, uint256 indexed amount);
+    event BuyName(bytes32 indexed name, uint256 indexed clusterId, uint256 indexed amount);
+    event FundName(bytes32 indexed name, address indexed funder, uint256 indexed amount);
     event TransferName(bytes32 indexed name, uint256 indexed fromClusterId, uint256 indexed toClusterId);
-    event PokeName(string indexed name);
-    event DefaultClusterName(string indexed name, uint256 indexed clusterId);
-    event SetWalletName(string indexed walletName, address indexed wallet);
+    event PokeName(bytes32 indexed name);
+    event DefaultClusterName(bytes32 indexed name, uint256 indexed clusterId);
+    event SetWalletName(bytes32 indexed walletName, address indexed wallet);
 
     event BidPlaced(string indexed name, address indexed bidder, uint256 indexed amount);
     event BidRefunded(string indexed name, address indexed bidder, uint256 indexed amount);

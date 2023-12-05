@@ -158,7 +158,7 @@ abstract contract NameManagerSpoke is IClusters {
         });
         _assignName(_name, clusterId);
         if (defaultClusterName[clusterId] == bytes32("")) defaultClusterName[clusterId] = _name;
-        emit BuyName(name, clusterId, msgValue);
+        emit BuyName(_name, clusterId, msgValue);
 
         _checkInvariant();
     }
@@ -178,7 +178,7 @@ abstract contract NameManagerSpoke is IClusters {
         if (nameToClusterId[_name] == 0) revert Unregistered();
         nameBacking[_name] += msgValue;
         totalNameBacking += msgValue;
-        emit FundName(name, msgSender, msgValue);
+        emit FundName(_name, msgSender, msgValue);
 
         _checkInvariant();
     }
@@ -270,7 +270,7 @@ abstract contract NameManagerSpoke is IClusters {
                     lastUpdatedTimestamp: block.timestamp,
                     lastUpdatedPrice: newPrice
                 });
-                emit PokeName(name);
+                emit PokeName(_name);
             }
         }
         return bytes("");
@@ -448,10 +448,10 @@ abstract contract NameManagerSpoke is IClusters {
         uint256 clusterId = addressToClusterId[msgSender];
         if (bytes(name).length == 0) {
             delete defaultClusterName[clusterId];
-            emit DefaultClusterName("", clusterId);
+            emit DefaultClusterName(bytes32(""), clusterId);
         } else {
             defaultClusterName[clusterId] = _name;
-            emit DefaultClusterName(name, clusterId);
+            emit DefaultClusterName(_name, clusterId);
         }
     }
 
@@ -474,11 +474,11 @@ abstract contract NameManagerSpoke is IClusters {
             _walletName = reverseLookup[addr];
             delete forwardLookup[clusterId][_walletName];
             delete reverseLookup[addr];
-            emit SetWalletName("", addr);
+            emit SetWalletName(bytes32(""), addr);
         } else {
             forwardLookup[clusterId][_walletName] = addr;
             reverseLookup[addr] = _walletName;
-            emit SetWalletName(walletName, addr);
+            emit SetWalletName(_walletName, addr);
         }
     }
 
@@ -493,7 +493,7 @@ abstract contract NameManagerSpoke is IClusters {
         nameToClusterId[name] = 0;
         if (defaultClusterName[clusterId] == name) {
             delete defaultClusterName[clusterId];
-            emit DefaultClusterName("", clusterId);
+            emit DefaultClusterName(bytes32(""), clusterId);
         }
         _clusterNames[clusterId].remove(name);
     }
