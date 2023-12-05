@@ -100,17 +100,17 @@ contract ClustersHubMain is NameManagerSpoke {
 
     /// ENDPOINT FUNCTIONS ///
 
-    function create(address msgSender) public payable onlyEndpoint {
+    function create(address msgSender) external payable onlyEndpoint {
         _add(msgSender, nextClusterId++);
     }
 
-    function add(address msgSender, address addr) public payable onlyEndpoint {
+    function add(address msgSender, address addr) external payable onlyEndpoint {
         _checkZeroCluster(msgSender);
         if (addressToClusterId[addr] != 0) revert Registered();
         _add(addr, addressToClusterId[msgSender]);
     }
 
-    function remove(address msgSender, address addr) public payable onlyEndpoint {
+    function remove(address msgSender, address addr) external payable onlyEndpoint {
         _checkZeroCluster(msgSender);
         if (addressToClusterId[msgSender] != addressToClusterId[addr]) revert Unauthorized();
         _remove(addr);
