@@ -90,9 +90,10 @@ abstract contract NameManagerSpoke is IClusters {
         if (addressToClusterId[addr] != nameToClusterId[_toBytes32(name)]) revert Unauthorized();
     }
 
-    /// @notice Used to restrict external functions to
-    modifier onlyEndpoint(address msgSender) {
-        if (msg.sender != msgSender && msg.sender != endpoint) revert Unauthorized();
+    /// @notice Used to restrict external functions to endpoint
+    /// @dev This version ignores if msg.sender == msgSender as users wont be allowed to use these functions on spokes
+    modifier onlyEndpoint() {
+        if (msg.sender != endpoint) revert Unauthorized();
         _;
     }
 
@@ -135,7 +136,7 @@ abstract contract NameManagerSpoke is IClusters {
     }
 
     /// @notice buyName() overload used by endpoint, msgSender must be msg.sender or endpoint
-    function buyName(address msgSender, uint256 msgValue, string memory name) public payable onlyEndpoint(msgSender) {
+    function buyName(address msgSender, uint256 msgValue, string memory name) public payable onlyEndpoint {
         _checkNameValid(name);
         _checkZeroCluster(msgSender);
         bytes32 _name = _toBytes32(name);
@@ -165,7 +166,7 @@ abstract contract NameManagerSpoke is IClusters {
     }
 
     /// @notice fundName() overload used by endpoint, msgSender must be msg.sender or endpoint
-    function fundName(address msgSender, uint256 msgValue, string memory name) public payable onlyEndpoint(msgSender) {
+    function fundName(address msgSender, uint256 msgValue, string memory name) public payable onlyEndpoint {
         _checkNameValid(name);
         bytes32 _name = _toBytes32(name);
         if (nameToClusterId[_name] == 0) revert Unregistered();
@@ -186,7 +187,7 @@ abstract contract NameManagerSpoke is IClusters {
     function transferName(address msgSender, string memory name, uint256 toClusterId)
         public
         payable
-        onlyEndpoint(msgSender)
+        onlyEndpoint
     {
         _checkNameValid(name);
         _checkZeroCluster(msgSender);
@@ -273,7 +274,7 @@ abstract contract NameManagerSpoke is IClusters {
     }
 
     /// @notice bidName() overload used in endpoint, msgSender must be msg.sender or endpoint
-    function bidName(address msgSender, uint256 msgValue, string memory name) public payable onlyEndpoint(msgSender) {
+    function bidName(address msgSender, uint256 msgValue, string memory name) public payable onlyEndpoint {
         _checkNameValid(name);
         _checkZeroCluster(msgSender);
         if (msgValue == 0) revert NoBid();
@@ -327,7 +328,7 @@ abstract contract NameManagerSpoke is IClusters {
     }
 
     /// @notice reduceBid() overload used by endpoint, msgSender must be msg.sender or endpoint
-    function reduceBid(address msgSender, string memory name, uint256 amount) public payable onlyEndpoint(msgSender) {
+    function reduceBid(address msgSender, string memory name, uint256 amount) public payable onlyEndpoint {
         _checkNameValid(name);
         bytes32 _name = _toBytes32(name);
         uint256 bid = bids[_name].ethAmount;
@@ -379,7 +380,7 @@ abstract contract NameManagerSpoke is IClusters {
     function acceptBid(address msgSender, string memory name)
         public
         payable
-        onlyEndpoint(msgSender)
+        onlyEndpoint
         returns (uint256 bidAmount)
     {
         _checkNameValid(name);
@@ -403,7 +404,7 @@ abstract contract NameManagerSpoke is IClusters {
     }
 
     /// @notice acceptBid() overload used by endpoint, msgSender must be msg.sender or endpoint
-    function refundBid(address msgSender) public payable onlyEndpoint(msgSender) {
+    function refundBid(address msgSender) public payable onlyEndpoint {
         uint256 refund = bidRefunds[msgSender];
         if (refund == 0) revert NoBid();
         delete bidRefunds[msgSender];
@@ -421,7 +422,7 @@ abstract contract NameManagerSpoke is IClusters {
     }
 
     /// @notice setDefaultClusterName() overload used by endpoint, msgSender must be msg.sender or endpoint
-    function setDefaultClusterName(address msgSender, string memory name) public payable onlyEndpoint(msgSender) {
+    function setDefaultClusterName(address msgSender, string memory name) public payable onlyEndpoint {
         if (bytes(name).length > 32) revert LongName();
         _checkZeroCluster(msgSender);
         _checkNameOwnership(msgSender, name);
@@ -446,7 +447,7 @@ abstract contract NameManagerSpoke is IClusters {
     function setWalletName(address msgSender, address addr, string memory walletName)
         public
         payable
-        onlyEndpoint(msgSender)
+        onlyEndpoint
     {
         if (bytes(walletName).length > 32) revert LongName();
         _checkZeroCluster(msgSender);

@@ -62,16 +62,19 @@ contract ClustersHubRelay is NameManagerSpoke {
         IEndpoint(endpoint).lzSend(11111, msg.sender, payload, msg.value, bytes(""));
     }
 
-    function create() external payable {
+    function create() external payable returns (bytes memory payload) {
         create(msg.sender);
+        return bytes("");
     }
 
-    function add(address addr) external payable {
+    function add(address addr) external payable returns (bytes memory payload) {
         add(msg.sender, addr);
+        return bytes("");
     }
 
-    function remove(address addr) external payable {
+    function remove(address addr) external payable returns (bytes memory payload) {
         remove(msg.sender, addr);
+        return bytes("");
     }
 
     function clusterAddresses(uint256 clusterId) external view returns (address[] memory) {
@@ -80,17 +83,17 @@ contract ClustersHubRelay is NameManagerSpoke {
 
     /// PUBLIC FUNCTIONS ///
 
-    function create(address msgSender) public payable onlyEndpoint(msgSender) {
+    function create(address msgSender) public payable onlyEndpoint {
         _add(msgSender, nextClusterId++);
     }
 
-    function add(address msgSender, address addr) public payable onlyEndpoint(msgSender) {
+    function add(address msgSender, address addr) public payable onlyEndpoint {
         _checkZeroCluster(msgSender);
         if (addressToClusterId[addr] != 0) revert Registered();
         _add(addr, addressToClusterId[msgSender]);
     }
 
-    function remove(address msgSender, address addr) public payable onlyEndpoint(msgSender) {
+    function remove(address msgSender, address addr) public payable onlyEndpoint {
         _checkZeroCluster(msgSender);
         if (addressToClusterId[msgSender] != addressToClusterId[addr]) revert Unauthorized();
         _remove(addr);
