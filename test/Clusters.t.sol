@@ -442,7 +442,7 @@ contract ClustersTest is Test {
         );
     }
 
-    function testTransferNamePurgesCanonicalName(
+    function testTransferNamePurgesDefaultClusterName(
         bytes32 callerSalt,
         bytes32 addrSalt,
         string memory name_,
@@ -458,10 +458,10 @@ contract ClustersTest is Test {
         vm.startPrank(caller);
         clusters.create();
         clusters.buyName{value: buyAmount}(buyAmount, name_);
-        clusters.setCanonicalName(name_);
+        clusters.setDefaultClusterName(name_);
         vm.stopPrank();
 
-        assertEq(clusters.canonicalClusterName(1), _toBytes32(name_), "canonicalClusterName error");
+        assertEq(clusters.defaultClusterName(1), _toBytes32(name_), "defaultClusterName error");
 
         vm.prank(addr);
         clusters.create();
@@ -469,8 +469,8 @@ contract ClustersTest is Test {
         vm.prank(caller);
         clusters.transferName(name_, 2);
 
-        assertEq(clusters.canonicalClusterName(1), bytes32(""), "canonicalClusterName wasn't cleared");
-        assertEq(clusters.canonicalClusterName(2), bytes32(""), "canonicalClusterName possibly transferred");
+        assertEq(clusters.defaultClusterName(1), bytes32(""), "defaultClusterName wasn't cleared");
+        assertEq(clusters.defaultClusterName(2), bytes32(""), "defaultClusterName possibly transferred");
         assertEq(
             address(clusters).balance,
             clusters.protocolRevenue() + clusters.totalNameBacking() + clusters.totalBidBacking(),
@@ -1386,7 +1386,7 @@ contract ClustersTest is Test {
 
     /// CANONICAL AND WALLET NAME TESTS ///
 
-    function testSetCanonicalName(bytes32 callerSalt, string memory name_, uint256 buyAmount) public {
+    function testSetDefaultClusterName(bytes32 callerSalt, string memory name_, uint256 buyAmount) public {
         vm.assume(bytes(name_).length > 0 && bytes(name_).length <= 32);
         address caller = _bytesToAddress(callerSalt);
         bytes32 name = _toBytes32(name_);
@@ -1396,11 +1396,11 @@ contract ClustersTest is Test {
         vm.startPrank(caller);
         clusters.create();
         clusters.buyName{value: buyAmount}(buyAmount, name_);
-        clusters.setCanonicalName(name_);
+        clusters.setDefaultClusterName(name_);
         vm.stopPrank();
 
         assertEq(clusters.nameToClusterId(name), 1, "clusterId error");
-        assertEq(clusters.canonicalClusterName(1), name, "canonicalClusterName error");
+        assertEq(clusters.defaultClusterName(1), name, "defaultClusterName error");
         bytes32[] memory names = clusters.getClusterNamesBytes32(1);
         assertEq(names.length, 1, "names array length error");
         assertEq(names[0], name, "name array error");
@@ -1411,9 +1411,12 @@ contract ClustersTest is Test {
         );
     }
 
-    function testSetCanonicalNameUpdate(bytes32 callerSalt, string memory name1, string memory name2, uint256 buyAmount)
-        public
-    {
+    function testSetDefaultClusterNameUpdate(
+        bytes32 callerSalt,
+        string memory name1,
+        string memory name2,
+        uint256 buyAmount
+    ) public {
         vm.assume(bytes(name1).length > 0);
         vm.assume(bytes(name1).length <= 32);
         vm.assume(bytes(name2).length > 0);
@@ -1429,13 +1432,13 @@ contract ClustersTest is Test {
         clusters.create();
         clusters.buyName{value: buyAmount}(buyAmount, name1);
         clusters.buyName{value: buyAmount}(buyAmount, name2);
-        clusters.setCanonicalName(name1);
-        clusters.setCanonicalName(name2);
+        clusters.setDefaultClusterName(name1);
+        clusters.setDefaultClusterName(name2);
         vm.stopPrank();
 
         assertEq(clusters.nameToClusterId(_name1), 1, "clusterId error");
         assertEq(clusters.nameToClusterId(_name2), 1, "clusterId error");
-        assertEq(clusters.canonicalClusterName(1), _name2, "canonicalClusterName error");
+        assertEq(clusters.defaultClusterName(1), _name2, "defaultClusterName error");
         bytes32[] memory names = clusters.getClusterNamesBytes32(1);
         assertEq(names.length, 2, "names array length error");
         assertEq(names[0], _name1, "name array error");
@@ -1447,7 +1450,7 @@ contract ClustersTest is Test {
         );
     }
 
-    function testSetCanonicalNameDelete(bytes32 callerSalt, string memory name_, uint256 buyAmount) public {
+    function testSetDefaultClusterNameDelete(bytes32 callerSalt, string memory name_, uint256 buyAmount) public {
         vm.assume(bytes(name_).length > 0 && bytes(name_).length <= 32);
         address caller = _bytesToAddress(callerSalt);
         bytes32 name = _toBytes32(name_);
@@ -1457,12 +1460,12 @@ contract ClustersTest is Test {
         vm.startPrank(caller);
         clusters.create();
         clusters.buyName{value: buyAmount}(buyAmount, name_);
-        clusters.setCanonicalName(name_);
-        clusters.setCanonicalName("");
+        clusters.setDefaultClusterName(name_);
+        clusters.setDefaultClusterName("");
         vm.stopPrank();
 
         assertEq(clusters.nameToClusterId(name), 1, "clusterId error");
-        assertEq(clusters.canonicalClusterName(1), bytes32(""), "canonicalClusterName error");
+        assertEq(clusters.defaultClusterName(1), bytes32(""), "defaultClusterName error");
         bytes32[] memory names = clusters.getClusterNamesBytes32(1);
         assertEq(names.length, 1, "names array length error");
         assertEq(names[0], name, "name array error");
@@ -1473,7 +1476,9 @@ contract ClustersTest is Test {
         );
     }
 
-    function testSetCanonicalNameRevertLongName(bytes32 callerSalt, string memory name_, uint256 buyAmount) public {
+    function testSetDefaultClusterNameRevertLongName(bytes32 callerSalt, string memory name_, uint256 buyAmount)
+        public
+    {
         vm.assume(bytes(name_).length > 32);
         address caller = _bytesToAddress(callerSalt);
         buyAmount = bound(buyAmount, minPrice, 10 ether);
@@ -1482,11 +1487,11 @@ contract ClustersTest is Test {
         vm.startPrank(caller);
         clusters.create();
         vm.expectRevert(IClusters.LongName.selector);
-        clusters.setCanonicalName(name_);
+        clusters.setDefaultClusterName(name_);
         vm.stopPrank();
     }
 
-    function testSetCanonicalNameRevertNoCluster(
+    function testSetDefaultClusterNameRevertNoCluster(
         bytes32 callerSalt,
         bytes32 addrSalt,
         string memory name_,
@@ -1506,10 +1511,10 @@ contract ClustersTest is Test {
 
         vm.prank(addr);
         vm.expectRevert(IClusters.NoCluster.selector);
-        clusters.setCanonicalName(name_);
+        clusters.setDefaultClusterName(name_);
     }
 
-    function testSetCanonicalNameRevertUnauthorized(
+    function testSetDefaultClusterNameRevertUnauthorized(
         bytes32 callerSalt,
         bytes32 addrSalt,
         string memory name_,
@@ -1530,7 +1535,7 @@ contract ClustersTest is Test {
         vm.startPrank(addr);
         clusters.create();
         vm.expectRevert(IClusters.Unauthorized.selector);
-        clusters.setCanonicalName(name_);
+        clusters.setDefaultClusterName(name_);
         vm.stopPrank();
     }
 

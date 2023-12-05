@@ -29,7 +29,7 @@ abstract contract NameManager is IClusters {
     mapping(bytes32 name => uint256 clusterId) public nameToClusterId;
 
     /// @notice Display name to be shown for a cluster, like ENS reverse records
-    mapping(uint256 clusterId => bytes32 name) public canonicalClusterName;
+    mapping(uint256 clusterId => bytes32 name) public defaultClusterName;
 
     /// @notice Enumerate all names owned by a cluster
     mapping(uint256 clusterId => EnumerableSet.Bytes32Set names) internal _clusterNames;
@@ -152,8 +152,8 @@ abstract contract NameManager is IClusters {
             lastUpdatedPrice: pricing.minAnnualPrice()
         });
         _assignName(_name, clusterId);
-        if (canonicalClusterName[clusterId] == bytes32("")) canonicalClusterName[clusterId] = _name;
-        emit BuyName(name, clusterId);
+        if (defaultClusterName[clusterId] == bytes32("")) defaultClusterName[clusterId] = _name;
+        emit BuyName(name, clusterId, msgValue);
 
         _checkInvariant();
     }
@@ -201,8 +201,8 @@ abstract contract NameManager is IClusters {
     /// @dev Delete by transferring to cluster id 0
     function _transferName(bytes32 name, uint256 fromClusterId, uint256 toClusterId) internal {
         // If name is canonical cluster name for sending cluster, remove that assignment
-        if (canonicalClusterName[fromClusterId] == name) {
-            delete canonicalClusterName[fromClusterId];
+        if (defaultClusterName[fromClusterId] == name) {
+            delete defaultClusterName[fromClusterId];
         }
         // Assign name to new cluster, otherwise unassign
         if (toClusterId != 0) {
@@ -210,7 +210,7 @@ abstract contract NameManager is IClusters {
             _assignName(name, toClusterId);
             _clusterNames[fromClusterId].remove(name);
             // Purge canonical name if necessary
-            if (canonicalClusterName[fromClusterId] == name) delete canonicalClusterName[fromClusterId];
+            if (defaultClusterName[fromClusterId] == name) delete defaultClusterName[fromClusterId];
         } else {
             // Purge name assignment and remove from cluster
             _unassignName(name, fromClusterId);
@@ -402,9 +402,13 @@ abstract contract NameManager is IClusters {
         return bid.ethAmount;
     }
 
+    function refundBid() public payable {
+        refundBid(msg.sender);
+    }
+
     /// @notice Allow failed bid refunds to be withdrawn
     /// @dev No endpoint overload is provided as I don't see why someone would retry a failed bid refund via bridge
-    function refundBid() public payable {
+    function refundBid(address msgSender) public payable onlyEndpoint(msgSender) {
         uint256 refund = bidRefunds[msg.sender];
         if (refund == 0) revert NoBid();
         delete bidRefunds[msg.sender];
@@ -417,23 +421,23 @@ abstract contract NameManager is IClusters {
 
     /// @notice Set canonical name or erase it by setting ""
     /// @dev Processing is handled in overload
-    function setCanonicalName(string memory name) external payable {
-        setCanonicalName(msg.sender, name);
+    function setDefaultClusterName(string memory name) external payable {
+        setDefaultClusterName(msg.sender, name);
     }
 
-    /// @notice setCanonicalName() overload used by endpoint, msgSender must be msg.sender or endpoint
-    function setCanonicalName(address msgSender, string memory name) public payable onlyEndpoint(msgSender) {
+    /// @notice setDefaultClusterName() overload used by endpoint, msgSender must be msg.sender or endpoint
+    function setDefaultClusterName(address msgSender, string memory name) public payable onlyEndpoint(msgSender) {
         if (bytes(name).length > 32) revert LongName();
         _checkZeroCluster(msgSender);
         _checkNameOwnership(msgSender, name);
         bytes32 _name = _toBytes32(name);
         uint256 clusterId = addressToClusterId[msgSender];
         if (bytes(name).length == 0) {
-            delete canonicalClusterName[clusterId];
-            emit CanonicalName("", clusterId);
+            delete defaultClusterName[clusterId];
+            emit DefaultClusterName("", clusterId);
         } else {
-            canonicalClusterName[clusterId] = _name;
-            emit CanonicalName(name, clusterId);
+            defaultClusterName[clusterId] = _name;
+            emit DefaultClusterName(name, clusterId);
         }
     }
 
@@ -458,11 +462,11 @@ abstract contract NameManager is IClusters {
             _walletName = reverseLookup[addr];
             delete forwardLookup[clusterId][_walletName];
             delete reverseLookup[addr];
-            emit WalletName("", addr);
+            emit SetWalletName("", addr);
         } else {
             forwardLookup[clusterId][_walletName] = addr;
             reverseLookup[addr] = _walletName;
-            emit WalletName(walletName, addr);
+            emit SetWalletName(walletName, addr);
         }
     }
 
@@ -475,9 +479,9 @@ abstract contract NameManager is IClusters {
     /// @dev Purge name-related state variables
     function _unassignName(bytes32 name, uint256 clusterId) internal {
         nameToClusterId[name] = 0;
-        if (canonicalClusterName[clusterId] == name) {
-            delete canonicalClusterName[clusterId];
-            emit CanonicalName("", clusterId);
+        if (defaultClusterName[clusterId] == name) {
+            delete defaultClusterName[clusterId];
+            emit DefaultClusterName("", clusterId);
         }
         _clusterNames[clusterId].remove(name);
     }
