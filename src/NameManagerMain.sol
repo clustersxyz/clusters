@@ -273,14 +273,14 @@ abstract contract NameManagerMain is IClusters {
             totalBidBacking += msgValue;
             // TODO: Determine which way is best to handle bid update timestamps
             // bids[_name].createdTimestamp = block.timestamp;
-            emit BidIncreased(name, msgSender, prevBid + msgValue);
+            emit BidIncreased(_name, msgSender, prevBid + msgValue);
         }
         // Process new highest bid
         else {
             // Overwrite previous bid
             bids[_name] = IClusters.Bid(msgValue, block.timestamp, msgSender);
             totalBidBacking += msgValue;
-            emit BidPlaced(name, msgSender, msgValue);
+            emit BidPlaced(_name, msgSender, msgValue);
             // Process bid refund if there is one. Store balance for recipient if transfer fails instead of reverting.
             if (prevBid > 0) {
                 (bool success,) = payable(_bytesToAddress(prevBidder)).call{value: prevBid}("");
@@ -330,7 +330,7 @@ abstract contract NameManagerMain is IClusters {
         if (diff == 0) {
             delete bids[_name];
             totalBidBacking -= bid;
-            emit BidRevoked(name, msgSender, bid);
+            emit BidRevoked(_name, msgSender, bid);
         }
         // Otherwise, decrease bid and update timestamp
         else {
@@ -338,7 +338,7 @@ abstract contract NameManagerMain is IClusters {
             totalBidBacking -= amount;
             // TODO: Determine which way is best to handle bid update timestamps
             // bids[_name].createdTimestamp = block.timestamp;
-            emit BidReduced(name, msgSender, amount);
+            emit BidReduced(_name, msgSender, amount);
         }
 
         // Transfer bid reduction after all state is purged to prevent reentrancy
@@ -459,7 +459,11 @@ abstract contract NameManagerMain is IClusters {
 
     /// @dev Purge name-related state variables
     function _unassignName(bytes32 name, uint256 clusterId) internal {
-        delete nameToClusterId[name];
+        nameToClusterId[name] = 0;
+        if (defaultClusterName[clusterId] == name) {
+            delete defaultClusterName[clusterId];
+            emit DefaultClusterName(bytes32(""), clusterId);
+        }
         _clusterNames[clusterId].remove(name);
         // If name is default cluster name for clusterId, reassign to the name at index 0 in _clusterNames
         if (defaultClusterName[clusterId] == name) {
