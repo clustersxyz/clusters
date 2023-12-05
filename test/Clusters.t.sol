@@ -2,17 +2,17 @@
 pragma solidity ^0.8.23;
 
 import "../lib/forge-std/src/Test.sol";
-import {ClustersHubMain, NameManagerMain} from "../src/ClustersHubMain.sol";
+import {ClustersHub, NameManagerHub} from "../src/ClustersHub.sol";
 import {IPricing} from "../src/IPricing.sol";
 import {PricingFlat} from "../src/PricingFlat.sol";
 import {PricingHarberger} from "../src/PricingHarberger.sol";
 import {Endpoint} from "../src/Endpoint.sol";
 import {IClusters} from "../src/IClusters.sol";
 
-contract ClustersHubMainTest is Test {
+contract ClustersHubTest is Test {
     IPricing public pricing;
     Endpoint public endpoint;
-    ClustersHubMain public clusters;
+    ClustersHub public clusters;
 
     uint256 secondsAfterCreation = 1000 * 365 days;
     uint256 minPrice;
@@ -24,7 +24,7 @@ contract ClustersHubMainTest is Test {
     function setUp() public {
         pricing = new PricingHarberger();
         endpoint = new Endpoint(LZENDPOINT);
-        clusters = new ClustersHubMain(address(pricing), address(endpoint));
+        clusters = new ClustersHub(address(pricing), address(endpoint));
         minPrice = pricing.minAnnualPrice();
         vm.deal(address(this), 1 ether);
     }
@@ -42,7 +42,7 @@ contract ClustersHubMainTest is Test {
     }
 
     /*\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\
-                ClustersHubMain.sol
+                ClustersHub.sol
     \\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\*/
 
     function testMulticall() public {

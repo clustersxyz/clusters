@@ -5,7 +5,7 @@ pragma solidity ^0.8.23;
 
 import {EnumerableSet} from "../lib/openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 
-import {NameManagerSpoke} from "./NameManagerSpoke.sol";
+import {NameManagerHub} from "./NameManagerHub.sol";
 
 import {IClusters, IEndpoint} from "./IClusters.sol";
 
@@ -20,14 +20,14 @@ import {console2} from "../lib/forge-std/src/Test.sol";
  * canonical name
  */
 
-contract ClustersHubRelay is NameManagerSpoke {
+contract ClustersHub is NameManagerHub {
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
     /// @dev Enumerate all addresses in a cluster
     mapping(uint256 clusterId => EnumerableSet.AddressSet addrs) internal _clusterAddresses;
 
-    constructor(address pricing_, address endpoint_) NameManagerSpoke(pricing_, endpoint_) {}
+    constructor(address pricing_, address endpoint_) NameManagerHub(pricing_, endpoint_) {}
 
     /// USER-FACING FUNCTIONS ///
 
@@ -68,17 +68,17 @@ contract ClustersHubRelay is NameManagerSpoke {
 
     /// ENDPOINT FUNCTIONS ///
 
-    function create(address msgSender) public payable onlyEndpoint {
+    function create(address msgSender) public payable onlyEndpoint(msgSender) {
         _add(msgSender, nextClusterId++);
     }
 
-    function add(address msgSender, address addr) public payable onlyEndpoint {
+    function add(address msgSender, address addr) public payable onlyEndpoint(msgSender) {
         _checkZeroCluster(msgSender);
         if (addressToClusterId[addr] != 0) revert Registered();
         _add(addr, addressToClusterId[msgSender]);
     }
 
-    function remove(address msgSender, address addr) public payable onlyEndpoint {
+    function remove(address msgSender, address addr) public payable onlyEndpoint(msgSender) {
         _checkZeroCluster(msgSender);
         if (addressToClusterId[msgSender] != addressToClusterId[addr]) revert Unauthorized();
         _remove(addr);

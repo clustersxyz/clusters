@@ -20,7 +20,7 @@ import {console2} from "../lib/forge-std/src/Test.sol";
  * canonical name
  */
 
-contract ClustersHubMain is NameManagerSpoke {
+contract ClustersHub is NameManagerSpoke {
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.Bytes32Set;
 

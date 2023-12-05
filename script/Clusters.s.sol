@@ -5,7 +5,7 @@ import {Script, console2} from "forge-std/Script.sol";
 
 import {PricingHarberger} from "../src/PricingHarberger.sol";
 import {Endpoint} from "../src/Endpoint.sol";
-import {ClustersHubMain} from "../src/ClustersHubMain.sol";
+import {ClustersHub} from "../src/ClustersHub.sol";
 
 contract CounterScript is Script {
     address constant LZENDPOINT = address(uint160(uint256(keccak256(abi.encode("lzEndpoint")))));
@@ -16,7 +16,7 @@ contract CounterScript is Script {
         vm.startBroadcast();
         PricingHarberger pricing = new PricingHarberger();
         Endpoint endpoint = new Endpoint(LZENDPOINT);
-        new ClustersHubMain(address(pricing), address(endpoint));
+        new ClustersHub(address(pricing), address(endpoint));
         vm.stopBroadcast();
     }
 }
