@@ -1411,9 +1411,12 @@ contract ClustersTest is Test {
         );
     }
 
-    function testSetDefaultClusterNameUpdate(bytes32 callerSalt, string memory name1, string memory name2, uint256 buyAmount)
-        public
-    {
+    function testSetDefaultClusterNameUpdate(
+        bytes32 callerSalt,
+        string memory name1,
+        string memory name2,
+        uint256 buyAmount
+    ) public {
         vm.assume(bytes(name1).length > 0);
         vm.assume(bytes(name1).length <= 32);
         vm.assume(bytes(name2).length > 0);
@@ -1473,7 +1476,9 @@ contract ClustersTest is Test {
         );
     }
 
-    function testSetDefaultClusterNameRevertLongName(bytes32 callerSalt, string memory name_, uint256 buyAmount) public {
+    function testSetDefaultClusterNameRevertLongName(bytes32 callerSalt, string memory name_, uint256 buyAmount)
+        public
+    {
         vm.assume(bytes(name_).length > 32);
         address caller = _bytesToAddress(callerSalt);
         buyAmount = bound(buyAmount, minPrice, 10 ether);
