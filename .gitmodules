@@ -10,3 +10,9 @@
 [submodule "lib/solady"]
 	path = lib/solady
 	url = https://github.com/Vectorized/solady
+[submodule "lib/LayerZero"]
+	path = lib/LayerZero
+	url = https://github.com/LayerZero-Labs/LayerZero
+[submodule "lib/solidity-bytes-utils"]
+	path = lib/solidity-bytes-utils
+	url = https://github.com/GNSPS/solidity-bytes-utils

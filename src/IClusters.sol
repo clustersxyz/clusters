@@ -22,7 +22,7 @@ interface IClusters {
     event BuyName(string indexed name, uint256 indexed clusterId);
     event FundName(string indexed name, address indexed funder, uint256 indexed amount);
     event TransferName(bytes32 indexed name, uint256 indexed fromClusterId, uint256 indexed toClusterId);
-    event PokeName(string indexed name, address indexed poker);
+    event PokeName(string indexed name);
     event CanonicalName(string indexed name, uint256 indexed clusterId);
     event WalletName(string indexed walletname, address indexed wallet);
 
@@ -95,7 +95,6 @@ interface IClusters {
     function transferName(string memory name, uint256 toClusterId) external payable;
     function transferName(address msgSender, string memory name, uint256 toClusterId) external payable;
     function pokeName(string memory name) external payable;
-    function pokeName(address msgSender, string memory name) external payable;
 
     function bidName(uint256 msgValue, string memory name) external payable;
     function bidName(address msgSender, uint256 msgValue, string memory name) external payable;
@@ -107,6 +106,6 @@ interface IClusters {
 
     function setCanonicalName(string memory name) external payable;
     function setCanonicalName(address msgSender, string memory name) external payable;
-    function setWalletName(address addr, string memory walletname) external payable;
-    function setWalletName(address msgSender, address addr, string memory walletname) external payable;
+    function setWalletName(address addr, string memory walletName) external payable;
+    function setWalletName(address msgSender, address addr, string memory walletName) external payable;
 }

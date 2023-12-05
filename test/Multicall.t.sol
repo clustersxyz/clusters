@@ -17,12 +17,13 @@ contract MulticallTest is Test {
     uint256 secondsAfterCreation = 1000 * 365 days;
     uint256 minPrice;
 
+    address constant LZENDPOINT = address(uint160(uint256(keccak256(abi.encode("lzEndpoint")))));
     address constant PRANKED_ADDRESS = address(13);
     string constant NAME = "Test Name";
 
     function setUp() public {
         pricing = new PricingHarberger();
-        endpoint = new Endpoint();
+        endpoint = new Endpoint(LZENDPOINT);
         clusters = new Clusters(address(pricing), address(endpoint));
         minPrice = pricing.minAnnualPrice();
         vm.deal(address(this), 1 ether);
