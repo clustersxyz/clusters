@@ -90,7 +90,7 @@ abstract contract NameManagerMain is IClusters {
         if (addressToClusterId[addr] != nameToClusterId[_toBytes32(name)]) revert Unauthorized();
     }
 
-    /// @notice Used to restrict external functions to
+    /// @notice Used to restrict external functions to endpoint
     modifier onlyEndpoint(address msgSender) {
         if (msg.sender != msgSender && msg.sender != endpoint) revert Unauthorized();
         _;

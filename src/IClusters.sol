@@ -84,11 +84,11 @@ interface IClusters {
 
     function multicall(bytes[] calldata data) external payable returns (bytes[] memory results);
 
-    function create() external payable;
+    function create() external payable returns (bytes memory);
     function create(address msgSender) external payable;
-    function add(address addr) external payable;
+    function add(address addr) external payable returns (bytes memory);
     function add(address msgSender, address addr) external payable;
-    function remove(address addr) external payable;
+    function remove(address addr) external payable returns (bytes memory);
     function remove(address msgSender, address addr) external payable;
 
     function buyName(uint256 msgValue, string memory name) external payable;

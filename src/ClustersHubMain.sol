@@ -62,16 +62,19 @@ contract ClustersHubMain is NameManagerMain {
         IEndpoint(endpoint).lzSend(11111, msg.sender, payload, msg.value, bytes(""));
     }
 
-    function create() external payable {
+    function create() external payable returns (bytes memory payload) {
         create(msg.sender);
+        return bytes("");
     }
 
-    function add(address addr) external payable {
+    function add(address addr) external payable returns (bytes memory payload) {
         add(msg.sender, addr);
+        return bytes("");
     }
 
-    function remove(address addr) external payable {
+    function remove(address addr) external payable returns (bytes memory payload) {
         remove(msg.sender, addr);
+        return bytes("");
     }
 
     function clusterAddresses(uint256 clusterId) external view returns (address[] memory) {
