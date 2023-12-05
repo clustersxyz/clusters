@@ -66,8 +66,7 @@ contract Clusters is NameManager {
     /// PUBLIC FUNCTIONS ///
 
     function create(address msgSender) public payable onlyEndpoint(msgSender) {
-        _add(msgSender, nextClusterId);
-        emit Create(nextClusterId++);
+        _add(msgSender, nextClusterId++);
     }
 
     function add(address msgSender, address addr) public payable onlyEndpoint(msgSender) {

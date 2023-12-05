@@ -19,7 +19,6 @@ interface IClusters {
 
     /// EVENTS ///
 
-    event Create(uint256 indexed clusterId);
     event Add(uint256 indexed clusterId, address indexed addr);
     event Remove(uint256 indexed clusterId, address indexed addr);
 
