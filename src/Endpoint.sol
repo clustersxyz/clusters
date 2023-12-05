@@ -94,8 +94,10 @@ contract Endpoint is Ownable, ILayerZeroReceiver {
         uint256 nativeFee,
         bytes memory adapterParams
     ) external payable onlyClusters {
+        bytes memory trustedRemote = lzTrustedRemotes[dstChainId];
+        if (trustedRemote.length == 0) revert NoTrustedRemote();
         ILayerZeroEndpoint(lzEndpoint).send{value: nativeFee}(
-            dstChainId, lzTrustedRemotes[dstChainId], payload, payable(msg.sender), zroPaymentAddress, adapterParams
+            dstChainId, trustedRemote, payload, payable(msg.sender), zroPaymentAddress, adapterParams
         );
     }
 

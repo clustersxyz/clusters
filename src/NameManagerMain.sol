@@ -9,12 +9,8 @@ import {IClusters} from "./interfaces/IClusters.sol";
 
 /// @notice The bidding, accepting, eth storing component of Clusters. Handles name assignment
 ///         to cluster ids and checks auth of cluster membership before acting on one of its names
-abstract contract NameManager is IClusters {
-    using EnumerableSetLib for EnumerableSetLib.Bytes32Set;
-
-    address public immutable endpoint;
-
-    uint256 internal immutable marketOpenTimestamp;
+abstract contract NameManagerMain is IClusters {
+    using EnumerableSet for EnumerableSet.Bytes32Set;
 
     address public immutable endpoint;
 

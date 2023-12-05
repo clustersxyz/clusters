@@ -1,20 +1,24 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {Base_Test} from "./Base.t.sol";
+import {Test, console2} from "../lib/forge-std/src/Test.sol";
+import {ClustersHubMain, NameManagerMain} from "../src/ClustersHubMain.sol";
+import {PricingHarberger} from "../src/PricingHarberger.sol";
+import {Endpoint} from "../src/Endpoint.sol";
+import {IClusters} from "../src/IClusters.sol";
 
 contract GasBenchmarkTest is Test {
     address constant LZENDPOINT = address(uint160(uint256(keccak256(abi.encode("lzEndpoint")))));
 
     PricingHarberger public pricing;
     Endpoint public endpoint;
-    Clusters public clusters;
+    ClustersHubMain public clusters;
     uint256 public minPrice;
 
     function setUp() public {
         pricing = new PricingHarberger();
         endpoint = new Endpoint(LZENDPOINT);
-        clusters = new Clusters(address(pricing), address(endpoint));
+        clusters = new ClustersHubMain(address(pricing), address(endpoint));
         minPrice = pricing.minAnnualPrice();
         vm.deal(address(this), 1 ether);
     }
