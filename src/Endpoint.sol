@@ -103,14 +103,12 @@ contract Endpoint is Ownable, ILayerZeroReceiver {
     }
 
     function addTrustedRemote(uint16 dstChainId_, address addr) external onlyOwner {
-        if (!_dstChainIds.contains(dstChainId_)) _dstChainIds.add(dstChainId_);
-        else return;
+        if (!_dstChainIds.contains(dstChainId_) && dstChainId_ != 101) _dstChainIds.add(dstChainId_);
         lzTrustedRemotes[dstChainId_] = abi.encodePacked(addr, address(this));
     }
 
     function removeTrustedRemote(uint16 dstChainId_) external onlyOwner {
-        if (!_dstChainIds.contains(dstChainId_)) _dstChainIds.remove(dstChainId_);
-        else return;
+        if (!_dstChainIds.contains(dstChainId_) && dstChainId_ != 101) _dstChainIds.remove(dstChainId_);
         delete lzTrustedRemotes[dstChainId_];
     }
 }
