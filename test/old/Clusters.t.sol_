@@ -46,11 +46,10 @@ contract ClustersHubTest is Test {
     }
 
     function postSetUp() public {
-        vm.chainId(1);
         endpoint101.setClustersAddr(address(clusters101));
+        endpoint101.setDstChainId(111);
         endpoint101.addTrustedRemote(111, address(endpoint111));
         endpoint101.addTrustedRemote(184, address(endpoint184));
-        endpoint101.setDstChainId(111);
         endpoint111.setClustersAddr(address(clusters111));
         endpoint111.addTrustedRemote(101, address(endpoint101));
         endpoint111.addTrustedRemote(184, address(endpoint184));
