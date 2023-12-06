@@ -57,6 +57,12 @@ contract ClustersHubTest is Test {
         endpoint184.setClustersAddr(address(clusters184));
         endpoint184.addTrustedRemote(101, address(endpoint101));
         endpoint184.addTrustedRemote(111, address(endpoint111));
+        lz101.setDestLzEndpoint(address(endpoint111), address(lz111));
+        lz101.setDestLzEndpoint(address(endpoint184), address(lz184));
+        lz111.setDestLzEndpoint(address(endpoint101), address(lz101));
+        lz111.setDestLzEndpoint(address(endpoint184), address(lz184));
+        lz184.setDestLzEndpoint(address(endpoint101), address(lz101));
+        lz184.setDestLzEndpoint(address(endpoint111), address(lz111));
     }
 
     receive() external payable {}

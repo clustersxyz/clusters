@@ -13,6 +13,7 @@ contract Endpoint is Ownable, ILayerZeroReceiver {
     using EnumerableSet for EnumerableSet.UintSet;
 
     error TxFailed();
+    error RelayChainId();
     error InvalidArray();
     error InvalidSender();
     error InvalidTrustedRemote();
@@ -108,6 +109,7 @@ contract Endpoint is Ownable, ILayerZeroReceiver {
     }
 
     function removeTrustedRemote(uint16 dstChainId_) external onlyOwner {
+        if (dstChainId_ == dstChainId) revert RelayChainId();
         if (!_dstChainIds.contains(dstChainId_) && dstChainId_ != 101) _dstChainIds.remove(dstChainId_);
         delete lzTrustedRemotes[dstChainId_];
     }
