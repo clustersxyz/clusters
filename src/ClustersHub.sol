@@ -63,14 +63,22 @@ contract ClustersHub is NameManagerHub {
     }
 
     function create() public payable returns (bytes memory payload) {
+        if (addressToClusterId[msg.sender] != 0) revert Registered();
         return create(msg.sender);
     }
 
     function add(address addr) public payable returns (bytes memory payload) {
+        _checkZeroCluster(msg.sender);
+        if (addressToClusterId[addr] != 0) revert Registered();
         return add(msg.sender, addr);
     }
 
     function remove(address addr) public payable returns (bytes memory payload) {
+        _checkZeroCluster(msg.sender);
+        uint256 clusterId = addressToClusterId[addr];
+        if (addressToClusterId[msg.sender] != clusterId) revert Unauthorized();
+        // If the cluster has valid names, prevent removing final address, regardless of what is supplied for addr
+        if (_clusterNames[clusterId].length() > 0 && _clusterAddresses[clusterId].length() == 1) revert Invalid();
         return remove(msg.sender, addr);
     }
 
@@ -94,8 +102,6 @@ contract ClustersHub is NameManagerHub {
         onlyEndpoint(msgSender)
         returns (bytes memory payload)
     {
-        _checkZeroCluster(msgSender);
-        if (addressToClusterId[addr] != 0) revert Registered();
         _add(addr, addressToClusterId[msgSender]);
 
         payload = abi.encodeWithSignature("add(address,address)", msg.sender, addr);
@@ -109,8 +115,6 @@ contract ClustersHub is NameManagerHub {
         onlyEndpoint(msgSender)
         returns (bytes memory payload)
     {
-        _checkZeroCluster(msgSender);
-        if (addressToClusterId[msgSender] != addressToClusterId[addr]) revert Unauthorized();
         _remove(addr);
 
         payload = abi.encodeWithSignature("remove(address,address)", msg.sender, addr);
@@ -120,8 +124,9 @@ contract ClustersHub is NameManagerHub {
 
     /// INTERNAL FUNCTIONS ///
 
-    function _add(bytes32 addr, uint256 clusterId) internal {
-        _unverifiedAddresses[clusterId].add(addr);
+    function _add(address addr, uint256 clusterId) internal {
+        addressToClusterId[addr] = clusterId;
+        _clusterAddresses[clusterId].add(addr);
         emit Add(clusterId, addr);
     }
 
