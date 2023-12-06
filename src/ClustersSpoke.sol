@@ -69,7 +69,7 @@ contract ClustersHub is NameManagerSpoke {
             }
 
             bytes memory payload = abi.encodeWithSignature("multicall(bytes[])", results);
-            IEndpoint(endpoint).lzSend(101, msg.sender, payload, msg.value, bytes(""));
+            IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
             _inMulticall = false;
         }
     }
@@ -77,19 +77,19 @@ contract ClustersHub is NameManagerSpoke {
     function create() public payable returns (bytes memory payload) {
         payload = abi.encodeWithSignature("create(address)", msg.sender);
         if (_inMulticall) return payload;
-        else IEndpoint(endpoint).lzSend(101, msg.sender, payload, msg.value, bytes(""));
+        else IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
     }
 
     function add(address addr) public payable returns (bytes memory payload) {
         payload = abi.encodeWithSignature("add(address,address)", msg.sender, addr);
         if (_inMulticall) return payload;
-        else IEndpoint(endpoint).lzSend(101, msg.sender, payload, msg.value, bytes(""));
+        else IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
     }
 
     function remove(address addr) public payable returns (bytes memory payload) {
         payload = abi.encodeWithSignature("remove(address,address)", msg.sender, addr);
         if (_inMulticall) return payload;
-        else IEndpoint(endpoint).lzSend(101, msg.sender, payload, msg.value, bytes(""));
+        else IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
     }
 
     function clusterAddresses(uint256 clusterId) external view returns (address[] memory) {
@@ -98,20 +98,23 @@ contract ClustersHub is NameManagerSpoke {
 
     /// ENDPOINT FUNCTIONS ///
 
-    function create(address msgSender) public payable onlyEndpoint {
+    function create(address msgSender) public payable onlyEndpoint returns (bytes memory) {
         _add(msgSender, nextClusterId++);
+        return bytes("");
     }
 
-    function add(address msgSender, address addr) public payable onlyEndpoint {
+    function add(address msgSender, address addr) public payable onlyEndpoint returns (bytes memory) {
         _checkZeroCluster(msgSender);
         if (addressToClusterId[addr] != 0) revert Registered();
         _add(addr, addressToClusterId[msgSender]);
+        return bytes("");
     }
 
-    function remove(address msgSender, address addr) public payable onlyEndpoint {
+    function remove(address msgSender, address addr) public payable onlyEndpoint returns (bytes memory) {
         _checkZeroCluster(msgSender);
         if (addressToClusterId[msgSender] != addressToClusterId[addr]) revert Unauthorized();
         _remove(addr);
+        return bytes("");
     }
 
     /// INTERNAL FUNCTIONS ///

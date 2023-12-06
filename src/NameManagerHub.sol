@@ -5,7 +5,7 @@ import {EnumerableSet} from "../lib/openzeppelin-contracts/contracts/utils/struc
 
 import {IPricing} from "./IPricing.sol";
 
-import {IClusters} from "./IClusters.sol";
+import {IClusters, IEndpoint} from "./IClusters.sol";
 
 import {console2} from "../lib/forge-std/src/Test.sol";
 
@@ -15,6 +15,8 @@ abstract contract NameManagerHub is IClusters {
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
     address public immutable endpoint;
+
+    bool internal _inMulticall;
 
     uint256 internal constant BID_TIMELOCK = 30 days;
 
@@ -130,13 +132,18 @@ abstract contract NameManagerHub is IClusters {
 
     /// @notice Buy unregistered name. Must pay at least minimum yearly payment.
     /// @dev Processing is handled in overload
-    function buyName(uint256 msgValue, string memory name) public payable returns (bytes memory payload) {
+    function buyName(uint256 msgValue, string memory name) public payable returns (bytes memory) {
         buyName(msg.sender, msgValue, name);
         return bytes("");
     }
 
     /// @notice buyName() overload used by endpoint, msgSender must be msg.sender or endpoint
-    function buyName(address msgSender, uint256 msgValue, string memory name) public payable onlyEndpoint(msgSender) {
+    function buyName(address msgSender, uint256 msgValue, string memory name)
+        public
+        payable
+        onlyEndpoint(msgSender)
+        returns (bytes memory payload)
+    {
         _checkNameValid(name);
         _checkZeroCluster(msgSender);
         bytes32 _name = _toBytes32(name);
@@ -157,17 +164,26 @@ abstract contract NameManagerHub is IClusters {
         emit BuyName(_name, clusterId, msgValue);
 
         _checkInvariant();
+
+        payload = abi.encodeWithSignature("buyName(address,uint256,string)", msg.sender, msgValue, name);
+        if (_inMulticall) return payload;
+        else IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
     }
 
     /// @notice Fund an existing and specific name, callable by anyone
     /// @dev Processing is handled in overload
-    function fundName(uint256 msgValue, string memory name) public payable returns (bytes memory payload) {
+    function fundName(uint256 msgValue, string memory name) public payable returns (bytes memory) {
         fundName(msg.sender, msgValue, name);
         return bytes("");
     }
 
     /// @notice fundName() overload used by endpoint, msgSender must be msg.sender or endpoint
-    function fundName(address msgSender, uint256 msgValue, string memory name) public payable onlyEndpoint(msgSender) {
+    function fundName(address msgSender, uint256 msgValue, string memory name)
+        public
+        payable
+        onlyEndpoint(msgSender)
+        returns (bytes memory payload)
+    {
         _checkNameValid(name);
         bytes32 _name = _toBytes32(name);
         if (nameToClusterId[_name] == 0) revert Unregistered();
@@ -176,11 +192,15 @@ abstract contract NameManagerHub is IClusters {
         emit FundName(_name, msgSender, msgValue);
 
         _checkInvariant();
+
+        payload = abi.encodeWithSignature("fundName(address,uint256,string)", msg.sender, msgValue, name);
+        if (_inMulticall) return payload;
+        else IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
     }
 
     /// @notice Move name from one cluster to another without payment
     /// @dev Processing is handled in overload
-    function transferName(string memory name, uint256 toClusterId) public payable returns (bytes memory payload) {
+    function transferName(string memory name, uint256 toClusterId) public payable returns (bytes memory) {
         transferName(msg.sender, name, toClusterId);
         return bytes("");
     }
@@ -190,6 +210,7 @@ abstract contract NameManagerHub is IClusters {
         public
         payable
         onlyEndpoint(msgSender)
+        returns (bytes memory payload)
     {
         _checkNameValid(name);
         _checkZeroCluster(msgSender);
@@ -198,6 +219,10 @@ abstract contract NameManagerHub is IClusters {
         if (toClusterId >= nextClusterId) revert Unregistered();
         uint256 clusterId = addressToClusterId[msgSender];
         _transferName(_name, clusterId, toClusterId);
+
+        payload = abi.encodeWithSignature("transferName(address,string,uint256)", msg.sender, name, toClusterId);
+        if (_inMulticall) return payload;
+        else IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
     }
 
     /// @dev Transfer cluster name or delete cluster name without checking auth
@@ -263,7 +288,9 @@ abstract contract NameManagerHub is IClusters {
             });
             emit PokeName(_name);
         }
-        return bytes("");
+        payload = abi.encodeWithSignature("pokeName(string)", name);
+        if (_inMulticall) return payload;
+        else IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
     }
 
     /// @notice Place bids on valid names. Subsequent calls increases existing bid. If name is expired update ownership.
@@ -272,13 +299,18 @@ abstract contract NameManagerHub is IClusters {
     /// @dev Should work smoothly for fully expired names and names partway through their duration
     /// @dev Needs to be onchain ETH bid escrowed in one place because otherwise prices shift
     /// @dev Processing is handled in overload
-    function bidName(uint256 msgValue, string memory name) public payable returns (bytes memory payload) {
+    function bidName(uint256 msgValue, string memory name) public payable returns (bytes memory) {
         bidName(msg.sender, msgValue, name);
         return bytes("");
     }
 
     /// @notice bidName() overload used in endpoint, msgSender must be msg.sender or endpoint
-    function bidName(address msgSender, uint256 msgValue, string memory name) public payable onlyEndpoint(msgSender) {
+    function bidName(address msgSender, uint256 msgValue, string memory name)
+        public
+        payable
+        onlyEndpoint(msgSender)
+        returns (bytes memory payload)
+    {
         _checkNameValid(name);
         _checkZeroCluster(msgSender);
         if (msgValue == 0) revert NoBid();
@@ -323,17 +355,26 @@ abstract contract NameManagerHub is IClusters {
         pokeName(name);
 
         _checkInvariant();
+
+        payload = abi.encodeWithSignature("bidName(address,uint256,string)", msg.sender, msgValue, name);
+        if (_inMulticall) return payload;
+        else IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
     }
 
     /// @notice Reduce bid and refund difference. Revoke if amount is the total bid or is the max uint256 value.
     /// @dev Processing is handled in overload
-    function reduceBid(string memory name, uint256 amount) public payable returns (bytes memory payload) {
+    function reduceBid(string memory name, uint256 amount) public payable returns (bytes memory) {
         reduceBid(msg.sender, name, amount);
         return bytes("");
     }
 
     /// @notice reduceBid() overload used by endpoint, msgSender must be msg.sender or endpoint
-    function reduceBid(address msgSender, string memory name, uint256 amount) public payable onlyEndpoint(msgSender) {
+    function reduceBid(address msgSender, string memory name, uint256 amount)
+        public
+        payable
+        onlyEndpoint(msgSender)
+        returns (bytes memory payload)
+    {
         _checkNameValid(name);
         bytes32 _name = _toBytes32(name);
         uint256 bid = bids[_name].ethAmount;
@@ -347,7 +388,7 @@ abstract contract NameManagerHub is IClusters {
         // Poke name to update backing and ownership (if required) prior to bid adjustment
         pokeName(name);
         // Short circuit if pokeName() processed transfer to bidder due to name expiry
-        if (bids[_name].ethAmount == 0) return;
+        if (bids[_name].ethAmount == 0) return bytes("");
 
         // Revert if reduction will push bid beneath minAnnualPrice
         uint256 diff = bid - amount;
@@ -372,12 +413,16 @@ abstract contract NameManagerHub is IClusters {
         // This bid refund reverts upon failure because it isn't happening in a forced context such as being outbid
         (bool success,) = payable(msgSender).call{value: amount}("");
         if (!success) revert NativeTokenTransferFailed();
+
+        payload = abi.encodeWithSignature("reduceBid(address,string,uint256)", msg.sender, name, amount);
+        if (_inMulticall) return payload;
+        else IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
     }
 
     /// @notice Accept bid and transfer name to bidder
     /// @dev Retrieves bid, adjusts state, then sends payment to avoid reentrancy
     /// @dev Processing is handled in overload
-    function acceptBid(string memory name) public payable returns (bytes memory payload) {
+    function acceptBid(string memory name) public payable returns (bytes memory) {
         acceptBid(msg.sender, name);
         return bytes("");
     }
@@ -387,7 +432,7 @@ abstract contract NameManagerHub is IClusters {
         public
         payable
         onlyEndpoint(msgSender)
-        returns (uint256 bidAmount)
+        returns (bytes memory payload)
     {
         _checkNameValid(name);
         _checkZeroCluster(msgSender);
@@ -400,37 +445,49 @@ abstract contract NameManagerHub is IClusters {
         _transferName(_name, nameToClusterId[_name], addressToClusterId[bid.bidder]);
         (bool success,) = payable(msgSender).call{value: bid.ethAmount}("");
         if (!success) revert NativeTokenTransferFailed();
-        return bid.ethAmount;
+
+        payload = abi.encodeWithSignature("acceptBid(address,string)", msg.sender, name);
+        if (_inMulticall) return payload;
+        else IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
     }
 
     /// @notice Allow failed bid refunds to be withdrawn
     /// @dev Processing is handled in overload
-    function refundBid() public payable returns (bytes memory payload) {
+    function refundBid() public payable returns (bytes memory) {
         refundBid(msg.sender);
         return bytes("");
     }
 
     /// @notice acceptBid() overload used by endpoint, msgSender must be msg.sender or endpoint
-    function refundBid(address msgSender) public payable onlyEndpoint(msgSender) {
+    function refundBid(address msgSender) public payable onlyEndpoint(msgSender) returns (bytes memory payload) {
         uint256 refund = bidRefunds[msgSender];
         if (refund == 0) revert NoBid();
         delete bidRefunds[msgSender];
         totalBidBacking -= refund;
         (bool success,) = payable(msgSender).call{value: refund}("");
         if (!success) revert NativeTokenTransferFailed();
+
+        payload = abi.encodeWithSignature("refundBid(address)", msg.sender);
+        if (_inMulticall) return payload;
+        else IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
     }
 
     /// LOCAL NAME MANAGEMENT ///
 
     /// @notice Set canonical name or erase it by setting ""
     /// @dev Processing is handled in overload
-    function setDefaultClusterName(string memory name) public payable returns (bytes memory payload) {
+    function setDefaultClusterName(string memory name) public payable returns (bytes memory) {
         setDefaultClusterName(msg.sender, name);
         return bytes("");
     }
 
     /// @notice setDefaultClusterName() overload used by endpoint, msgSender must be msg.sender or endpoint
-    function setDefaultClusterName(address msgSender, string memory name) public payable onlyEndpoint(msgSender) {
+    function setDefaultClusterName(address msgSender, string memory name)
+        public
+        payable
+        onlyEndpoint(msgSender)
+        returns (bytes memory payload)
+    {
         if (bytes(name).length > 32) revert LongName();
         _checkZeroCluster(msgSender);
         _checkNameOwnership(msgSender, name);
@@ -443,11 +500,15 @@ abstract contract NameManagerHub is IClusters {
             defaultClusterName[clusterId] = _name;
             emit DefaultClusterName(_name, clusterId);
         }
+
+        payload = abi.encodeWithSignature("setDefaultClusterName(address,string)", msg.sender, name);
+        if (_inMulticall) return payload;
+        else IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
     }
 
     /// @notice Set wallet name for msg.sender or erase it by setting ""
     /// @dev Processing is handled in overload
-    function setWalletName(address addr, string memory walletName) public payable returns (bytes memory payload) {
+    function setWalletName(address addr, string memory walletName) public payable returns (bytes memory) {
         setWalletName(msg.sender, addr, walletName);
         return bytes("");
     }
@@ -457,6 +518,7 @@ abstract contract NameManagerHub is IClusters {
         public
         payable
         onlyEndpoint(msgSender)
+        returns (bytes memory payload)
     {
         if (bytes(walletName).length > 32) revert LongName();
         _checkZeroCluster(msgSender);
@@ -473,6 +535,10 @@ abstract contract NameManagerHub is IClusters {
             reverseLookup[addr] = _walletName;
             emit SetWalletName(_walletName, addr);
         }
+
+        payload = abi.encodeWithSignature("setWalletName(address,address,string)", msg.sender, addr, walletName);
+        if (_inMulticall) return payload;
+        else IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
     }
 
     /// @dev Set name-related state variables

@@ -5,20 +5,27 @@ import {Ownable} from "../lib/solady/src/auth/Ownable.sol";
 import {ILayerZeroReceiver} from "../lib/LayerZero/contracts/interfaces/ILayerZeroReceiver.sol";
 import {ILayerZeroEndpoint} from "../lib/LayerZero/contracts/interfaces/ILayerZeroEndpoint.sol";
 import {IClusters} from "./IClusters.sol";
+import {EnumerableSet} from "../lib/openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 
 // TODO: Make this a proxy contract to swap out logic, ownership can be reverted later
 
 contract Endpoint is Ownable, ILayerZeroReceiver {
+    using EnumerableSet for EnumerableSet.UintSet;
+
     error TxFailed();
     error InvalidArray();
     error InvalidSender();
-    error NoTrustedRemote();
+    error InvalidTrustedRemote();
 
     event SoftAbort();
 
+    uint256 internal constant LAYERZERO_GAS_FEE = 200000 gwei;
+
+    uint16 public dstChainId;
     address public clusters;
     address public immutable lzEndpoint;
     mapping(uint16 chainId => bytes remote) public lzTrustedRemotes;
+    EnumerableSet.UintSet internal _dstChainIds;
 
     modifier onlyLzEndpoint() {
         if (msg.sender != lzEndpoint) revert Unauthorized();
@@ -40,7 +47,21 @@ contract Endpoint is Ownable, ILayerZeroReceiver {
         else return false;
     }
 
-    function lzReceive(uint16 srcChainId, bytes calldata srcAddress, uint64, /*nonce*/ bytes calldata payload)
+    function _relayMessage(uint64, /*nonce*/ bytes calldata payload) internal {
+        uint256[] memory dstChainIds = _dstChainIds.values();
+        for (uint256 i; i < dstChainIds.length; ++i) {
+            ILayerZeroEndpoint(lzEndpoint).send{value: LAYERZERO_GAS_FEE}(
+                uint16(dstChainIds[i]),
+                lzTrustedRemotes[uint16(dstChainIds[i])],
+                payload,
+                payable(msg.sender),
+                msg.sender,
+                bytes("")
+            );
+        }
+    }
+
+    function lzReceive(uint16 srcChainId, bytes calldata srcAddress, uint64 nonce, bytes calldata payload)
         external
         onlyLzEndpoint
     {
@@ -49,21 +70,26 @@ contract Endpoint is Ownable, ILayerZeroReceiver {
             emit SoftAbort();
             return;
         }
+        // Only the relay chain will receive from Ethereum Mainnet, so if it does, relay to all other chains
+        if (srcChainId == 101) _relayMessage(nonce, payload);
         (bool success,) = clusters.call(payload);
         if (!success) revert TxFailed();
     }
 
-    function lzSend(
-        uint16 dstChainId,
-        address zroPaymentAddress,
-        bytes memory payload,
-        uint256 nativeFee,
-        bytes memory adapterParams
-    ) external payable onlyClusters {
-        bytes memory trustedRemote = lzTrustedRemotes[dstChainId];
-        if (trustedRemote.length == 0) revert NoTrustedRemote();
+    function lzSend(address zroPaymentAddress, bytes memory payload, uint256 nativeFee, bytes memory adapterParams)
+        external
+        payable
+        onlyClusters
+    {
+        // All endpoints only have one of two send paths: ETH -> Relay, Any -> ETH
+        // Path is determined by checking if native chainId is 1, which indicates Ethereum Mainnet
+        uint16 _dstChainId;
+        if (block.chainid == 1) _dstChainId = dstChainId;
+        else _dstChainId = 101;
+        bytes memory trustedRemote = lzTrustedRemotes[_dstChainId];
+        if (trustedRemote.length == 0) revert InvalidTrustedRemote();
         ILayerZeroEndpoint(lzEndpoint).send{value: nativeFee}(
-            dstChainId, trustedRemote, payload, payable(msg.sender), zroPaymentAddress, adapterParams
+            _dstChainId, trustedRemote, payload, payable(msg.sender), zroPaymentAddress, adapterParams
         );
     }
 
@@ -71,19 +97,20 @@ contract Endpoint is Ownable, ILayerZeroReceiver {
         clusters = clusters_;
     }
 
-    function setTrustedRemote(uint16 dstChainId, address addr, bool status) external onlyOwner {
-        if (status) lzTrustedRemotes[dstChainId] = abi.encodePacked(addr, address(this));
-        else delete lzTrustedRemotes[dstChainId];
+    function setDstChainId(uint16 dstChainId_) external onlyOwner {
+        if (!_dstChainIds.contains(dstChainId_)) revert InvalidTrustedRemote();
+        dstChainId = dstChainId_;
     }
 
-    function setTrustedRemotes(uint16[] memory dstChainId, address[] memory addr, bool[] memory status)
-        external
-        onlyOwner
-    {
-        if (dstChainId.length != addr.length || dstChainId.length != status.length) revert InvalidArray();
-        for (uint256 i; i < dstChainId.length; ++i) {
-            if (status[i]) lzTrustedRemotes[dstChainId[i]] = abi.encodePacked(addr[i], address(this));
-            else delete lzTrustedRemotes[dstChainId[i]];
-        }
+    function addTrustedRemote(uint16 dstChainId_, address addr) external onlyOwner {
+        if (!_dstChainIds.contains(dstChainId_)) _dstChainIds.add(dstChainId_);
+        else return;
+        lzTrustedRemotes[dstChainId_] = abi.encodePacked(addr, address(this));
+    }
+
+    function removeTrustedRemote(uint16 dstChainId_) external onlyOwner {
+        if (!_dstChainIds.contains(dstChainId_)) _dstChainIds.remove(dstChainId_);
+        else return;
+        delete lzTrustedRemotes[dstChainId_];
     }
 }

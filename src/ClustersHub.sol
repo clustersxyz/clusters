@@ -47,17 +47,17 @@ contract ClustersHub is NameManagerHub {
         _checkInvariant();
     }
 
-    function create() public payable returns (bytes memory payload) {
+    function create() public payable returns (bytes memory) {
         create(msg.sender);
         return bytes("");
     }
 
-    function add(address addr) public payable returns (bytes memory payload) {
+    function add(address addr) public payable returns (bytes memory) {
         add(msg.sender, addr);
         return bytes("");
     }
 
-    function remove(address addr) public payable returns (bytes memory payload) {
+    function remove(address addr) public payable returns (bytes memory) {
         remove(msg.sender, addr);
         return bytes("");
     }
@@ -68,20 +68,42 @@ contract ClustersHub is NameManagerHub {
 
     /// ENDPOINT FUNCTIONS ///
 
-    function create(address msgSender) public payable onlyEndpoint(msgSender) {
+    function create(address msgSender) public payable onlyEndpoint(msgSender) returns (bytes memory payload) {
         _add(msgSender, nextClusterId++);
+
+        payload = abi.encodeWithSignature("create(address)", msg.sender);
+        if (_inMulticall) return payload;
+        else IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
     }
 
-    function add(address msgSender, address addr) public payable onlyEndpoint(msgSender) {
+    function add(address msgSender, address addr)
+        public
+        payable
+        onlyEndpoint(msgSender)
+        returns (bytes memory payload)
+    {
         _checkZeroCluster(msgSender);
         if (addressToClusterId[addr] != 0) revert Registered();
         _add(addr, addressToClusterId[msgSender]);
+
+        payload = abi.encodeWithSignature("add(address,address)", msg.sender, addr);
+        if (_inMulticall) return payload;
+        else IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
     }
 
-    function remove(address msgSender, address addr) public payable onlyEndpoint(msgSender) {
+    function remove(address msgSender, address addr)
+        public
+        payable
+        onlyEndpoint(msgSender)
+        returns (bytes memory payload)
+    {
         _checkZeroCluster(msgSender);
         if (addressToClusterId[msgSender] != addressToClusterId[addr]) revert Unauthorized();
         _remove(addr);
+
+        payload = abi.encodeWithSignature("remove(address,address)", msg.sender, addr);
+        if (_inMulticall) return payload;
+        else IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
     }
 
     /// INTERNAL FUNCTIONS ///
