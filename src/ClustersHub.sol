@@ -34,32 +34,44 @@ contract ClustersHub is NameManagerHub {
     /// @dev For payable multicall to be secure, we cannot trust msg.value params in other external methods
     /// @dev Must instead do strict protocol invariant checking at the end of methods like Uniswap V2
     function multicall(bytes[] calldata data) external payable returns (bytes[] memory results) {
+        _inMulticall = true;
         results = new bytes[](data.length);
         bool success;
+        bytes4 multicallSig = bytes4(keccak256(bytes("multicall(bytes[])")));
 
         // Iterate through each call
-        for (uint256 i = 0; i < data.length; ++i) {
+        for (uint256 i; i < data.length; ++i) {
+            bytes memory currentCall = data[i];
+            // Check selector to block nested multicalls
+            bytes4 signature;
+            assembly {
+                signature := mload(add(currentCall, 32))
+            }
+            if (signature == multicallSig) {
+                revert MulticallFailed();
+            }
             //slither-disable-next-line calls-loop,delegatecall-loop
             (success, results[i]) = address(this).delegatecall(data[i]);
             if (!success) revert MulticallFailed();
         }
 
         _checkInvariant();
+
+        bytes memory payload = abi.encodeWithSignature("multicall(bytes[])", results);
+        IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
+        _inMulticall = false;
     }
 
-    function create() public payable returns (bytes memory) {
-        create(msg.sender);
-        return bytes("");
+    function create() public payable returns (bytes memory payload) {
+        return create(msg.sender);
     }
 
-    function add(address addr) public payable returns (bytes memory) {
-        add(msg.sender, addr);
-        return bytes("");
+    function add(address addr) public payable returns (bytes memory payload) {
+        return add(msg.sender, addr);
     }
 
-    function remove(address addr) public payable returns (bytes memory) {
-        remove(msg.sender, addr);
-        return bytes("");
+    function remove(address addr) public payable returns (bytes memory payload) {
+        return remove(msg.sender, addr);
     }
 
     function getUnverifiedAddresses(uint256 clusterId) external view returns (bytes32[] memory) {
