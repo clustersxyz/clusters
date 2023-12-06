@@ -47,15 +47,15 @@ contract Clusters is NameManager {
     }
 
     function create() external payable {
-        create(_addressToBytes32(msg.sender));
+        create(_addressToBytes(msg.sender));
     }
 
     function add(bytes32 addr) external payable {
-        add(_addressToBytes32(msg.sender), addr);
+        add(_addressToBytes(msg.sender), addr);
     }
 
     function remove(bytes32 addr) external payable {
-        remove(_addressToBytes32(msg.sender), addr);
+        remove(_addressToBytes(msg.sender), addr);
     }
 
     function clusterAddresses(uint256 clusterId) external view returns (bytes32[] memory) {

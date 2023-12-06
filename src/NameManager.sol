@@ -92,7 +92,7 @@ abstract contract NameManager is IClusters {
 
     /// @notice Used to restrict external functions to
     modifier onlyEndpoint(bytes32 msgSender) {
-        if (_addressToBytes32(msg.sender) != msgSender && msg.sender != endpoint) revert Unauthorized();
+        if (_addressToBytes(msg.sender) != msgSender && msg.sender != endpoint) revert Unauthorized();
         _;
     }
 
@@ -131,7 +131,7 @@ abstract contract NameManager is IClusters {
     /// @notice Buy unregistered name. Must pay at least minimum yearly payment.
     /// @dev Processing is handled in overload
     function buyName(uint256 msgValue, string memory name) external payable {
-        buyName(_addressToBytes32(msg.sender), msgValue, name);
+        buyName(_addressToBytes(msg.sender), msgValue, name);
     }
 
     /// @notice buyName() overload used by endpoint, msgSender must be msg.sender or endpoint
@@ -161,7 +161,7 @@ abstract contract NameManager is IClusters {
     /// @notice Fund an existing and specific name, callable by anyone
     /// @dev Processing is handled in overload
     function fundName(uint256 msgValue, string memory name) external payable {
-        fundName(_addressToBytes32(msg.sender), msgValue, name);
+        fundName(_addressToBytes(msg.sender), msgValue, name);
     }
 
     /// @notice fundName() overload used by endpoint, msgSender must be msg.sender or endpoint
@@ -179,7 +179,7 @@ abstract contract NameManager is IClusters {
     /// @notice Move name from one cluster to another without payment
     /// @dev Processing is handled in overload
     function transferName(string memory name, uint256 toClusterId) external payable {
-        transferName(_addressToBytes32(msg.sender), name, toClusterId);
+        transferName(_addressToBytes(msg.sender), name, toClusterId);
     }
 
     /// @notice transferName() overload used by endpoint, msgSender must be msg.sender or endpoint
@@ -222,7 +222,7 @@ abstract contract NameManager is IClusters {
     ///         sufficient bidder. If no bids above yearly minimum, delete name registration.
     /// @dev Processing is handled in overload
     function pokeName(string memory name) external payable {
-        pokeName(_addressToBytes32(msg.sender), name);
+        pokeName(_addressToBytes(msg.sender), name);
     }
 
     /// @notice pokeName() overload used by endpoint, msgSender must be msg.sender or endpoint
@@ -275,7 +275,7 @@ abstract contract NameManager is IClusters {
     /// @dev Needs to be onchain ETH bid escrowed in one place because otherwise prices shift
     /// @dev Processing is handled in overload
     function bidName(uint256 msgValue, string memory name) external payable {
-        bidName(_addressToBytes32(msg.sender), msgValue, name);
+        bidName(_addressToBytes(msg.sender), msgValue, name);
     }
 
     /// @notice bidName() overload used in endpoint, msgSender must be msg.sender or endpoint
@@ -311,7 +311,7 @@ abstract contract NameManager is IClusters {
             emit BidPlaced(_name, msgSender, msgValue);
             // Process bid refund if there is one. Store balance for recipient if transfer fails instead of reverting.
             if (prevBid > 0) {
-                (bool success,) = payable(_bytes32ToAddress(prevBidder)).call{value: prevBid}("");
+                (bool success,) = payable(_bytesToAddress(prevBidder)).call{value: prevBid}("");
                 if (!success) {
                     bidRefunds[prevBidder] += prevBid;
                 } else {
@@ -329,7 +329,7 @@ abstract contract NameManager is IClusters {
     /// @notice Reduce bid and refund difference. Revoke if amount is the total bid or is the max uint256 value.
     /// @dev Processing is handled in overload
     function reduceBid(string memory name, uint256 amount) external payable {
-        reduceBid(_addressToBytes32(msg.sender), name, amount);
+        reduceBid(_addressToBytes(msg.sender), name, amount);
     }
 
     /// @notice reduceBid() overload used by endpoint, msgSender must be msg.sender or endpoint
@@ -370,7 +370,7 @@ abstract contract NameManager is IClusters {
 
         // Transfer bid reduction after all state is purged to prevent reentrancy
         // This bid refund reverts upon failure because it isn't happening in a forced context such as being outbid
-        (bool success,) = payable(_bytes32ToAddress(msgSender)).call{value: amount}("");
+        (bool success,) = payable(_bytesToAddress(msgSender)).call{value: amount}("");
         if (!success) revert NativeTokenTransferFailed();
     }
 
@@ -378,7 +378,7 @@ abstract contract NameManager is IClusters {
     /// @dev Retrieves bid, adjusts state, then sends payment to avoid reentrancy
     /// @dev Processing is handled in overload
     function acceptBid(string memory name) external payable returns (uint256 bidAmount) {
-        return acceptBid(_addressToBytes32(msg.sender), name);
+        return acceptBid(_addressToBytes(msg.sender), name);
     }
 
     /// @notice acceptBid() overload used by endpoint, msgSender must be msg.sender or endpoint
@@ -397,13 +397,13 @@ abstract contract NameManager is IClusters {
         delete bids[_name];
         totalBidBacking -= bid.ethAmount;
         _transferName(_name, nameToClusterId[_name], addressToClusterId[bid.bidder]);
-        (bool success,) = payable(_bytes32ToAddress(msgSender)).call{value: bid.ethAmount}("");
+        (bool success,) = payable(_bytesToAddress(msgSender)).call{value: bid.ethAmount}("");
         if (!success) revert NativeTokenTransferFailed();
         return bid.ethAmount;
     }
 
     function refundBid() public payable {
-        refundBid(_addressToBytes32(msg.sender));
+        refundBid(_addressToBytes(msg.sender));
     }
 
     /// @notice Allow failed bid refunds to be withdrawn
@@ -413,7 +413,7 @@ abstract contract NameManager is IClusters {
         if (refund == 0) revert NoBid();
         delete bidRefunds[msgSender];
         totalBidBacking -= refund;
-        (bool success,) = payable(_bytes32ToAddress(msgSender)).call{value: refund}("");
+        (bool success,) = payable(_bytesToAddress(msgSender)).call{value: refund}("");
         if (!success) revert NativeTokenTransferFailed();
     }
 
@@ -422,7 +422,7 @@ abstract contract NameManager is IClusters {
     /// @notice Set canonical name or erase it by setting ""
     /// @dev Processing is handled in overload
     function setDefaultClusterName(string memory name) external payable {
-        setDefaultClusterName(_addressToBytes32(msg.sender), name);
+        setDefaultClusterName(_addressToBytes(msg.sender), name);
     }
 
     /// @notice setDefaultClusterName() overload used by endpoint, msgSender must be msg.sender or endpoint
@@ -444,7 +444,7 @@ abstract contract NameManager is IClusters {
     /// @notice Set wallet name for msg.sender or erase it by setting ""
     /// @dev Processing is handled in overload
     function setWalletName(bytes32 addr, string memory walletName) external payable {
-        setWalletName(_addressToBytes32(msg.sender), addr, walletName);
+        setWalletName(_addressToBytes(msg.sender), addr, walletName);
     }
 
     /// @notice setWalletName() overload used by endpoint, msgSender must be msg.sender or endpoint
@@ -515,12 +515,12 @@ abstract contract NameManager is IClusters {
     }
 
     /// @dev Returns bytes32 representation of address
-    function _addressToBytes32(address addr) internal pure returns (bytes32) {
+    function _addressToBytes(address addr) internal pure returns (bytes32) {
         return bytes32(uint256(uint160(addr)));
     }
 
     /// @dev Returns address representation of bytes32
-    function _bytes32ToAddress(bytes32 addr) internal pure returns (address) {
+    function _bytesToAddress(bytes32 addr) internal pure returns (address) {
         return address(uint160(uint256(addr)));
     }
 }
