@@ -47,17 +47,17 @@ contract ClustersHub is NameManagerHub {
         _checkInvariant();
     }
 
-    function create() public payable returns (bytes memory payload) {
+    function create() public payable returns (bytes memory) {
         create(msg.sender);
         return bytes("");
     }
 
-    function add(address addr) public payable returns (bytes memory payload) {
+    function add(address addr) public payable returns (bytes memory) {
         add(msg.sender, addr);
         return bytes("");
     }
 
-    function remove(address addr) public payable returns (bytes memory payload) {
+    function remove(address addr) public payable returns (bytes memory) {
         remove(msg.sender, addr);
         return bytes("");
     }
@@ -68,42 +68,42 @@ contract ClustersHub is NameManagerHub {
 
     /// ENDPOINT FUNCTIONS ///
 
-    function create(address msgSender) public payable onlyEndpoint(msgSender) {
+    function create(address msgSender) public payable onlyEndpoint(msgSender) returns (bytes memory payload) {
         _add(msgSender, nextClusterId++);
+
+        payload = abi.encodeWithSignature("create(address)", msg.sender);
+        if (_inMulticall) return payload;
+        else IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
     }
 
-    /// ENDPOINT FUNCTIONS ///
+    function add(address msgSender, address addr)
+        public
+        payable
+        onlyEndpoint(msgSender)
+        returns (bytes memory payload)
+    {
+        _checkZeroCluster(msgSender);
+        if (addressToClusterId[addr] != 0) revert Registered();
+        _add(addr, addressToClusterId[msgSender]);
 
-    function add(bytes32 msgSender, bytes32 addr) public payable onlyEndpoint(msgSender) {
-        uint256 clusterId = addressToClusterId[msgSender];
-        if (clusterId == 0) revert NoCluster();
-        if (_verifiedAddresses[clusterId].contains(addr)) revert Registered();
-        _add(addr, clusterId);
+        payload = abi.encodeWithSignature("add(address,address)", msg.sender, addr);
+        if (_inMulticall) return payload;
+        else IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
     }
 
-    function verify(bytes32 msgSender, uint256 clusterId) public payable onlyEndpoint(msgSender) {
-        if (!_unverifiedAddresses[clusterId].contains(msgSender)) revert Unauthorized();
-        uint256 currentClusterId = addressToClusterId[msgSender];
-        if (currentClusterId != 0) {
-            // If msgSender is the last address in their cluster, take all of their names with them
-            if (_verifiedAddresses[currentClusterId].length() == 1) {
-                bytes32[] memory names = _clusterNames[currentClusterId].values();
-                for (uint256 i; i < names.length; ++i) {
-                    _transferName(names[i], currentClusterId, clusterId);
-                }
-            }
-            _remove(msgSender);
-        }
-        _verify(msgSender, clusterId);
-    }
-
-    function remove(bytes32 msgSender, bytes32 addr) public payable onlyEndpoint(msgSender) {
-        uint256 clusterId = addressToClusterId[msgSender];
-        if (clusterId == 0) revert NoCluster();
-        if (clusterId != addressToClusterId[addr]) revert Unauthorized();
-        // If the cluster has valid names, prevent removing final address, regardless of what is supplied for addr
-        if (_clusterNames[clusterId].length() > 0 && _verifiedAddresses[clusterId].length() == 1) revert Invalid();
+    function remove(address msgSender, address addr)
+        public
+        payable
+        onlyEndpoint(msgSender)
+        returns (bytes memory payload)
+    {
+        _checkZeroCluster(msgSender);
+        if (addressToClusterId[msgSender] != addressToClusterId[addr]) revert Unauthorized();
         _remove(addr);
+
+        payload = abi.encodeWithSignature("remove(address,address)", msg.sender, addr);
+        if (_inMulticall) return payload;
+        else IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
     }
 
     /// INTERNAL FUNCTIONS ///
