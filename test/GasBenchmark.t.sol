@@ -13,6 +13,14 @@ contract GasBenchmarkTest is Test {
     Clusters public clusters;
     uint256 public minPrice;
 
+    function _addressToBytes(address addr) internal pure returns (bytes32) {
+        return bytes32(uint256(uint160(addr)));
+    }
+
+    function _bytesToAddress(bytes32 _fuzzedBytes) internal pure returns (address) {
+        return address(uint160(uint256(keccak256(abi.encode(_fuzzedBytes)))));
+    }
+
     function setUp() public {
         pricing = new PricingHarberger();
         endpoint = new Endpoint();
@@ -21,22 +29,19 @@ contract GasBenchmarkTest is Test {
         vm.deal(address(this), 1 ether);
     }
 
-    function _bytesToAddress(bytes32 _fuzzedBytes) internal pure returns (address) {
-        return address(uint160(uint256(keccak256(abi.encode(_fuzzedBytes)))));
-    }
-
     function testBenchmark() public {
         bytes32 callerSalt = "caller";
         bytes32 addrSalt = "addr";
         bytes32 bidderSalt = "bidder";
         address caller = _bytesToAddress(callerSalt);
         address addr = _bytesToAddress(addrSalt);
+        bytes32 addrBytes = _addressToBytes(addr);
         address bidder = _bytesToAddress(bidderSalt);
 
         vm.startPrank(caller);
         vm.deal(caller, minPrice);
         clusters.create();
-        clusters.add(addr);
+        clusters.add(addrBytes);
         clusters.buyName{value: minPrice}(minPrice, "foobar");
         vm.stopPrank();
 

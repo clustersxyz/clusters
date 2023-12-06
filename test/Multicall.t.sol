@@ -47,22 +47,24 @@ contract MulticallTest is Test {
     function testMulticallCreateAdd(bytes32 callerSalt, bytes32 addrSalt) public {
         vm.assume(callerSalt != addrSalt);
         address caller = _bytesToAddress(callerSalt);
+        bytes32 callerBytes = _addressToBytes(caller);
         address addr = _bytesToAddress(addrSalt);
+        bytes32 addrBytes = _addressToBytes(addr);
 
         bytes[] memory data = new bytes[](2);
         data[0] = abi.encodeWithSignature("create()");
-        data[1] = abi.encodeWithSignature("add(address)", addr);
+        data[1] = abi.encodeWithSignature("add(bytes32)", addrBytes);
 
         vm.prank(caller);
         clusters.multicall(data);
 
-        address[] memory addresses = clusters.clusterAddresses(1);
+        bytes32[] memory addresses = clusters.clusterAddresses(1);
         assertEq(clusters.nextClusterId(), 2, "nextClusterId not incremented");
         assertEq(addresses.length, 2, "addresses array length error");
-        assertEq(addresses[0], caller, "clusterAddresses error");
-        assertEq(addresses[1], addr, "clusterAddresses error");
-        assertEq(clusters.addressToClusterId(caller), 1, "addressToClusterId error");
-        assertEq(clusters.addressToClusterId(addr), 1, "addressToClusterId error");
+        assertEq(addresses[0], callerBytes, "clusterAddresses error");
+        assertEq(addresses[1], addrBytes, "clusterAddresses error");
+        assertEq(clusters.addressToClusterId(callerBytes), 1, "addressToClusterId error");
+        assertEq(clusters.addressToClusterId(addrBytes), 1, "addressToClusterId error");
     }
 
     function testMulticallCreateBuy(bytes32 callerSalt, string memory name, uint256 buyAmount) public {
@@ -144,6 +146,10 @@ contract MulticallTest is Test {
             result |= bytes32(uint256(uint8(smallBytes[i + shift])) << (8 * (31 - i)));
         }
         return result;
+    }
+
+    function _addressToBytes(address addr) internal pure returns (bytes32) {
+        return bytes32(uint256(uint160(addr)));
     }
 
     function _bytesToAddress(bytes32 fuzzedBytes) internal pure returns (address) {

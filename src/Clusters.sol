@@ -21,11 +21,10 @@ import {console2} from "../lib/forge-std/src/Test.sol";
  */
 
 contract Clusters is NameManager {
-    using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
     /// @dev Enumerate all addresses in a cluster
-    mapping(uint256 clusterId => EnumerableSet.AddressSet addrs) internal _clusterAddresses;
+    mapping(uint256 clusterId => EnumerableSet.Bytes32Set addrs) internal _clusterAddresses;
 
     constructor(address pricing_, address endpoint_) NameManager(pricing_, endpoint_) {}
 
@@ -48,34 +47,34 @@ contract Clusters is NameManager {
     }
 
     function create() external payable {
-        create(msg.sender);
+        create(_addressToBytes(msg.sender));
     }
 
-    function add(address addr) external payable {
-        add(msg.sender, addr);
+    function add(bytes32 addr) external payable {
+        add(_addressToBytes(msg.sender), addr);
     }
 
-    function remove(address addr) external payable {
-        remove(msg.sender, addr);
+    function remove(bytes32 addr) external payable {
+        remove(_addressToBytes(msg.sender), addr);
     }
 
-    function clusterAddresses(uint256 clusterId) external view returns (address[] memory) {
+    function clusterAddresses(uint256 clusterId) external view returns (bytes32[] memory) {
         return _clusterAddresses[clusterId].values();
     }
 
     /// PUBLIC FUNCTIONS ///
 
-    function create(address msgSender) public payable onlyEndpoint(msgSender) {
+    function create(bytes32 msgSender) public payable onlyEndpoint(msgSender) {
         _add(msgSender, nextClusterId++);
     }
 
-    function add(address msgSender, address addr) public payable onlyEndpoint(msgSender) {
+    function add(bytes32 msgSender, bytes32 addr) public payable onlyEndpoint(msgSender) {
         _checkZeroCluster(msgSender);
         if (addressToClusterId[addr] != 0) revert Registered();
         _add(addr, addressToClusterId[msgSender]);
     }
 
-    function remove(address msgSender, address addr) public payable onlyEndpoint(msgSender) {
+    function remove(bytes32 msgSender, bytes32 addr) public payable onlyEndpoint(msgSender) {
         _checkZeroCluster(msgSender);
         if (addressToClusterId[msgSender] != addressToClusterId[addr]) revert Unauthorized();
         _remove(addr);
@@ -83,14 +82,14 @@ contract Clusters is NameManager {
 
     /// INTERNAL FUNCTIONS ///
 
-    function _add(address addr, uint256 clusterId) internal {
+    function _add(bytes32 addr, uint256 clusterId) internal {
         if (addressToClusterId[addr] != 0) revert Registered();
         addressToClusterId[addr] = clusterId;
         _clusterAddresses[clusterId].add(addr);
         emit Add(clusterId, addr);
     }
 
-    function _remove(address addr) internal {
+    function _remove(bytes32 addr) internal {
         uint256 clusterId = addressToClusterId[addr];
         // If the cluster has valid names, prevent removing final address, regardless of what is supplied for addr
         if (_clusterNames[clusterId].length() > 0 && _clusterAddresses[clusterId].length() == 1) revert Invalid();
@@ -102,9 +101,5 @@ contract Clusters is NameManager {
             delete reverseLookup[addr];
         }
         emit Remove(clusterId, addr);
-    }
-
-    function _addressToBytes32(address addr) internal pure returns (bytes32) {
-        return bytes32(uint256(uint160(addr)));
     }
 }

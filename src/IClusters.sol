@@ -14,26 +14,26 @@ interface IClusters {
     struct Bid {
         uint256 ethAmount;
         uint256 createdTimestamp;
-        address bidder;
+        bytes32 bidder;
     }
 
     /// EVENTS ///
 
-    event Add(uint256 indexed clusterId, address indexed addr);
-    event Remove(uint256 indexed clusterId, address indexed addr);
+    event Add(uint256 indexed clusterId, bytes32 indexed addr);
+    event Remove(uint256 indexed clusterId, bytes32 indexed addr);
 
     event BuyName(bytes32 indexed name, uint256 indexed clusterId, uint256 indexed amount);
-    event FundName(bytes32 indexed name, address indexed funder, uint256 indexed amount);
+    event FundName(bytes32 indexed name, bytes32 indexed funder, uint256 indexed amount);
     event TransferName(bytes32 indexed name, uint256 indexed fromClusterId, uint256 indexed toClusterId);
-    event PokeName(bytes32 indexed name, address indexed poker);
+    event PokeName(bytes32 indexed name, bytes32 indexed poker);
     event DefaultClusterName(bytes32 indexed name, uint256 indexed clusterId);
-    event SetWalletName(bytes32 indexed walletname, address indexed wallet);
+    event SetWalletName(bytes32 indexed walletname, bytes32 indexed wallet);
 
-    event BidPlaced(bytes32 indexed name, address indexed bidder, uint256 indexed amount);
-    event BidRefunded(bytes32 indexed name, address indexed bidder, uint256 indexed amount);
-    event BidIncreased(bytes32 indexed name, address indexed bidder, uint256 indexed amount);
-    event BidReduced(bytes32 indexed name, address indexed bidder, uint256 indexed amount);
-    event BidRevoked(bytes32 indexed name, address indexed bidder, uint256 indexed amount);
+    event BidPlaced(bytes32 indexed name, bytes32 indexed bidder, uint256 indexed amount);
+    event BidRefunded(bytes32 indexed name, bytes32 indexed bidder, uint256 indexed amount);
+    event BidIncreased(bytes32 indexed name, bytes32 indexed bidder, uint256 indexed amount);
+    event BidReduced(bytes32 indexed name, bytes32 indexed bidder, uint256 indexed amount);
+    event BidRevoked(bytes32 indexed name, bytes32 indexed bidder, uint256 indexed amount);
 
     /// ERRORS ///
 
@@ -57,25 +57,25 @@ interface IClusters {
 
     function endpoint() external view returns (address endpoint);
     function nextClusterId() external view returns (uint256 clusterId);
-    function addressToClusterId(address addr) external view returns (uint256 clusterId);
+    function addressToClusterId(bytes32 addr) external view returns (uint256 clusterId);
     function nameToClusterId(bytes32 name) external view returns (uint256 clusterId);
     function defaultClusterName(uint256 clusterId) external view returns (bytes32 name);
-    function forwardLookup(uint256 clusterId, bytes32 walletname) external view returns (address addr);
-    function reverseLookup(address addr) external view returns (bytes32 walletName);
+    function forwardLookup(uint256 clusterId, bytes32 walletname) external view returns (bytes32 addr);
+    function reverseLookup(bytes32 addr) external view returns (bytes32 walletName);
 
     function priceIntegral(bytes32 name)
         external
         view
         returns (bytes32 name_, uint256 lastUpdatedTimestamp, uint256 lastUpdatedPrice);
     function nameBacking(bytes32 name) external view returns (uint256 ethAmount);
-    function bids(bytes32 name) external view returns (uint256 ethAmount, uint256 createdTimestamp, address bidder);
-    function bidRefunds(address _bidder) external view returns (uint256 refund);
+    function bids(bytes32 name) external view returns (uint256 ethAmount, uint256 createdTimestamp, bytes32 bidder);
+    function bidRefunds(bytes32 _bidder) external view returns (uint256 refund);
 
     function protocolRevenue() external view returns (uint256 revenue);
     function totalNameBacking() external view returns (uint256 nameBacking);
     function totalBidBacking() external view returns (uint256 bidBacking);
 
-    function clusterAddresses(uint256 clusterId) external view returns (address[] memory addresses);
+    function clusterAddresses(uint256 clusterId) external view returns (bytes32[] memory addresses);
     function getClusterNamesBytes32(uint256 clusterId) external view returns (bytes32[] memory names);
     function getClusterNamesString(uint256 clusterId) external view returns (string[] memory names);
     function getBid(bytes32 name) external view returns (Bid memory bid);
@@ -85,32 +85,32 @@ interface IClusters {
     function multicall(bytes[] calldata data) external payable returns (bytes[] memory results);
 
     function create() external payable;
-    function create(address msgSender) external payable;
-    function add(address addr) external payable;
-    function add(address msgSender, address addr) external payable;
-    function remove(address addr) external payable;
-    function remove(address msgSender, address addr) external payable;
+    function create(bytes32 msgSender) external payable;
+    function add(bytes32 addr) external payable;
+    function add(bytes32 msgSender, bytes32 addr) external payable;
+    function remove(bytes32 addr) external payable;
+    function remove(bytes32 msgSender, bytes32 addr) external payable;
 
     function buyName(uint256 msgValue, string memory name) external payable;
-    function buyName(address msgSender, uint256 msgValue, string memory name) external payable;
+    function buyName(bytes32 msgSender, uint256 msgValue, string memory name) external payable;
     function fundName(uint256 msgValue, string memory name) external payable;
-    function fundName(address msgSender, uint256 msgValue, string memory name) external payable;
+    function fundName(bytes32 msgSender, uint256 msgValue, string memory name) external payable;
     function transferName(string memory name, uint256 toClusterId) external payable;
-    function transferName(address msgSender, string memory name, uint256 toClusterId) external payable;
+    function transferName(bytes32 msgSender, string memory name, uint256 toClusterId) external payable;
     function pokeName(string memory name) external payable;
-    function pokeName(address msgSender, string memory name) external payable;
+    function pokeName(bytes32 msgSender, string memory name) external payable;
 
     function bidName(uint256 msgValue, string memory name) external payable;
-    function bidName(address msgSender, uint256 msgValue, string memory name) external payable;
+    function bidName(bytes32 msgSender, uint256 msgValue, string memory name) external payable;
     function reduceBid(string memory name, uint256 amount) external payable;
-    function reduceBid(address msgSender, string memory name, uint256 amount) external payable;
+    function reduceBid(bytes32 msgSender, string memory name, uint256 amount) external payable;
     function acceptBid(string memory name) external payable returns (uint256 bidAmount);
-    function acceptBid(address msgSender, string memory name) external payable returns (uint256 bidAmount);
+    function acceptBid(bytes32 msgSender, string memory name) external payable returns (uint256 bidAmount);
     function refundBid() external payable;
-    function refundBid(address msgSender) external payable;
+    function refundBid(bytes32 msgSender) external payable;
 
     function setDefaultClusterName(string memory name) external payable;
-    function setDefaultClusterName(address msgSender, string memory name) external payable;
-    function setWalletName(address addr, string memory walletname) external payable;
-    function setWalletName(address msgSender, address addr, string memory walletname) external payable;
+    function setDefaultClusterName(bytes32 msgSender, string memory name) external payable;
+    function setWalletName(bytes32 addr, string memory walletname) external payable;
+    function setWalletName(bytes32 msgSender, bytes32 addr, string memory walletname) external payable;
 }
