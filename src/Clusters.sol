@@ -1,105 +1,110 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
+// Follow https://docs.soliditylang.org/en/latest/style-guide.html for style
+
 import {EnumerableSet} from "../lib/openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 
 import {NameManager} from "./NameManager.sol";
 
 import {IClusters} from "./IClusters.sol";
 
-// Can a cluster have multiple names? (yes) Can it not have a name? (yes)
-// Where do we store expiries (we dont, do we need to?) and how do we clear state? (pokeName() wipes state before
-// transferring or expiring)
-// It's actually more complex, user money is stored in escrow and can be used to pay harberger tax on loan or get outbid
-// (name backing can only pay harberger tax, bids increase harberger tax, outbids refund previous bid)
-// And same for expiries, the bid is required to trigger. Need smooth mathematical functions here (trigger /w pokeName()
-// or bidName())
-// Can users set a canonical name for cluster? Yes, they can own multiple names and they can also have zero names.
-// Should you be able to transfer name between clusters? Yes, and how can they be traded? (transferName() updates
-// relevant state)
-// How do we handle when an account gets hacked and kick everyone else out from valuable cluster? Problem of success,
-// can just ignore. Don't get phished, 2FA not worth it.
-// What do we do about everybody being in cluster 0? Treat it like a burn address of sorts.
-// (_clusterNames has names removed on expiry and 'checkPrivileges(name)' modifier prevents execution if addressLookup
-// returns 0)
-// What does the empty foobar/ resolver point to? CREATE2 Singlesig?
+import {console2} from "../lib/forge-std/src/Test.sol";
 
-contract Clusters is NameManager, IClusters {
+/**
+ * OPEN QUESTIONS/TODOS
+ * Can you create a cluster without registering a name? No, there needs to be a bounty for adding others to your cluster
+ * What does the empty foobar/ resolver point to?
+ * If listings are offchain, then how can it hook into the onchain transfer function?
+ * The first name added to a cluster should become the canonical name by default, every cluster should always have
+ * canonical name
+ */
+
+contract Clusters is NameManager {
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
     /// @dev Enumerate all addresses in a cluster
-    /// @dev Ethereum addresses are 20 bytes, Solana addresses are base58-encoded 32 bytes, Bitcoin addresses start with '1', '3', or 'bc1'
-    // mapping(uint256 clusterId => EnumerableSet.AddressSet addrs) internal _clusterAddresses;
+    mapping(uint256 clusterId => EnumerableSet.AddressSet addrs) internal _clusterAddresses;
 
-    /// @dev Enumerate all crosschain addresses in a cluster
-    mapping(uint256 clusterId => EnumerableSet.Bytes32Set addrs) internal _clusterAddressesGeneralized;
+    constructor(address pricing_, address endpoint_) NameManager(pricing_, endpoint_) {}
 
-    error AlreadyInCluster();
-    error NotInSameCluster();
-    error MulticallFailed();
+    /// EXTERNAL FUNCTIONS ///
 
-    constructor(address _pricing) NameManager(_pricing) {}
-
-    // TODO: Make this payable and pass along msg.value? As it stands insecure to make payable because of msg.value
-    // reuse (I don't think this is a good idea because all payable NameManager functions would need a value param, or
-    // we would have to externalize NameManager so TXs to it can be individually payable)
-    function multicall(bytes[] calldata _data) external returns (bytes[] memory results) {
-        results = new bytes[](_data.length);
+    /// @dev For payable multicall to be secure, we cannot trust msg.value params in other external methods
+    /// @dev Must instead do strict protocol invariant checking at the end of methods like Uniswap V2
+    function multicall(bytes[] calldata data) external payable returns (bytes[] memory results) {
+        results = new bytes[](data.length);
         bool success;
-        unchecked {
-            for (uint256 i = 0; i < _data.length; ++i) {
-                //slither-disable-next-line calls-loop,delegatecall-loop
-                (success, results[i]) = address(this).delegatecall(_data[i]);
-                if (!success) revert MulticallFailed();
-            }
+
+        // Iterate through each call
+        for (uint256 i = 0; i < data.length; ++i) {
+            //slither-disable-next-line calls-loop,delegatecall-loop
+            (success, results[i]) = address(this).delegatecall(data[i]);
+            if (!success) revert MulticallFailed();
         }
+
+        _checkInvariant();
+    }
+
+    function create() external payable {
+        create(msg.sender);
+    }
+
+    function add(address addr) external payable {
+        add(msg.sender, addr);
+    }
+
+    function remove(address addr) external payable {
+        remove(msg.sender, addr);
+    }
+
+    function clusterAddresses(uint256 clusterId) external view returns (address[] memory) {
+        return _clusterAddresses[clusterId].values();
     }
 
     /// PUBLIC FUNCTIONS ///
 
-    function create() external {
-        _add(_toBytes32(msg.sender), nextClusterId++);
+    function create(address msgSender) public payable onlyEndpoint(msgSender) {
+        _add(msgSender, nextClusterId++);
     }
 
-    function add(bytes32 _addr) external checkPrivileges("") {
-        _add(_addr, addressLookup[_toBytes32(msg.sender)]);
+    function add(address msgSender, address addr) public payable onlyEndpoint(msgSender) {
+        _checkZeroCluster(msgSender);
+        if (addressToClusterId[addr] != 0) revert Registered();
+        _add(addr, addressToClusterId[msgSender]);
     }
 
-    function remove(bytes32 _addr) external checkPrivileges("") {
-        bytes32 _msgSenderBytes = _toBytes32(msg.sender);
-        if (_msgSenderBytes != _addr && addressLookup[_msgSenderBytes] != addressLookup[_addr]) revert NotInSameCluster();
-        _remove(_addr);
-    }
-
-    function clusterAddresses(uint256 _clusterId) external view returns (bytes32[] memory) {
-        return _clusterAddressesGeneralized[_clusterId].values();
+    function remove(address msgSender, address addr) public payable onlyEndpoint(msgSender) {
+        _checkZeroCluster(msgSender);
+        if (addressToClusterId[msgSender] != addressToClusterId[addr]) revert Unauthorized();
+        _remove(addr);
     }
 
     /// INTERNAL FUNCTIONS ///
 
-    function _add(bytes32 _addr, uint256 clusterId) internal {
-        if (addressLookup[_addr] != 0) revert AlreadyInCluster();
-        addressLookup[_addr] = clusterId;
-        // _clusterAddresses[clusterId].add(_addr);
-        _clusterAddressesGeneralized[clusterId].add(_addr);
+    function _add(address addr, uint256 clusterId) internal {
+        if (addressToClusterId[addr] != 0) revert Registered();
+        addressToClusterId[addr] = clusterId;
+        _clusterAddresses[clusterId].add(addr);
+        emit Add(clusterId, addr);
     }
 
-    function _remove(bytes32 _addr) internal {
-        uint256 clusterId = addressLookup[_addr];
-        // If the cluster has valid names, prevent removing final address, regardless of what is supplied for _addr
-        if (_clusterNames[clusterId].length() > 0 && _clusterAddressesGeneralized[clusterId].length() == 1) revert Invalid();
-        delete addressLookup[_addr];
-        // _clusterAddresses[clusterId].remove(_addr);
-        _clusterAddressesGeneralized[clusterId].remove(_addr);
-        bytes32 walletName = reverseLookup[_addr];
+    function _remove(address addr) internal {
+        uint256 clusterId = addressToClusterId[addr];
+        // If the cluster has valid names, prevent removing final address, regardless of what is supplied for addr
+        if (_clusterNames[clusterId].length() > 0 && _clusterAddresses[clusterId].length() == 1) revert Invalid();
+        delete addressToClusterId[addr];
+        _clusterAddresses[clusterId].remove(addr);
+        bytes32 walletName = reverseLookup[addr];
         if (walletName != bytes32("")) {
             delete forwardLookup[clusterId][walletName];
-            delete reverseLookup[_addr];
+            delete reverseLookup[addr];
         }
+        emit Remove(clusterId, addr);
     }
 
-    function _toBytes32(address _addr) internal pure returns (bytes32) {
-        return bytes32(uint256(uint160(_addr)));
+    function _addressToBytes32(address addr) internal pure returns (bytes32) {
+        return bytes32(uint256(uint160(addr)));
     }
 }

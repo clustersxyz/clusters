@@ -1,0 +1,36 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.23;
+
+import {PricingHarberger} from "../../src/PricingHarberger.sol";
+
+contract PricingHarbergerHarness is PricingHarberger {
+    /// EXPOSED INTERNAL FUNCTIONS ///
+
+    function exposed_getIntegratedMaxPrice(uint256 numSeconds) public pure returns (uint256) {
+        return getIntegratedMaxPrice(numSeconds);
+    }
+
+    function exposed_getMaxPrice(uint256 numSeconds) public pure returns (uint256) {
+        return getMaxPrice(numSeconds);
+    }
+
+    function exposed_getIntegratedDecayPrice(uint256 p0, uint256 numSeconds) public pure returns (uint256) {
+        return getIntegratedDecayPrice(p0, numSeconds);
+    }
+
+    function exposed_getDecayPrice(uint256 p0, uint256 numSeconds) public pure returns (uint256) {
+        return getDecayPrice(p0, numSeconds);
+    }
+
+    function exposed_getDecayMultiplier(uint256 numSeconds) public pure returns (int256) {
+        return getDecayMultiplier(numSeconds);
+    }
+
+    function exposed_getPriceAfterBid(uint256 p0, uint256 pBid, uint256 bidLengthInSeconds)
+        public
+        pure
+        returns (uint256)
+    {
+        return getPriceAfterBid(p0, pBid, bidLengthInSeconds);
+    }
+}
