@@ -26,8 +26,8 @@ contract Clusters is NameManager {
     /// @dev Enumerate all addresses in a cluster
     mapping(uint256 clusterId => EnumerableSet.Bytes32Set addrs) internal _clusterAddresses;
 
-    constructor(address pricing_, address endpoint_, uint256 marketOpen_)
-        NameManager(pricing_, endpoint_, marketOpen_)
+    constructor(address pricing_, address endpoint_, uint256 marketOpenTimestamp_)
+        NameManager(pricing_, endpoint_, marketOpenTimestamp_)
     {}
 
     /// EXTERNAL FUNCTIONS ///

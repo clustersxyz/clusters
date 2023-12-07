@@ -6,7 +6,6 @@ import {Clusters, NameManager} from "../src/Clusters.sol";
 import {PricingHarberger} from "../src/PricingHarberger.sol";
 import {Endpoint} from "../src/Endpoint.sol";
 import {IClusters} from "../src/IClusters.sol";
-import {Ownable} from "../lib/solady/src/auth/Ownable.sol";
 
 contract EndpointTest is Test {
     PricingHarberger public pricing;

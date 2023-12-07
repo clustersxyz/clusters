@@ -8,7 +8,6 @@ import {PricingFlat} from "../src/PricingFlat.sol";
 import {PricingHarberger} from "../src/PricingHarberger.sol";
 import {Endpoint} from "../src/Endpoint.sol";
 import {IClusters} from "../src/IClusters.sol";
-import {Ownable} from "../lib/solady/src/auth/Ownable.sol";
 
 contract ClustersTest is Test {
     IPricing public pricing;
