@@ -24,10 +24,14 @@ contract Endpoint is Ownable {
         emit SignerAddr(signer_);
     }
 
+    /// INTERNAL FUNCTIONS ///
+
     /// @dev Returns bytes32 representation of address
     function _addressToBytes(address addr) internal pure returns (bytes32) {
         return bytes32(uint256(uint160(addr)));
     }
+
+    /// ECDSA HELPERS ///
 
     function getEthSignedMessageHash(address to, string memory name) public pure returns (bytes32) {
         return ECDSA.toEthSignedMessageHash(keccak256(abi.encodePacked(to, name)));
@@ -43,6 +47,8 @@ contract Endpoint is Ownable {
         return ECDSA.recover(ethSignedMessageHash, v, r, s) == signer;
     }
 
+    /// PERMISSIONED BUY FUNCTIONS ///
+
     function buyName(uint256 msgValue, string memory name, bytes calldata sig) external payable {
         if (!verifySig(msg.sender, name, sig)) revert ECDSA.InvalidSignature();
         IClustersEndpoint(clusters).buyName{value: msgValue}(_addressToBytes(msg.sender), msgValue, name);
@@ -52,6 +58,8 @@ contract Endpoint is Ownable {
         if (!verify(msg.sender, name, v, r, s)) revert ECDSA.InvalidSignature();
         IClustersEndpoint(clusters).buyName{value: msgValue}(_addressToBytes(msg.sender), msgValue, name);
     }
+
+    /// ADMIN FUNCTIONS ///
 
     function setSigner(address signer_) external onlyOwner {
         signer = signer_;
