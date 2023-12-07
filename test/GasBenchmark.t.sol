@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.23;
 
 import {Test, console2} from "forge-std/Test.sol";
 import {Clusters, NameManager} from "../src/Clusters.sol";
@@ -13,6 +13,9 @@ contract GasBenchmarkTest is Test {
     Clusters public clusters;
     uint256 public minPrice;
 
+    uint256 public immutable SIGNER_KEY = uint256(keccak256(abi.encodePacked("SIGNER")));
+    address public immutable SIGNER = vm.addr(SIGNER_KEY);
+
     function _addressToBytes(address addr) internal pure returns (bytes32) {
         return bytes32(uint256(uint160(addr)));
     }
@@ -23,8 +26,8 @@ contract GasBenchmarkTest is Test {
 
     function setUp() public {
         pricing = new PricingHarberger();
-        endpoint = new Endpoint();
-        clusters = new Clusters(address(pricing), address(endpoint));
+        endpoint = new Endpoint(address(this), SIGNER);
+        clusters = new Clusters(address(pricing), address(endpoint), block.timestamp);
         minPrice = pricing.minAnnualPrice();
         vm.deal(address(this), 1 ether);
     }

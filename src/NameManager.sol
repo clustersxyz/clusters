@@ -16,6 +16,8 @@ abstract contract NameManager is IClusters {
 
     address public immutable endpoint;
 
+    uint256 internal immutable marketOpenTimestamp;
+
     uint256 internal constant BID_TIMELOCK = 30 days;
 
     IPricing internal pricing;
@@ -96,9 +98,11 @@ abstract contract NameManager is IClusters {
         _;
     }
 
-    constructor(address pricing_, address endpoint_) {
+    constructor(address pricing_, address endpoint_, uint256 marketOpenTimestamp_) {
+        if (marketOpenTimestamp_ < block.timestamp) revert Invalid();
         pricing = IPricing(pricing_);
         endpoint = endpoint_;
+        marketOpenTimestamp = marketOpenTimestamp_;
     }
 
     /// VIEW FUNCTIONS ///
@@ -136,6 +140,8 @@ abstract contract NameManager is IClusters {
 
     /// @notice buyName() overload used by endpoint, msgSender must be msg.sender or endpoint
     function buyName(bytes32 msgSender, uint256 msgValue, string memory name) public payable onlyEndpoint(msgSender) {
+        // Only allow initial buys to come from endpoint to enforce an initial temporarily frontend controlled market
+        if (block.timestamp < marketOpenTimestamp && msg.sender != endpoint) revert Unauthorized();
         _checkNameValid(name);
         _checkZeroCluster(msgSender);
         bytes32 _name = _toBytes32(name);

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.23;
 
 import "../lib/forge-std/src/Test.sol";
 import {Clusters, NameManager} from "../src/Clusters.sol";
@@ -17,13 +17,15 @@ contract MulticallTest is Test {
     uint256 secondsAfterCreation = 1000 * 365 days;
     uint256 minPrice;
 
+    uint256 public immutable SIGNER_KEY = uint256(keccak256(abi.encodePacked("SIGNER")));
+    address public immutable SIGNER = vm.addr(SIGNER_KEY);
     address constant PRANKED_ADDRESS = address(13);
     string constant NAME = "Test Name";
 
     function setUp() public {
         pricing = new PricingHarberger();
-        endpoint = new Endpoint();
-        clusters = new Clusters(address(pricing), address(endpoint));
+        endpoint = new Endpoint(address(this), SIGNER);
+        clusters = new Clusters(address(pricing), address(endpoint), block.timestamp);
         minPrice = pricing.minAnnualPrice();
         vm.deal(address(this), 1 ether);
     }
@@ -77,7 +79,6 @@ contract MulticallTest is Test {
         bytes[] memory data = new bytes[](2);
         data[0] = abi.encodeWithSignature("create()");
         data[1] = abi.encodeWithSignature("buyName(uint256,string)", buyAmount, name);
-        console2.logBytes(data[1]);
 
         vm.prank(caller);
         clusters.multicall{value: buyAmount}(data);

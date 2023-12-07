@@ -17,13 +17,15 @@ contract ClustersTest is Test {
     uint256 secondsAfterCreation = 1000 * 365 days;
     uint256 minPrice;
 
+    uint256 public immutable SIGNER_KEY = uint256(keccak256(abi.encodePacked("SIGNER")));
+    address public immutable SIGNER = vm.addr(SIGNER_KEY);
     address constant PRANKED_ADDRESS = address(13);
     string constant NAME = "Test Name";
 
     function setUp() public {
         pricing = new PricingHarberger();
-        endpoint = new Endpoint();
-        clusters = new Clusters(address(pricing), address(endpoint));
+        endpoint = new Endpoint(address(this), SIGNER);
+        clusters = new Clusters(address(pricing), address(endpoint), block.timestamp);
         minPrice = pricing.minAnnualPrice();
         vm.deal(address(this), 1 ether);
     }
@@ -47,11 +49,9 @@ contract ClustersTest is Test {
     function testMulticall() public {
         bytes32 callerSalt = "caller";
         bytes32 addrSalt = "addr";
-        //bytes32 bidderSalt = "bidder";
         address caller = _bytesToAddress(callerSalt);
         address addr = _bytesToAddress(addrSalt);
         bytes32 addrBytes = _addressToBytes(addr);
-        //address bidder = _bytesToAddress(bidderSalt);
 
         vm.startPrank(caller);
         vm.deal(caller, minPrice);

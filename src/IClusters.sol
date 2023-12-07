@@ -46,8 +46,8 @@ interface IClusters {
     error EmptyName();
     error NoCluster();
     error Registered();
-    error Unauthorized();
     error Unregistered();
+    error Unauthorized();
     error Insufficient();
     error BadInvariant();
     error MulticallFailed();
