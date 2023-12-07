@@ -32,13 +32,23 @@ contract Endpoint is Ownable {
         return ECDSA.toEthSignedMessageHash(keccak256(abi.encodePacked(to, name)));
     }
 
-    function verify(address to, string memory name, bytes calldata sig) public view returns (bool) {
+    function verifySig(address to, string memory name, bytes calldata sig) public view returns (bool) {
         bytes32 ethSignedMessageHash = getEthSignedMessageHash(to, name);
         return ECDSA.recoverCalldata(ethSignedMessageHash, sig) == signer;
     }
 
+    function verify(address to, string memory name, uint8 v, bytes32 r, bytes32 s) public view returns (bool) {
+        bytes32 ethSignedMessageHash = getEthSignedMessageHash(to, name);
+        return ECDSA.recover(ethSignedMessageHash, v, r, s) == signer;
+    }
+
     function buyName(string memory name, bytes calldata sig) external payable {
-        if (!verify(msg.sender, name, sig)) revert ECDSA.InvalidSignature();
+        if (!verifySig(msg.sender, name, sig)) revert ECDSA.InvalidSignature();
+        IClustersEndpoint(clusters).buyName{value: msg.value}(_addressToBytes(msg.sender), msg.value, name);
+    }
+
+    function buyName(string memory name, uint8 v, bytes32 r, bytes32 s) external payable {
+        if (!verify(msg.sender, name, v, r, s)) revert ECDSA.InvalidSignature();
         IClustersEndpoint(clusters).buyName{value: msg.value}(_addressToBytes(msg.sender), msg.value, name);
     }
 

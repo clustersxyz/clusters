@@ -7,7 +7,7 @@ import {PricingHarberger} from "../src/PricingHarberger.sol";
 import {Endpoint} from "../src/Endpoint.sol";
 import {IClusters} from "../src/IClusters.sol";
 
-contract GasBenchmarkTest is Test {
+contract EndpointTest is Test {
     PricingHarberger public pricing;
     Endpoint public endpoint;
     Clusters public clusters;
@@ -29,33 +29,5 @@ contract GasBenchmarkTest is Test {
         clusters = new Clusters(address(pricing), address(endpoint), address(this));
         minPrice = pricing.minAnnualPrice();
         vm.deal(address(this), 1 ether);
-    }
-
-    function testBenchmark() public {
-        bytes32 callerSalt = "caller";
-        bytes32 addrSalt = "addr";
-        bytes32 bidderSalt = "bidder";
-        address caller = _bytesToAddress(callerSalt);
-        address addr = _bytesToAddress(addrSalt);
-        bytes32 addrBytes = _addressToBytes(addr);
-        address bidder = _bytesToAddress(bidderSalt);
-
-        clusters.openMarket();
-
-        vm.startPrank(caller);
-        vm.deal(caller, minPrice);
-        clusters.create();
-        clusters.add(addrBytes);
-        clusters.buyName{value: minPrice}(minPrice, "foobar");
-        vm.stopPrank();
-
-        vm.startPrank(bidder);
-        vm.deal(bidder, 1 ether);
-        // TODO: Should people be able to bid on names without owning a cluster themselves?
-        clusters.create();
-        clusters.bidName{value: 0.5 ether}(0.5 ether, "foobar");
-        vm.warp(block.timestamp + 30 days);
-        clusters.pokeName("foobar");
-        vm.stopPrank();
     }
 }
