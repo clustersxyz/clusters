@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
+import {console2} from "../lib/forge-std/src/Test.sol";
 import {Ownable} from "../lib/solady/src/auth/Ownable.sol";
 import {ECDSA} from "../lib/solady/src/utils/ECDSA.sol";
 
@@ -42,14 +43,14 @@ contract Endpoint is Ownable {
         return ECDSA.recover(ethSignedMessageHash, v, r, s) == signer;
     }
 
-    function buyName(string memory name, bytes calldata sig) external payable {
+    function buyName(uint256 msgValue, string memory name, bytes calldata sig) external payable {
         if (!verifySig(msg.sender, name, sig)) revert ECDSA.InvalidSignature();
-        IClustersEndpoint(clusters).buyName{value: msg.value}(_addressToBytes(msg.sender), msg.value, name);
+        IClustersEndpoint(clusters).buyName{value: msgValue}(_addressToBytes(msg.sender), msgValue, name);
     }
 
-    function buyName(string memory name, uint8 v, bytes32 r, bytes32 s) external payable {
+    function buyName(uint256 msgValue, string memory name, uint8 v, bytes32 r, bytes32 s) external payable {
         if (!verify(msg.sender, name, v, r, s)) revert ECDSA.InvalidSignature();
-        IClustersEndpoint(clusters).buyName{value: msg.value}(_addressToBytes(msg.sender), msg.value, name);
+        IClustersEndpoint(clusters).buyName{value: msgValue}(_addressToBytes(msg.sender), msgValue, name);
     }
 
     function setSigner(address signer_) external onlyOwner {

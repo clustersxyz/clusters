@@ -13,7 +13,8 @@ contract GasBenchmarkTest is Test {
     Clusters public clusters;
     uint256 public minPrice;
 
-    address constant SIGNER = address(uint160(uint256(keccak256(abi.encodePacked("SIGNER")))));
+    uint256 public immutable SIGNER_KEY = uint256(keccak256(abi.encodePacked("SIGNER")));
+    address public immutable SIGNER = vm.addr(SIGNER_KEY);
 
     function _addressToBytes(address addr) internal pure returns (bytes32) {
         return bytes32(uint256(uint160(addr)));

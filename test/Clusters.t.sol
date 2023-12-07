@@ -18,8 +18,9 @@ contract ClustersTest is Test {
     uint256 secondsAfterCreation = 1000 * 365 days;
     uint256 minPrice;
 
+    uint256 public immutable SIGNER_KEY = uint256(keccak256(abi.encodePacked("SIGNER")));
+    address public immutable SIGNER = vm.addr(SIGNER_KEY);
     address constant PRANKED_ADDRESS = address(13);
-    address constant SIGNER = address(uint160(uint256(keccak256(abi.encodePacked("SIGNER")))));
     string constant NAME = "Test Name";
 
     function setUp() public {
