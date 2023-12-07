@@ -27,7 +27,7 @@ contract GasBenchmarkTest is Test {
     function setUp() public {
         pricing = new PricingHarberger();
         endpoint = new Endpoint(address(this), SIGNER);
-        clusters = new Clusters(address(pricing), address(endpoint), address(this));
+        clusters = new Clusters(address(pricing), address(endpoint), block.timestamp);
         minPrice = pricing.minAnnualPrice();
         vm.deal(address(this), 1 ether);
     }
@@ -40,8 +40,6 @@ contract GasBenchmarkTest is Test {
         address addr = _bytesToAddress(addrSalt);
         bytes32 addrBytes = _addressToBytes(addr);
         address bidder = _bytesToAddress(bidderSalt);
-
-        clusters.openMarket();
 
         vm.startPrank(caller);
         vm.deal(caller, minPrice);

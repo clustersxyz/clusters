@@ -35,7 +35,7 @@ contract EndpointTest is Test {
     function setUp() public {
         pricing = new PricingHarberger();
         endpoint = new Endpoint(address(this), SIGNER);
-        clusters = new Clusters(address(pricing), address(endpoint), address(this));
+        clusters = new Clusters(address(pricing), address(endpoint), block.timestamp + 7 days);
         endpoint.setClustersAddr(address(clusters));
         minPrice = pricing.minAnnualPrice();
         vm.deal(address(this), 1 ether);
@@ -53,7 +53,7 @@ contract EndpointTest is Test {
         vm.stopPrank();
 
         clusters.create();
-        vm.expectRevert(Ownable.Unauthorized.selector);
+        vm.expectRevert(IClusters.Unauthorized.selector);
         clusters.buyName{value: minPrice}(minPrice, name);
 
         vm.startPrank(caller);

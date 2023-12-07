@@ -25,7 +25,7 @@ contract MulticallTest is Test {
     function setUp() public {
         pricing = new PricingHarberger();
         endpoint = new Endpoint(address(this), SIGNER);
-        clusters = new Clusters(address(pricing), address(endpoint), address(this));
+        clusters = new Clusters(address(pricing), address(endpoint), block.timestamp);
         minPrice = pricing.minAnnualPrice();
         vm.deal(address(this), 1 ether);
     }
@@ -75,8 +75,6 @@ contract MulticallTest is Test {
         bytes32 _name = _toBytes32(name);
         buyAmount = bound(buyAmount, minPrice, 10 ether);
         vm.deal(caller, buyAmount);
-
-        clusters.openMarket();
 
         bytes[] memory data = new bytes[](2);
         data[0] = abi.encodeWithSignature("create()");

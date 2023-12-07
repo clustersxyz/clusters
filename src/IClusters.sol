@@ -21,7 +21,6 @@ interface IClusters {
 
     event Add(uint256 indexed clusterId, bytes32 indexed addr);
     event Remove(uint256 indexed clusterId, bytes32 indexed addr);
-    event MarketOpened();
 
     event BuyName(bytes32 indexed name, uint256 indexed clusterId, uint256 indexed amount);
     event FundName(bytes32 indexed name, bytes32 indexed funder, uint256 indexed amount);
@@ -48,6 +47,7 @@ interface IClusters {
     error NoCluster();
     error Registered();
     error Unregistered();
+    error Unauthorized();
     error Insufficient();
     error BadInvariant();
     error MulticallFailed();
@@ -81,8 +81,6 @@ interface IClusters {
     function getBid(bytes32 name) external view returns (Bid memory bid);
 
     /// EXTERNAL FUNCTIONS ///
-
-    function openMarket() external;
 
     function multicall(bytes[] calldata data) external payable returns (bytes[] memory results);
 
