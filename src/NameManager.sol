@@ -99,6 +99,7 @@ abstract contract NameManager is IClusters {
     }
 
     constructor(address pricing_, address endpoint_, uint256 marketOpen_) {
+        if (marketOpen_ < block.timestamp) revert Invalid();
         pricing = IPricing(pricing_);
         endpoint = endpoint_;
         marketOpen = marketOpen_;
