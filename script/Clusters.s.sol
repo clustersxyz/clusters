@@ -14,7 +14,7 @@ contract CounterScript is Script {
         vm.startBroadcast();
         PricingHarberger pricing = new PricingHarberger();
         Endpoint endpoint = new Endpoint();
-        new Clusters(address(pricing), address(endpoint));
+        new Clusters(address(pricing), address(endpoint), address(this));
         vm.stopBroadcast();
     }
 }

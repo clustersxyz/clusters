@@ -26,7 +26,7 @@ contract Clusters is NameManager {
     /// @dev Enumerate all addresses in a cluster
     mapping(uint256 clusterId => EnumerableSet.Bytes32Set addrs) internal _clusterAddresses;
 
-    constructor(address pricing_, address endpoint_) NameManager(pricing_, endpoint_) {}
+    constructor(address pricing_, address endpoint_, address owner_) NameManager(pricing_, endpoint_, owner_) {}
 
     /// EXTERNAL FUNCTIONS ///
 
@@ -78,6 +78,13 @@ contract Clusters is NameManager {
         _checkZeroCluster(msgSender);
         if (addressToClusterId[msgSender] != addressToClusterId[addr]) revert Unauthorized();
         _remove(addr);
+    }
+
+    /// ADMIN FUNCTIONS ///
+
+    function openMarket() external onlyOwner {
+        isMarketOpen = true;
+        emit MarketOpened();
     }
 
     /// INTERNAL FUNCTIONS ///
