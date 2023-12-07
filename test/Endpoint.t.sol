@@ -49,6 +49,7 @@ contract EndpointTest is Test {
         vm.startPrank(SIGNER);
         bytes32 digest = endpoint.getEthSignedMessageHash(caller, name);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(SIGNER_KEY, digest);
+        bytes memory sig = abi.encodePacked(r, s, v);
         vm.stopPrank();
 
         clusters.create();
@@ -57,7 +58,7 @@ contract EndpointTest is Test {
 
         vm.startPrank(caller);
         clusters.create();
-        endpoint.buyName{value: minPrice}(minPrice, name, v, r, s);
+        endpoint.buyName{value: minPrice}(minPrice, name, sig);
         vm.stopPrank();
     }
 }
