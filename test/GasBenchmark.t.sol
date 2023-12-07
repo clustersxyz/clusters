@@ -13,6 +13,8 @@ contract GasBenchmarkTest is Test {
     Clusters public clusters;
     uint256 public minPrice;
 
+    address constant SIGNER = address(uint160(uint256(keccak256(abi.encodePacked("SIGNER")))));
+
     function _addressToBytes(address addr) internal pure returns (bytes32) {
         return bytes32(uint256(uint160(addr)));
     }
@@ -23,7 +25,7 @@ contract GasBenchmarkTest is Test {
 
     function setUp() public {
         pricing = new PricingHarberger();
-        endpoint = new Endpoint();
+        endpoint = new Endpoint(address(this), SIGNER);
         clusters = new Clusters(address(pricing), address(endpoint), address(this));
         minPrice = pricing.minAnnualPrice();
         vm.deal(address(this), 1 ether);

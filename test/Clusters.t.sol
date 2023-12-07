@@ -19,11 +19,12 @@ contract ClustersTest is Test {
     uint256 minPrice;
 
     address constant PRANKED_ADDRESS = address(13);
+    address constant SIGNER = address(uint160(uint256(keccak256(abi.encodePacked("SIGNER")))));
     string constant NAME = "Test Name";
 
     function setUp() public {
         pricing = new PricingHarberger();
-        endpoint = new Endpoint();
+        endpoint = new Endpoint(address(this), SIGNER);
         clusters = new Clusters(address(pricing), address(endpoint), address(this));
         minPrice = pricing.minAnnualPrice();
         vm.deal(address(this), 1 ether);
