@@ -46,19 +46,23 @@ contract MulticallTest is Test {
                 MULTICALL TESTS
     \\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\*/
 
-    function testMulticallCreateAdd(bytes32 callerSalt, bytes32 addrSalt) public {
+    function testMulticallBuyAdd(bytes32 callerSalt, bytes32 addrSalt, string memory name, uint256 buyAmount) public {
         vm.assume(callerSalt != addrSalt);
+        vm.assume(bytes(name).length > 0 && bytes(name).length <= 32);
         address caller = _bytesToAddress(callerSalt);
         bytes32 callerBytes = _addressToBytes(caller);
         address addr = _bytesToAddress(addrSalt);
         bytes32 addrBytes = _addressToBytes(addr);
+        bytes32 name_ = _toBytes32(name);
+        buyAmount = bound(buyAmount, minPrice, 10 ether);
+        vm.deal(caller, buyAmount);
 
         bytes[] memory data = new bytes[](2);
-        data[0] = abi.encodeWithSignature("create()");
+        data[0] = abi.encodeWithSignature("buyName(uint256,string)", buyAmount, name);
         data[1] = abi.encodeWithSignature("add(bytes32)", addrBytes);
 
         vm.prank(caller);
-        clusters.multicall(data);
+        clusters.multicall{value: buyAmount}(data);
 
         bytes32[] memory addresses = clusters.clusterAddresses(1);
         assertEq(clusters.nextClusterId(), 2, "nextClusterId not incremented");
@@ -67,27 +71,11 @@ contract MulticallTest is Test {
         assertEq(addresses[1], addrBytes, "clusterAddresses error");
         assertEq(clusters.addressToClusterId(callerBytes), 1, "addressToClusterId error");
         assertEq(clusters.addressToClusterId(addrBytes), 1, "addressToClusterId error");
-    }
-
-    function testMulticallCreateBuy(bytes32 callerSalt, string memory name, uint256 buyAmount) public {
-        vm.assume(bytes(name).length > 0 && bytes(name).length <= 32);
-        address caller = _bytesToAddress(callerSalt);
-        bytes32 _name = _toBytes32(name);
-        buyAmount = bound(buyAmount, minPrice, 10 ether);
-        vm.deal(caller, buyAmount);
-
-        bytes[] memory data = new bytes[](2);
-        data[0] = abi.encodeWithSignature("create()");
-        data[1] = abi.encodeWithSignature("buyName(uint256,string)", buyAmount, name);
-
-        vm.prank(caller);
-        clusters.multicall{value: buyAmount}(data);
-
         bytes32[] memory names = clusters.getClusterNamesBytes32(1);
         assertEq(names.length, 1, "names array length error");
-        assertEq(names[0], _name, "name array error");
-        assertEq(clusters.nameToClusterId(_name), 1, "name not assigned to cluster");
-        assertEq(clusters.nameBacking(_name), buyAmount, "nameBacking incorrect");
+        assertEq(names[0], name_, "name array error");
+        assertEq(clusters.nameToClusterId(name_), 1, "name not assigned to cluster");
+        assertEq(clusters.nameBacking(name_), buyAmount, "nameBacking incorrect");
         assertEq(address(clusters).balance, buyAmount, "contract balance issue");
         assertEq(
             address(clusters).balance,

@@ -81,16 +81,18 @@ abstract contract NameManager is IClusters {
 
     /// @dev Ensure addr has a cluster
     function _checkZeroCluster(bytes32 addr) internal view {
-        if (addressToClusterId[addr] == 0) revert NoCluster();
+        if (addressToClusterId[addr] == 0) _hookCreate(addr);
     }
 
-    /// @dev Ensure addr owns name, make sure you always check name and cluster validity before this function!
+    /// @dev Ensure addr owns name
     function _checkNameOwnership(bytes32 addr, string memory name) internal view {
-        // Short circuit if name is empty and caller has cluster to allow resets
-        // This is why name and cluster validity must be checked before using this
-        if (addressToClusterId[addr] != 0 && bytes(name).length == 0) return;
+        if (addressToClusterId[addr] != 0) revert NoCluster();
+        if (bytes(name).length == 0) return; // Short circuit for reset as cluster addresses never own name ""
         if (addressToClusterId[addr] != nameToClusterId[_toBytes32(name)]) revert Unauthorized();
     }
+
+    /// @dev Used to hook Clusters.sol functionality into NameManager.sol to abstract away cluster creation
+    function _hookCreate(bytes32 msgSender) internal virtual {}
 
     /// @notice Used to restrict external functions to
     modifier onlyEndpoint(bytes32 msgSender) {
@@ -135,7 +137,8 @@ abstract contract NameManager is IClusters {
     /// @notice Buy unregistered name. Must pay at least minimum yearly payment.
     /// @dev Processing is handled in overload
     function buyName(uint256 msgValue, string memory name) external payable {
-        buyName(_addressToBytes(msg.sender), msgValue, name);
+        bytes32 msgSender = _addressToBytes(msg.sender);
+        buyName(msgSender, msgValue, name);
     }
 
     /// @notice buyName() overload used by endpoint, msgSender must be msg.sender or endpoint
@@ -195,12 +198,11 @@ abstract contract NameManager is IClusters {
         onlyEndpoint(msgSender)
     {
         _checkNameValid(name);
-        _checkZeroCluster(msgSender);
         _checkNameOwnership(msgSender, name);
         bytes32 _name = _toBytes32(name);
+        uint256 fromClusterId = addressToClusterId[msgSender];
         if (toClusterId >= nextClusterId) revert Unregistered();
-        uint256 clusterId = addressToClusterId[msgSender];
-        _transferName(_name, clusterId, toClusterId);
+        _transferName(_name, fromClusterId, toClusterId);
     }
 
     /// @dev Transfer cluster name or delete cluster name without checking auth
@@ -395,7 +397,6 @@ abstract contract NameManager is IClusters {
         returns (uint256 bidAmount)
     {
         _checkNameValid(name);
-        _checkZeroCluster(msgSender);
         _checkNameOwnership(msgSender, name);
         bytes32 _name = _toBytes32(name);
         Bid memory bid = bids[_name];
@@ -434,7 +435,6 @@ abstract contract NameManager is IClusters {
     /// @notice setDefaultClusterName() overload used by endpoint, msgSender must be msg.sender or endpoint
     function setDefaultClusterName(bytes32 msgSender, string memory name) public payable onlyEndpoint(msgSender) {
         if (bytes(name).length > 32) revert LongName();
-        _checkZeroCluster(msgSender);
         _checkNameOwnership(msgSender, name);
         bytes32 _name = _toBytes32(name);
         uint256 clusterId = addressToClusterId[msgSender];
@@ -459,10 +459,10 @@ abstract contract NameManager is IClusters {
         payable
         onlyEndpoint(msgSender)
     {
-        if (bytes(walletName).length > 32) revert LongName();
-        _checkZeroCluster(msgSender);
-        bytes32 _walletName = _toBytes32(walletName);
         uint256 clusterId = addressToClusterId[msgSender];
+        if (clusterId != 0) revert NoCluster();
+        if (bytes(walletName).length > 32) revert LongName();
+        bytes32 _walletName = _toBytes32(walletName);
         if (clusterId != addressToClusterId[addr]) revert Unauthorized();
         if (bytes(walletName).length == 0) {
             _walletName = reverseLookup[addr];

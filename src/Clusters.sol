@@ -48,15 +48,11 @@ contract Clusters is NameManager {
         _checkInvariant();
     }
 
-    function create() external payable {
-        create(_addressToBytes(msg.sender));
-    }
-
-    function add(bytes32 addr) external payable {
+    function add(bytes32 addr) public payable {
         add(_addressToBytes(msg.sender), addr);
     }
 
-    function remove(bytes32 addr) external payable {
+    function remove(bytes32 addr) public payable {
         remove(_addressToBytes(msg.sender), addr);
     }
 
@@ -64,21 +60,19 @@ contract Clusters is NameManager {
         return _clusterAddresses[clusterId].values();
     }
 
-    /// PUBLIC FUNCTIONS ///
-
-    function create(bytes32 msgSender) public payable onlyEndpoint(msgSender) {
-        _add(msgSender, nextClusterId++);
-    }
+    /// ENDPOINT FUNCTIONS ///
 
     function add(bytes32 msgSender, bytes32 addr) public payable onlyEndpoint(msgSender) {
-        _checkZeroCluster(msgSender);
+        uint256 clusterId = addressToClusterId[msgSender];
+        if (clusterId == 0) revert NoCluster();
         if (addressToClusterId[addr] != 0) revert Registered();
-        _add(addr, addressToClusterId[msgSender]);
+        _add(addr, clusterId);
     }
 
     function remove(bytes32 msgSender, bytes32 addr) public payable onlyEndpoint(msgSender) {
-        _checkZeroCluster(msgSender);
-        if (addressToClusterId[msgSender] != addressToClusterId[addr]) revert Unauthorized();
+        uint256 clusterId = addressToClusterId[msgSender];
+        if (clusterId == 0) revert NoCluster();
+        if (clusterId != addressToClusterId[addr]) revert Unauthorized();
         _remove(addr);
     }
 
@@ -103,5 +97,9 @@ contract Clusters is NameManager {
             delete reverseLookup[addr];
         }
         emit Remove(clusterId, addr);
+    }
+
+    function _hookCreate(bytes32 msgSender) internal override {
+        _add(msgSender, nextClusterId++);
     }
 }

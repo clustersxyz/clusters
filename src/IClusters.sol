@@ -84,8 +84,6 @@ interface IClusters {
 
     function multicall(bytes[] calldata data) external payable returns (bytes[] memory results);
 
-    function create() external payable;
-    function create(bytes32 msgSender) external payable;
     function add(bytes32 addr) external payable;
     function add(bytes32 msgSender, bytes32 addr) external payable;
     function remove(bytes32 addr) external payable;

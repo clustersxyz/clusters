@@ -52,13 +52,10 @@ contract EndpointTest is Test {
         bytes memory sig = abi.encodePacked(r, s, v);
         vm.stopPrank();
 
-        clusters.create();
         vm.expectRevert(IClusters.Unauthorized.selector);
         clusters.buyName{value: minPrice}(minPrice, name);
 
-        vm.startPrank(caller);
-        clusters.create();
+        vm.prank(caller);
         endpoint.buyName{value: minPrice}(minPrice, name, sig);
-        vm.stopPrank();
     }
 }
