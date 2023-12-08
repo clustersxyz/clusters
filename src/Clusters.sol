@@ -65,7 +65,6 @@ contract Clusters is NameManager {
     function add(bytes32 msgSender, bytes32 addr) public payable onlyEndpoint(msgSender) {
         uint256 clusterId = addressToClusterId[msgSender];
         if (clusterId == 0) revert NoCluster();
-        if (addressToClusterId[addr] != 0) revert Registered();
         _add(addr, clusterId);
     }
 

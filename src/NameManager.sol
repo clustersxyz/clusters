@@ -79,16 +79,16 @@ abstract contract NameManager is IClusters {
         if (bytes(name).length > 32) revert LongName();
     }
 
-    /// @dev Ensure addr has a cluster
-    function _checkZeroCluster(bytes32 addr) internal view {
-        if (addressToClusterId[addr] == 0) _hookCreate(addr);
-    }
-
     /// @dev Ensure addr owns name
     function _checkNameOwnership(bytes32 addr, string memory name) internal view {
         if (addressToClusterId[addr] != 0) revert NoCluster();
         if (bytes(name).length == 0) return; // Short circuit for reset as cluster addresses never own name ""
         if (addressToClusterId[addr] != nameToClusterId[_toBytes32(name)]) revert Unauthorized();
+    }
+
+    /// @dev Ensure addr has a cluster
+    function _fixZeroCluster(bytes32 addr) internal view {
+        if (addressToClusterId[addr] == 0) _hookCreate(addr);
     }
 
     /// @dev Used to hook Clusters.sol functionality into NameManager.sol to abstract away cluster creation
@@ -146,7 +146,7 @@ abstract contract NameManager is IClusters {
         // Only allow initial buys to come from endpoint to enforce an initial temporarily frontend controlled market
         if (block.timestamp < marketOpenTimestamp && msg.sender != endpoint) revert Unauthorized();
         _checkNameValid(name);
-        _checkZeroCluster(msgSender);
+        _fixZeroCluster(msgSender);
         bytes32 _name = _toBytes32(name);
         uint256 clusterId = addressToClusterId[msgSender];
         // Check that name is unused and sufficient payment is made
@@ -228,13 +228,7 @@ abstract contract NameManager is IClusters {
 
     /// @notice Move accrued revenue from ethBacked to protocolRevenue, and transfer names upon expiry to highest
     ///         sufficient bidder. If no bids above yearly minimum, delete name registration.
-    /// @dev Processing is handled in overload
-    function pokeName(string memory name) external payable {
-        pokeName(_addressToBytes(msg.sender), name);
-    }
-
-    /// @notice pokeName() overload used by endpoint, msgSender must be msg.sender or endpoint
-    function pokeName(bytes32 msgSender, string memory name) public payable onlyEndpoint(msgSender) {
+    function pokeName(string memory name) public payable {
         _checkNameValid(name);
         bytes32 _name = _toBytes32(name);
         if (nameToClusterId[_name] == 0) revert Unregistered();
@@ -272,7 +266,7 @@ abstract contract NameManager is IClusters {
                 lastUpdatedTimestamp: block.timestamp,
                 lastUpdatedPrice: newPrice
             });
-            emit PokeName(_name, msgSender);
+            emit PokeName(_name);
         }
     }
 
@@ -289,7 +283,7 @@ abstract contract NameManager is IClusters {
     /// @notice bidName() overload used in endpoint, msgSender must be msg.sender or endpoint
     function bidName(bytes32 msgSender, uint256 msgValue, string memory name) public payable onlyEndpoint(msgSender) {
         _checkNameValid(name);
-        _checkZeroCluster(msgSender);
+        _fixZeroCluster(msgSender);
         if (msgValue == 0) revert NoBid();
         bytes32 _name = _toBytes32(name);
         uint256 clusterId = nameToClusterId[_name];
@@ -329,7 +323,7 @@ abstract contract NameManager is IClusters {
             }
         }
         // Update name status and transfer to highest bidder if expired
-        pokeName(msgSender, name);
+        pokeName(name);
 
         _checkInvariant();
     }
@@ -353,7 +347,7 @@ abstract contract NameManager is IClusters {
         if (amount > bid) amount = bid;
 
         // Poke name to update backing and ownership (if required) prior to bid adjustment
-        pokeName(msgSender, name);
+        pokeName(name);
         // Short circuit if pokeName() processed transfer to bidder due to name expiry
         if (bids[_name].ethAmount == 0) return;
 
@@ -432,19 +426,15 @@ abstract contract NameManager is IClusters {
         setDefaultClusterName(_addressToBytes(msg.sender), name);
     }
 
-    /// @notice setDefaultClusterName() overload used by endpoint, msgSender must be msg.sender or endpoint
+    /// @notice setDefaultClusterName() overload used by endpoint, msgSender must be msg.sender or endpoint.
+    ///         It is not possible to remove a name from a cluster entirely. A cluster must always have its default name
     function setDefaultClusterName(bytes32 msgSender, string memory name) public payable onlyEndpoint(msgSender) {
-        if (bytes(name).length > 32) revert LongName();
+        _checkNameValid(name);
         _checkNameOwnership(msgSender, name);
         bytes32 _name = _toBytes32(name);
         uint256 clusterId = addressToClusterId[msgSender];
-        if (bytes(name).length == 0) {
-            delete defaultClusterName[clusterId];
-            emit DefaultClusterName(bytes32(""), clusterId);
-        } else {
-            defaultClusterName[clusterId] = _name;
-            emit DefaultClusterName(_name, clusterId);
-        }
+        defaultClusterName[clusterId] = _name;
+        emit DefaultClusterName(_name, clusterId);
     }
 
     /// @notice Set wallet name for msg.sender or erase it by setting ""
@@ -470,6 +460,8 @@ abstract contract NameManager is IClusters {
             delete reverseLookup[addr];
             emit SetWalletName(bytes32(""), addr);
         } else {
+            bytes32 prev = forwardLookup[clusterId][_walletName];
+            if (prev != bytes32("")) delete reverseLookup[prev];
             forwardLookup[clusterId][_walletName] = addr;
             reverseLookup[addr] = _walletName;
             emit SetWalletName(_walletName, addr);

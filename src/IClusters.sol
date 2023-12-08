@@ -25,7 +25,7 @@ interface IClusters {
     event BuyName(bytes32 indexed name, uint256 indexed clusterId, uint256 indexed amount);
     event FundName(bytes32 indexed name, bytes32 indexed funder, uint256 indexed amount);
     event TransferName(bytes32 indexed name, uint256 indexed fromClusterId, uint256 indexed toClusterId);
-    event PokeName(bytes32 indexed name, bytes32 indexed poker);
+    event PokeName(bytes32 indexed name);
     event DefaultClusterName(bytes32 indexed name, uint256 indexed clusterId);
     event SetWalletName(bytes32 indexed walletname, bytes32 indexed wallet);
 
@@ -96,7 +96,6 @@ interface IClusters {
     function transferName(string memory name, uint256 toClusterId) external payable;
     function transferName(bytes32 msgSender, string memory name, uint256 toClusterId) external payable;
     function pokeName(string memory name) external payable;
-    function pokeName(bytes32 msgSender, string memory name) external payable;
 
     function bidName(uint256 msgValue, string memory name) external payable;
     function bidName(bytes32 msgSender, uint256 msgValue, string memory name) external payable;
