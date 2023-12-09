@@ -65,11 +65,11 @@ contract Clusters is NameManager {
         remove(_addressToBytes(msg.sender), addr);
     }
 
-    function getUnverifiedAddresses(uint256 clusterId) public view returns (bytes32[] memory addresses) {
+    function getUnverifiedAddresses(uint256 clusterId) public view returns (bytes32[] memory) {
         return _unverifiedAddresses[clusterId].values();
     }
 
-    function getVerifiedAddresses(uint256 clusterId) public view returns (bytes32[] memory addresses) {
+    function getVerifiedAddresses(uint256 clusterId) public view returns (bytes32[] memory) {
         return _verifiedAddresses[clusterId].values();
     }
 
