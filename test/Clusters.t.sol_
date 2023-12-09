@@ -46,48 +46,6 @@ contract ClustersTest is Test {
                 Clusters.sol
     \\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\*/
 
-    function testMulticall() public {
-        bytes32 callerSalt = "caller";
-        bytes32 addrSalt = "addr";
-        address caller = _bytesToAddress(callerSalt);
-        address addr = _bytesToAddress(addrSalt);
-        bytes32 addrBytes = _addressToBytes(addr);
-
-        vm.startPrank(caller);
-        vm.deal(caller, minPrice);
-        clusters.create();
-        clusters.buyName{value: minPrice}(minPrice, "foobar");
-        bytes[] memory batchData = new bytes[](2);
-        batchData[0] = abi.encodeWithSignature("add(bytes32)", addrBytes);
-        batchData[1] = abi.encodeWithSignature("setWalletName(bytes32,string)", addrBytes, "hot");
-        clusters.multicall(batchData);
-        vm.stopPrank();
-    }
-
-    function testCreateCluster(bytes32 callerSalt) public {
-        address caller = _bytesToAddress(callerSalt);
-        bytes32 callerBytes = _addressToBytes(caller);
-
-        vm.prank(caller);
-        clusters.create();
-
-        assertEq(clusters.nextClusterId(), 2, "nextClusterId not incremented");
-        bytes32[] memory addresses = clusters.clusterAddresses(1);
-        assertEq(addresses.length, 1, "addresses array length error");
-        assertEq(addresses[0], callerBytes, "clusterAddresses error");
-        assertEq(clusters.addressToClusterId(callerBytes), 1, "addressToClusterId error");
-    }
-
-    function testCreateClusterRevertRegistered(bytes32 callerSalt) public {
-        address caller = _bytesToAddress(callerSalt);
-
-        vm.startPrank(caller);
-        clusters.create();
-        vm.expectRevert(IClusters.Registered.selector);
-        clusters.create();
-        vm.stopPrank();
-    }
-
     function testAddCluster(bytes32 callerSalt, bytes32 addrSalt) public {
         vm.assume(callerSalt != addrSalt);
         address caller = _bytesToAddress(callerSalt);
