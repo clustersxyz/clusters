@@ -23,8 +23,11 @@ import {console2} from "../lib/forge-std/src/Test.sol";
 contract Clusters is NameManager {
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
-    /// @dev Enumerate all addresses in a cluster
-    mapping(uint256 clusterId => EnumerableSet.Bytes32Set addrs) internal _clusterAddresses;
+    /// @dev Enumerates all unverified addresses in a cluster
+    mapping(uint256 clusterId => EnumerableSet.Bytes32Set addrs) internal _unverifiedAddresses;
+
+    /// @dev Enumerates all verified addresses in a cluster
+    mapping(uint256 clusterId => EnumerableSet.Bytes32Set addrs) internal _verifiedAddresses;
 
     constructor(address pricing_, address endpoint_, uint256 marketOpenTimestamp_)
         NameManager(pricing_, endpoint_, marketOpenTimestamp_)
@@ -52,12 +55,20 @@ contract Clusters is NameManager {
         add(_addressToBytes(msg.sender), addr);
     }
 
+    function verify(uint256 clusterId) public payable {
+        verify(_addressToBytes(msg.sender), clusterId);
+    }
+
     function remove(bytes32 addr) public payable {
         remove(_addressToBytes(msg.sender), addr);
     }
 
-    function clusterAddresses(uint256 clusterId) public view returns (bytes32[] memory) {
-        return _clusterAddresses[clusterId].values();
+    function getUnverifiedAddresses(uint256 clusterId) public view returns (bytes32[] memory addresses) {
+        return _unverifiedAddresses[clusterId].values();
+    }
+
+    function getVerifiedAddresses(uint256 clusterId) public view returns (bytes32[] memory addresses) {
+        return _verifiedAddresses[clusterId].values();
     }
 
     /// ENDPOINT FUNCTIONS ///
@@ -65,7 +76,26 @@ contract Clusters is NameManager {
     function add(bytes32 msgSender, bytes32 addr) public payable onlyEndpoint(msgSender) {
         uint256 clusterId = addressToClusterId[msgSender];
         if (clusterId == 0) revert NoCluster();
+        if (!_verifiedAddresses[clusterId].contains(msgSender)) revert Unauthorized();
         _add(addr, clusterId);
+    }
+
+    function verify(bytes32 msgSender, uint256 clusterId) public payable onlyEndpoint(msgSender) {
+        if (!_unverifiedAddresses[clusterId].contains(msgSender)) revert Unauthorized();
+        uint256 currentClusterId = addressToClusterId[msgSender];
+        if (currentClusterId != 0) {
+            // If msgSender is the last address in their cluster, take all of their names with them
+            if (_verifiedAddresses[currentClusterId].length() == 1) {
+                bytes32[] memory names = _clusterNames[currentClusterId].values();
+                for (uint256 i; i < names.length; ++i) {
+                    _transferName(names[i], currentClusterId, clusterId);
+                }
+                // Transferring the last name deletes the caller's cluster, so _verify() has a clean state
+            } else {
+                _remove(msgSender);
+            }
+        }
+        _verify(msgSender, clusterId);
     }
 
     function remove(bytes32 msgSender, bytes32 addr) public payable onlyEndpoint(msgSender) {
@@ -78,18 +108,24 @@ contract Clusters is NameManager {
     /// INTERNAL FUNCTIONS ///
 
     function _add(bytes32 addr, uint256 clusterId) internal {
-        if (addressToClusterId[addr] != 0) revert Registered();
-        addressToClusterId[addr] = clusterId;
-        _clusterAddresses[clusterId].add(addr);
+        if (_verifiedAddresses[clusterId].contains(addr)) revert Registered();
+        _unverifiedAddresses[clusterId].add(addr);
         emit Add(clusterId, addr);
+    }
+
+    function _verify(bytes32 addr, uint256 clusterId) internal {
+        _unverifiedAddresses[clusterId].remove(addr);
+        _verifiedAddresses[clusterId].add(addr);
+        addressToClusterId[addr] = clusterId;
+        emit Verify(clusterId, addr);
     }
 
     function _remove(bytes32 addr) internal {
         uint256 clusterId = addressToClusterId[addr];
         // If the cluster has valid names, prevent removing final address, regardless of what is supplied for addr
-        if (_clusterNames[clusterId].length() > 0 && _clusterAddresses[clusterId].length() == 1) revert Invalid();
+        if (_clusterNames[clusterId].length() > 0 && _unverifiedAddresses[clusterId].length() == 1) revert Invalid();
         delete addressToClusterId[addr];
-        _clusterAddresses[clusterId].remove(addr);
+        _unverifiedAddresses[clusterId].remove(addr);
         bytes32 walletName = reverseLookup[addr];
         if (walletName != bytes32("")) {
             delete forwardLookup[clusterId][walletName];
@@ -98,15 +134,17 @@ contract Clusters is NameManager {
         emit Remove(clusterId, addr);
     }
 
-    function _hookCreate(bytes32 msgSender) internal override {
-        _add(msgSender, nextClusterId++);
+    function _hookCreate(bytes32 addr) internal override {
+        uint256 clusterId = nextClusterId++;
+        _verifiedAddresses[clusterId].add(addr);
+        addressToClusterId[addr] = clusterId;
     }
 
     function _hookDelete(uint256 clusterId) internal override {
-        bytes32[] memory addresses = clusterAddresses(clusterId);
+        bytes32[] memory addresses = getVerifiedAddresses(clusterId);
         for (uint256 i; i < addresses.length; ++i) {
             _remove(addresses[i]);
         }
-        emit ClusterDeleted(clusterId);
+        emit Delete(clusterId);
     }
 }

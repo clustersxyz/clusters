@@ -64,13 +64,15 @@ contract MulticallTest is Test {
         vm.prank(caller);
         clusters.multicall{value: buyAmount}(data);
 
-        bytes32[] memory addresses = clusters.clusterAddresses(1);
+        bytes32[] memory unverified = clusters.getUnverifiedAddresses(1);
+        bytes32[] memory verified = clusters.getVerifiedAddresses(1);
         assertEq(clusters.nextClusterId(), 2, "nextClusterId not incremented");
-        assertEq(addresses.length, 2, "addresses array length error");
-        assertEq(addresses[0], callerBytes, "clusterAddresses error");
-        assertEq(addresses[1], addrBytes, "clusterAddresses error");
+        assertEq(unverified.length, 1, "addresses array length error");
+        assertEq(verified.length, 1, "addresses array length error");
+        assertEq(verified[0], callerBytes, "verified addresses error");
+        assertEq(unverified[0], addrBytes, "unverified addresses error");
         assertEq(clusters.addressToClusterId(callerBytes), 1, "addressToClusterId error");
-        assertEq(clusters.addressToClusterId(addrBytes), 1, "addressToClusterId error");
+        assertEq(clusters.addressToClusterId(addrBytes), 0, "addressToClusterId error");
         bytes32[] memory names = clusters.getClusterNamesBytes32(1);
         assertEq(names.length, 1, "names array length error");
         assertEq(names[0], name_, "name array error");

@@ -479,7 +479,7 @@ abstract contract NameManager is IClusters {
 
     /// @dev Purge name-related state variables
     function _unassignName(bytes32 name, uint256 clusterId) internal {
-        nameToClusterId[name] = 0;
+        delete nameToClusterId[name];
         if (defaultClusterName[clusterId] == name) {
             delete defaultClusterName[clusterId];
             emit DefaultClusterName(bytes32(""), clusterId);
