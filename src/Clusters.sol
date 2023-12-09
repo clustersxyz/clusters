@@ -53,23 +53,23 @@ contract Clusters is NameManager {
         _checkInvariant();
     }
 
-    function add(bytes32 addr) public payable {
+    function add(bytes32 addr) external payable {
         add(_addressToBytes(msg.sender), addr);
     }
 
-    function verify(uint256 clusterId) public payable {
+    function verify(uint256 clusterId) external payable {
         verify(_addressToBytes(msg.sender), clusterId);
     }
 
-    function remove(bytes32 addr) public payable {
+    function remove(bytes32 addr) external payable {
         remove(_addressToBytes(msg.sender), addr);
     }
 
-    function getUnverifiedAddresses(uint256 clusterId) public view returns (bytes32[] memory) {
+    function getUnverifiedAddresses(uint256 clusterId) external view returns (bytes32[] memory) {
         return _unverifiedAddresses[clusterId].values();
     }
 
-    function getVerifiedAddresses(uint256 clusterId) public view returns (bytes32[] memory) {
+    function getVerifiedAddresses(uint256 clusterId) external view returns (bytes32[] memory) {
         return _verifiedAddresses[clusterId].values();
     }
 
@@ -143,7 +143,7 @@ contract Clusters is NameManager {
     }
 
     function _hookDelete(uint256 clusterId) internal override {
-        bytes32[] memory addresses = getVerifiedAddresses(clusterId);
+        bytes32[] memory addresses = _verifiedAddresses[clusterId].values();
         for (uint256 i; i < addresses.length; ++i) {
             _remove(addresses[i]);
         }

@@ -140,7 +140,7 @@ abstract contract NameManager is IClusters {
 
     /// @notice Buy unregistered name. Must pay at least minimum yearly payment.
     /// @dev Processing is handled in overload
-    function buyName(uint256 msgValue, string memory name) public payable {
+    function buyName(uint256 msgValue, string memory name) external payable {
         bytes32 msgSender = _addressToBytes(msg.sender);
         buyName(msgSender, msgValue, name);
     }
@@ -173,7 +173,7 @@ abstract contract NameManager is IClusters {
 
     /// @notice Fund an existing and specific name, callable by anyone
     /// @dev Processing is handled in overload
-    function fundName(uint256 msgValue, string memory name) public payable {
+    function fundName(uint256 msgValue, string memory name) external payable {
         fundName(_addressToBytes(msg.sender), msgValue, name);
     }
 
@@ -191,7 +191,7 @@ abstract contract NameManager is IClusters {
 
     /// @notice Move name from one cluster to another without payment
     /// @dev Processing is handled in overload
-    function transferName(string memory name, uint256 toClusterId) public payable {
+    function transferName(string memory name, uint256 toClusterId) external payable {
         transferName(_addressToBytes(msg.sender), name, toClusterId);
     }
 
@@ -281,7 +281,7 @@ abstract contract NameManager is IClusters {
     /// @dev Should work smoothly for fully expired names and names partway through their duration
     /// @dev Needs to be onchain ETH bid escrowed in one place because otherwise prices shift
     /// @dev Processing is handled in overload
-    function bidName(uint256 msgValue, string memory name) public payable {
+    function bidName(uint256 msgValue, string memory name) external payable {
         bidName(_addressToBytes(msg.sender), msgValue, name);
     }
 
@@ -334,7 +334,7 @@ abstract contract NameManager is IClusters {
 
     /// @notice Reduce bid and refund difference. Revoke if amount is the total bid or is the max uint256 value.
     /// @dev Processing is handled in overload
-    function reduceBid(string memory name, uint256 amount) public payable {
+    function reduceBid(string memory name, uint256 amount) external payable {
         reduceBid(_addressToBytes(msg.sender), name, amount);
     }
 
@@ -383,7 +383,7 @@ abstract contract NameManager is IClusters {
     /// @notice Accept bid and transfer name to bidder
     /// @dev Retrieves bid, adjusts state, then sends payment to avoid reentrancy
     /// @dev Processing is handled in overload
-    function acceptBid(string memory name) public payable returns (uint256 bidAmount) {
+    function acceptBid(string memory name) external payable returns (uint256 bidAmount) {
         return acceptBid(_addressToBytes(msg.sender), name);
     }
 
@@ -410,7 +410,7 @@ abstract contract NameManager is IClusters {
 
     /// @notice Allow failed bid refunds to be withdrawn
     /// @dev No endpoint overload is provided as I don't see why someone would retry a failed bid refund via bridge
-    function refundBid() public payable {
+    function refundBid() external payable {
         refundBid(_addressToBytes(msg.sender));
     }
 
@@ -428,7 +428,7 @@ abstract contract NameManager is IClusters {
 
     /// @notice Set canonical name or erase it by setting ""
     /// @dev Processing is handled in overload
-    function setDefaultClusterName(string memory name) public payable {
+    function setDefaultClusterName(string memory name) external payable {
         setDefaultClusterName(_addressToBytes(msg.sender), name);
     }
 
@@ -445,7 +445,7 @@ abstract contract NameManager is IClusters {
 
     /// @notice Set wallet name for msg.sender or erase it by setting ""
     /// @dev Processing is handled in overload
-    function setWalletName(bytes32 addr, string memory walletName) public payable {
+    function setWalletName(bytes32 addr, string memory walletName) external payable {
         setWalletName(_addressToBytes(msg.sender), addr, walletName);
     }
 
