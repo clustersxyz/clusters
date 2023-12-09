@@ -3,6 +3,7 @@ pragma solidity ^0.8.23;
 
 import {console2} from "../lib/forge-std/src/Test.sol";
 import {Ownable} from "../lib/solady/src/auth/Ownable.sol";
+import {IEndpoint} from "./interfaces/IEndpoint.sol";
 import {ECDSA} from "../lib/solady/src/utils/ECDSA.sol";
 
 interface IClustersEndpoint {
@@ -11,12 +12,9 @@ interface IClustersEndpoint {
 
 // TODO: Make this a proxy contract to swap out logic, ownership can be reverted later
 
-contract Endpoint is Ownable {
+contract Endpoint is Ownable, IEndpoint {
     address public clusters;
     address public signer;
-
-    event SignerAddr(address indexed addr);
-    event ClustersAddr(address indexed addr);
 
     constructor(address owner_, address signer_) {
         _initializeOwner(owner_);

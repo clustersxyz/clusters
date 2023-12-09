@@ -7,7 +7,7 @@ import {EnumerableSet} from "../lib/openzeppelin-contracts/contracts/utils/struc
 
 import {NameManager} from "./NameManager.sol";
 
-import {IClusters} from "./IClusters.sol";
+import {IClusters} from "./interfaces/IClusters.sol";
 
 import {console2} from "../lib/forge-std/src/Test.sol";
 

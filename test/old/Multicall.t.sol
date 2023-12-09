@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import "../lib/forge-std/src/Test.sol";
-import {Clusters, NameManager} from "../src/Clusters.sol";
-import {IPricing} from "../src/IPricing.sol";
-import {PricingFlat} from "../src/PricingFlat.sol";
-import {PricingHarberger} from "../src/PricingHarberger.sol";
-import {Endpoint} from "../src/Endpoint.sol";
-import {IClusters} from "../src/IClusters.sol";
+import {Test, console2} from "forge-std/Test.sol";
+import {Clusters, NameManager} from "../../src/Clusters.sol";
+import {IPricing} from "../../src/interfaces/IPricing.sol";
+import {PricingFlat} from "../../src/PricingFlat.sol";
+import {PricingHarberger} from "../../src/PricingHarberger.sol";
+import {Endpoint} from "../../src/Endpoint.sol";
+import {IClusters} from "../../src/interfaces/IClusters.sol";
 
 contract MulticallTest is Test {
     IPricing public pricing;

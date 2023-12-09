@@ -3,9 +3,9 @@ pragma solidity ^0.8.23;
 
 import {EnumerableSet} from "../lib/openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 
-import {IPricing} from "./IPricing.sol";
+import {IPricing} from "./interfaces/IPricing.sol";
 
-import {IClusters} from "./IClusters.sol";
+import {IClusters} from "./interfaces/IClusters.sol";
 
 import {console2} from "../lib/forge-std/src/Test.sol";
 

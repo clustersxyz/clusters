@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {IPricing} from "./IPricing.sol";
+import {IPricing} from "./interfaces/IPricing.sol";
 
 contract PricingFlat is IPricing {
     uint256 public constant minAnnualPrice = 0.01 ether;

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.23;
 
 import {Test, console2} from "forge-std/Test.sol";
-import {PricingHarbergerHarness} from "./harness/PricingHarbergerHarness.sol";
+import {PricingHarbergerHarness} from "../harness/PricingHarbergerHarness.sol";
 
 contract PricingHarbergerTest is Test {
     PricingHarbergerHarness public pricing;

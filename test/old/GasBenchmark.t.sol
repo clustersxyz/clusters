@@ -2,10 +2,10 @@
 pragma solidity ^0.8.23;
 
 import {Test, console2} from "forge-std/Test.sol";
-import {Clusters, NameManager} from "../src/Clusters.sol";
-import {PricingHarberger} from "../src/PricingHarberger.sol";
-import {Endpoint} from "../src/Endpoint.sol";
-import {IClusters} from "../src/IClusters.sol";
+import {Clusters, NameManager} from "../../src/Clusters.sol";
+import {PricingHarberger} from "../../src/PricingHarberger.sol";
+import {Endpoint} from "../../src/Endpoint.sol";
+import {IClusters} from "../../src/interfaces/IClusters.sol";
 
 contract GasBenchmarkTest is Test {
     PricingHarberger public pricing;
