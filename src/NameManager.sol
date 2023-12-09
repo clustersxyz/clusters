@@ -288,7 +288,6 @@ abstract contract NameManager is IClusters {
     /// @notice bidName() overload used in endpoint, msgSender must be msg.sender or endpoint
     function bidName(bytes32 msgSender, uint256 msgValue, string memory name) public payable onlyEndpoint(msgSender) {
         _checkNameValid(name);
-        _fixZeroCluster(msgSender);
         if (msgValue == 0) revert NoBid();
         bytes32 _name = _toBytes32(name);
         uint256 clusterId = nameToClusterId[_name];
@@ -399,6 +398,7 @@ abstract contract NameManager is IClusters {
         _checkNameOwnership(msgSender, name);
         bytes32 _name = _toBytes32(name);
         Bid memory bid = bids[_name];
+        _fixZeroCluster(bid.bidder);
         if (bid.ethAmount == 0) revert NoBid();
         delete bids[_name];
         totalBidBacking -= bid.ethAmount;
@@ -408,12 +408,13 @@ abstract contract NameManager is IClusters {
         return bid.ethAmount;
     }
 
+    /// @notice Allow failed bid refunds to be withdrawn
+    /// @dev No endpoint overload is provided as I don't see why someone would retry a failed bid refund via bridge
     function refundBid() public payable {
         refundBid(_addressToBytes(msg.sender));
     }
 
-    /// @notice Allow failed bid refunds to be withdrawn
-    /// @dev No endpoint overload is provided as I don't see why someone would retry a failed bid refund via bridge
+    /// @notice refundBid() overload used by endpoint, msgSender must be msg.sender or endpoint
     function refundBid(bytes32 msgSender) public payable onlyEndpoint(msgSender) {
         uint256 refund = bidRefunds[msgSender];
         if (refund == 0) revert NoBid();
