@@ -21,6 +21,7 @@ interface IClusters {
 
     event Add(uint256 indexed clusterId, bytes32 indexed addr);
     event Remove(uint256 indexed clusterId, bytes32 indexed addr);
+    event ClusterDeleted(uint256 indexed clusterId);
 
     event BuyName(bytes32 indexed name, uint256 indexed clusterId, uint256 indexed amount);
     event FundName(bytes32 indexed name, bytes32 indexed funder, uint256 indexed amount);

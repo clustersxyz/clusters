@@ -56,7 +56,7 @@ contract Clusters is NameManager {
         remove(_addressToBytes(msg.sender), addr);
     }
 
-    function clusterAddresses(uint256 clusterId) external view returns (bytes32[] memory) {
+    function clusterAddresses(uint256 clusterId) public view returns (bytes32[] memory) {
         return _clusterAddresses[clusterId].values();
     }
 
@@ -100,5 +100,13 @@ contract Clusters is NameManager {
 
     function _hookCreate(bytes32 msgSender) internal override {
         _add(msgSender, nextClusterId++);
+    }
+
+    function _hookDelete(uint256 clusterId) internal override {
+        bytes32[] memory addresses = clusterAddresses(clusterId);
+        for (uint256 i; i < addresses.length; ++i) {
+            _remove(addresses[i]);
+        }
+        emit ClusterDeleted(clusterId);
     }
 }

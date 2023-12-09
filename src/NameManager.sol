@@ -87,12 +87,15 @@ abstract contract NameManager is IClusters {
     }
 
     /// @dev Ensure addr has a cluster
-    function _fixZeroCluster(bytes32 addr) internal view {
+    function _fixZeroCluster(bytes32 addr) internal {
         if (addressToClusterId[addr] == 0) _hookCreate(addr);
     }
 
-    /// @dev Used to hook Clusters.sol functionality into NameManager.sol to abstract away cluster creation
-    function _hookCreate(bytes32 msgSender) internal virtual {}
+    /// @dev Hook used to access _add() from Clusters.sol to abstract away cluster creation
+    function _hookCreate(bytes32 msgSender) internal virtual;
+
+    /// @dev Hook used to access clusterAddresses() from Clusters.sol to delete clusters if all names are removed
+    function _hookDelete(uint256 clusterId) internal virtual;
 
     /// @notice Used to restrict external functions to
     modifier onlyEndpoint(bytes32 msgSender) {
@@ -217,13 +220,13 @@ abstract contract NameManager is IClusters {
             // Assign name to new cluster, _unassignName() isn't used because it resets nameToClusterId
             _assignName(name, toClusterId);
             _clusterNames[fromClusterId].remove(name);
-            // Purge canonical name if necessary
-            if (defaultClusterName[fromClusterId] == name) delete defaultClusterName[fromClusterId];
         } else {
             // Purge name assignment and remove from cluster
             _unassignName(name, fromClusterId);
         }
         emit TransferName(name, fromClusterId, toClusterId);
+        // Purge all addresses from cluster if last name was transferred out
+        if (_clusterNames[fromClusterId].length() == 0) _hookDelete(fromClusterId);
     }
 
     /// @notice Move accrued revenue from ethBacked to protocolRevenue, and transfer names upon expiry to highest
