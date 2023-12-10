@@ -154,4 +154,9 @@ abstract contract Base_Test is Test, Utils {
             assertEq(values[clusterId].contains(containsNames[i]), true, "clusterId does not contain name");
         }
     }
+
+    function assertEndpointVars(address clusters_, address signer) internal {
+        assertEq(clusters_, endpoint.clusters(), "endpoint clusters address error");
+        assertEq(signer, endpoint.signer(), "endpoint signer address error");
+    }
 }

@@ -21,6 +21,6 @@ interface IEndpoint {
 
     /// ADMIN FUNCTIONS ///
 
-    function setSigner(address signer_) external;
+    function setSignerAddr(address signer_) external;
     function setClustersAddr(address clusters_) external;
 }

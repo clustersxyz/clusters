@@ -50,7 +50,7 @@ contract Endpoint is Ownable, IEndpoint {
 
     /// ADMIN FUNCTIONS ///
 
-    function setSigner(address signer_) external onlyOwner {
+    function setSignerAddr(address signer_) external onlyOwner {
         signer = signer_;
         emit SignerAddr(signer_);
     }
