@@ -16,12 +16,16 @@ import {Clusters} from "../src/Clusters.sol";
 import {FickleReceiver} from "./mocks/FickleReceiver.sol";
 import {Constants} from "./utils/Constants.sol";
 import {Users} from "./utils/Types.sol";
+import {EnumerableSet} from "../lib/openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 
 abstract contract Base_Test is Test, Utils {
+    using EnumerableSet for EnumerableSet.Bytes32Set;
+
     /// VARIABLES ///
 
     Users internal users;
     uint256 internal minPrice;
+    mapping(uint256 clusterId => EnumerableSet.Bytes32Set addrs) internal values;
 
     /// TEST CONTRACTS ///
 
@@ -32,7 +36,7 @@ abstract contract Base_Test is Test, Utils {
     IClusters internal clusters;
     FickleReceiver internal fickleReceiver;
 
-    /// HELPER FUNCTIONS ///
+    /// USER HELPERS ///
 
     function createUser(string memory name) internal returns (address payable) {
         address payable user = payable(makeAddr(name));
@@ -92,5 +96,62 @@ abstract contract Base_Test is Test, Utils {
         clusters = new Clusters(address(pricingHarberger), address(endpoint), constants.MARKET_OPEN_TIMESTAMP());
         vm.prank(users.adminEndpoint);
         endpoint.setClustersAddr(address(clusters));
+    }
+
+    /// ASSERT HELPERS ///
+
+    function assertBalances(
+        uint256 totalBal,
+        uint256 protocolRevenue,
+        uint256 totalNameBacking,
+        uint256 totalBidBacking
+    ) internal {
+        assertEq(address(endpoint).balance, 0, "endpoint has balance");
+        assertEq(address(clusters).balance, totalBal, "clusters total balance error");
+        assertEq(clusters.protocolRevenue(), protocolRevenue, "clusters protocol revenue error");
+        assertEq(clusters.totalNameBacking(), totalNameBacking, "clusters total name backing error");
+        assertEq(clusters.totalBidBacking(), totalBidBacking, "clusters total bid backing error");
+        assertEq(totalBal, protocolRevenue + totalNameBacking + totalBidBacking, "clusters balance invariant error");
+    }
+
+    function assertUnverifiedAddresses(uint256 clusterId, uint256 count, bytes32[] memory containsAddrs) internal {
+        bytes32[] memory unverified = clusters.getUnverifiedAddresses(clusterId);
+        if (unverified.length > 0) {
+            for (uint256 i; i < unverified.length; ++i) {
+                values[clusterId].add(unverified[i]);
+            }
+        }
+        assertEq(unverified.length, count, "unverified addresses array length error");
+        for (uint256 i; i < containsAddrs.length; ++i) {
+            assertEq(
+                values[clusterId].contains(containsAddrs[i]), true, "clusterId does not contain unverified address"
+            );
+        }
+    }
+
+    function assertVerifiedAddresses(uint256 clusterId, uint256 count, bytes32[] memory containsAddrs) internal {
+        bytes32[] memory verified = clusters.getVerifiedAddresses(clusterId);
+        if (verified.length > 0) {
+            for (uint256 i; i < verified.length; ++i) {
+                values[clusterId].add(verified[i]);
+            }
+        }
+        assertEq(verified.length, count, "verified addresses array length error");
+        for (uint256 i; i < containsAddrs.length; ++i) {
+            assertEq(values[clusterId].contains(containsAddrs[i]), true, "clusterId does not contain verified address");
+        }
+    }
+
+    function assertClusterNames(uint256 clusterId, uint256 count, bytes32[] memory containsNames) internal {
+        bytes32[] memory names = clusters.getClusterNamesBytes32(clusterId);
+        if (names.length > 0) {
+            for (uint256 i; i < names.length; ++i) {
+                values[clusterId].add(names[i]);
+            }
+        }
+        assertEq(names.length, count, "cluster names array length error");
+        for (uint256 i; i < containsNames.length; ++i) {
+            assertEq(values[clusterId].contains(containsNames[i]), true, "clusterId does not contain name");
+        }
     }
 }
