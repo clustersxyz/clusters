@@ -25,7 +25,7 @@ abstract contract Base_Test is Test, Utils {
 
     Users internal users;
     uint256 internal minPrice;
-    mapping(uint256 clusterId => EnumerableSet.Bytes32Set addrs) internal values;
+    mapping(uint256 clusterId => EnumerableSet.Bytes32Set vals) internal values;
 
     /// TEST CONTRACTS ///
 
