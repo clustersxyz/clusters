@@ -5,11 +5,9 @@ import {PricingHarberger_Unit_Shared_Test} from "../shared/SharedPricingHarberge
 
 contract PricingHarberger_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Test {
     uint256 secondsAfterCreation = 1000 * 365 days;
-    uint256 minPrice;
 
     function setUp() public virtual override {
         PricingHarberger_Unit_Shared_Test.setUp();
-        minPrice = pricingHarberger.minAnnualPrice();
     }
 
     function testDecayMultiplier() public {

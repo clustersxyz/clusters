@@ -12,8 +12,8 @@ interface IEndpoint {
 
     /// ECDSA HELPERS ///
 
-    function getEthSignedMessageHash(address to, string memory name) external pure returns (bytes32);
-    function verify(address to, string memory name, bytes calldata sig) external view returns (bool);
+    function getEthSignedMessageHash(bytes32 to, string memory name) external pure returns (bytes32);
+    function verify(bytes32 to, string memory name, bytes calldata sig) external view returns (bool);
 
     /// PERMISSIONED BUY ///
 

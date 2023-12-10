@@ -125,9 +125,9 @@ contract Clusters is NameManager {
     function _remove(bytes32 addr) internal {
         uint256 clusterId = addressToClusterId[addr];
         // If the cluster has valid names, prevent removing final address, regardless of what is supplied for addr
-        if (_clusterNames[clusterId].length() > 0 && _unverifiedAddresses[clusterId].length() == 1) revert Invalid();
+        if (_clusterNames[clusterId].length() > 0 && _verifiedAddresses[clusterId].length() == 1) revert Invalid();
         delete addressToClusterId[addr];
-        _unverifiedAddresses[clusterId].remove(addr);
+        _verifiedAddresses[clusterId].remove(addr);
         bytes32 walletName = reverseLookup[addr];
         if (walletName != bytes32("")) {
             delete forwardLookup[clusterId][walletName];
@@ -151,6 +151,7 @@ contract Clusters is NameManager {
     }
 
     function _hookCheck(uint256 clusterId) internal view override {
+        if (clusterId == 0) return;
         if (_verifiedAddresses[clusterId].length() == 0) revert Invalid();
     }
 }

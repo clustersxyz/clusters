@@ -21,6 +21,7 @@ abstract contract Base_Test is Test, Utils {
     /// VARIABLES ///
 
     Users internal users;
+    uint256 internal minPrice;
 
     /// TEST CONTRACTS ///
 
@@ -69,19 +70,27 @@ abstract contract Base_Test is Test, Utils {
             hacker: createAndFundUser("Malicious User", constants.USERS_FUNDING_AMOUNT())
         });
         (users.signerPrivKey, users.signer) = createUserWithPrivKey("Signer");
+
+        vm.warp(constants.START_TIME());
     }
 
     /// DEPLOY ///
 
     function deployLocalFlat() internal {
         pricingFlat = new PricingFlat();
+        minPrice = pricingFlat.minAnnualPrice();
         endpoint = new Endpoint(users.adminEndpoint, users.signer);
         clusters = new Clusters(address(pricingFlat), address(endpoint), constants.MARKET_OPEN_TIMESTAMP());
+        vm.prank(users.adminEndpoint);
+        endpoint.setClustersAddr(address(clusters));
     }
 
     function deployLocalHarberger() internal {
         pricingHarberger = new PricingHarbergerHarness();
+        minPrice = pricingHarberger.minAnnualPrice();
         endpoint = new Endpoint(users.adminEndpoint, users.signer);
         clusters = new Clusters(address(pricingHarberger), address(endpoint), constants.MARKET_OPEN_TIMESTAMP());
+        vm.prank(users.adminEndpoint);
+        endpoint.setClustersAddr(address(clusters));
     }
 }

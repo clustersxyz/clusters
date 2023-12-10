@@ -47,7 +47,7 @@ contract EndpointTest is Test {
         _prepAddresses(callerSalt, minPrice);
 
         vm.startPrank(SIGNER);
-        bytes32 digest = endpoint.getEthSignedMessageHash(caller, name);
+        bytes32 digest = endpoint.getEthSignedMessageHash(_addressToBytes(caller), name);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(SIGNER_KEY, digest);
         bytes memory sig = abi.encodePacked(r, s, v);
         vm.stopPrank();

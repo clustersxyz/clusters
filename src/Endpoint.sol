@@ -25,17 +25,17 @@ contract Endpoint is Ownable, IEndpoint {
     /// INTERNAL FUNCTIONS ///
 
     /// @dev Returns bytes32 representation of address
-    function _addressToBytes(address addr) internal pure returns (bytes32) {
+    function _addressToBytes32(address addr) internal pure returns (bytes32) {
         return bytes32(uint256(uint160(addr)));
     }
 
     /// ECDSA HELPERS ///
 
-    function getEthSignedMessageHash(address to, string memory name) public pure returns (bytes32) {
+    function getEthSignedMessageHash(bytes32 to, string memory name) public pure returns (bytes32) {
         return ECDSA.toEthSignedMessageHash(keccak256(abi.encodePacked(to, name)));
     }
 
-    function verify(address to, string memory name, bytes calldata sig) public view returns (bool) {
+    function verify(bytes32 to, string memory name, bytes calldata sig) public view returns (bool) {
         bytes32 ethSignedMessageHash = getEthSignedMessageHash(to, name);
         return ECDSA.recoverCalldata(ethSignedMessageHash, sig) == signer;
     }
@@ -43,8 +43,9 @@ contract Endpoint is Ownable, IEndpoint {
     /// PERMISSIONED BUY FUNCTIONS ///
 
     function buyName(uint256 msgValue, string memory name, bytes calldata sig) external payable {
-        if (!verify(msg.sender, name, sig)) revert ECDSA.InvalidSignature();
-        IClustersEndpoint(clusters).buyName{value: msgValue}(_addressToBytes(msg.sender), msgValue, name);
+        bytes32 callerBytes = _addressToBytes32(msg.sender);
+        if (!verify(callerBytes, name, sig)) revert ECDSA.InvalidSignature();
+        IClustersEndpoint(clusters).buyName{value: msgValue}(callerBytes, msgValue, name);
     }
 
     /// ADMIN FUNCTIONS ///

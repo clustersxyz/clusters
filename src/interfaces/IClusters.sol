@@ -5,7 +5,6 @@ interface IClusters {
     /// STRUCTS ///
 
     struct PriceIntegral {
-        bytes32 name;
         uint256 lastUpdatedTimestamp;
         uint256 lastUpdatedPrice;
     }
@@ -68,7 +67,7 @@ interface IClusters {
     function priceIntegral(bytes32 name)
         external
         view
-        returns (bytes32 name_, uint256 lastUpdatedTimestamp, uint256 lastUpdatedPrice);
+        returns (uint256 lastUpdatedTimestamp, uint256 lastUpdatedPrice);
     function nameBacking(bytes32 name) external view returns (uint256 ethAmount);
     function bids(bytes32 name) external view returns (uint256 ethAmount, uint256 createdTimestamp, bytes32 bidder);
     function bidRefunds(bytes32 _bidder) external view returns (uint256 refund);
