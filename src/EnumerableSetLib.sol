@@ -142,4 +142,8 @@ library EnumerableSetLib {
             result[i] = set._values[i].value;
         }
     }
+
+    function at(Bytes32Set storage set, uint256 i) internal view returns (bytes32) {
+        return set._values[i].value;
+    }
 }
