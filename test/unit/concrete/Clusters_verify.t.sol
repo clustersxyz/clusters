@@ -4,7 +4,7 @@ pragma solidity ^0.8.23;
 import {PricingHarberger_Unit_Shared_Test} from "../shared/SharedPricingHarberger.t.sol";
 import {IClusters} from "../../../src/interfaces/IClusters.sol";
 
-contract Clusters_add_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Test {
+contract Clusters_verify_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Test {
     function setUp() public virtual override {
         PricingHarberger_Unit_Shared_Test.setUp();
         vm.warp(constants.MARKET_OPEN_TIMESTAMP() + 1 days);
