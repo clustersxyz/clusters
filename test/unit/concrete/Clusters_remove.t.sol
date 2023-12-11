@@ -31,6 +31,21 @@ contract Clusters_remove_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Test
         assertVerifiedAddresses(1, 1, verified);
     }
 
+    function testRemoveNamed() public {
+        vm.prank(users.alicePrimary);
+        clusters.setWalletName(_addressToBytes32(users.alicePrimary), "Primary");
+
+        vm.prank(users.aliceSecondary);
+        clusters.remove(_addressToBytes32(users.alicePrimary));
+
+        bytes32[] memory empty;
+        bytes32[] memory verified = new bytes32[](1);
+        verified[0] = _addressToBytes32(users.aliceSecondary);
+        assertUnverifiedAddresses(1, 0, empty);
+        assertVerifiedAddresses(1, 1, verified);
+        assertEq(bytes32(""), clusters.reverseLookup(_addressToBytes32(users.alicePrimary)), "name not purged");
+    }
+
     function testRemove_Reverts() public {
         vm.startPrank(users.hacker);
         vm.expectRevert(IClusters.NoCluster.selector);
