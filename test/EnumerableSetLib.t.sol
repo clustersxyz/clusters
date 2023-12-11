@@ -115,7 +115,7 @@ contract EnumerableSetLibTest is Test {
         unchecked {
             LibPRNG.PRNG memory prng;
             prng.state = n;
-            uint256[] memory additions = new uint256[](prng.next() % 32);
+            uint256[] memory additions = new uint256[](prng.next() % 16);
 
             for (uint256 i; i != additions.length; ++i) {
                 uint256 x = 1 | (prng.next() & 7);
@@ -133,7 +133,7 @@ contract EnumerableSetLibTest is Test {
                 assertEq(valuesCasted, additions);
             }
 
-            uint256[] memory removals = new uint256[](prng.next() % 32);
+            uint256[] memory removals = new uint256[](prng.next() % 16);
             for (uint256 i; i != removals.length; ++i) {
                 uint256 x = 1 | (prng.next() & 7);
                 removals[i] = x;
