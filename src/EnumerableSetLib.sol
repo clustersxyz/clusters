@@ -97,15 +97,14 @@ library EnumerableSetLib {
                 Bytes32 storage p0 = set._values[0];
                 bytes32 v0 = p0.value;
                 Bytes32 storage p1 = set._values[1];
-                bytes32 v1 = p1.value;
                 if (v0 == bytes32(0)) {
                     return false;
                 } else if (v0 == value) {
-                    p0.value = v1;
+                    p0.value = p1.value;
                     p1.value = bytes32(0);
                     return true;
                 }
-
+                bytes32 v1 = p1.value;
                 if (v1 == bytes32(0)) {
                     return false;
                 } else if (v1 == value) {
