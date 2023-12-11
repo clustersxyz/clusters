@@ -23,7 +23,8 @@ import {console2} from "../lib/forge-std/src/Test.sol";
 contract Clusters is NameManager {
     using EnumerableSetLib for EnumerableSetLib.Bytes32Set;
 
-    uint256 public nextClusterId = 1;
+    /// @notice The next cluster id
+    uint96 internal _nextClusterId = 1;
 
     /// @dev Enumerates all unverified addresses in a cluster
     mapping(uint256 clusterId => EnumerableSetLib.Bytes32Set addrs) internal _unverifiedAddresses;
@@ -71,6 +72,10 @@ contract Clusters is NameManager {
 
     function getVerifiedAddresses(uint256 clusterId) external view returns (bytes32[] memory) {
         return _verifiedAddresses[clusterId].values();
+    }
+
+    function nextClusterId() public view returns (uint256) {
+        return uint256(_nextClusterId);
     }
 
     /// ENDPOINT FUNCTIONS ///
@@ -137,9 +142,11 @@ contract Clusters is NameManager {
     }
 
     function _hookCreate(bytes32 addr) internal override {
-        uint256 clusterId = nextClusterId++;
-        _verifiedAddresses[clusterId].add(addr);
-        addressToClusterId[addr] = clusterId;
+        unchecked {
+            uint256 clusterId = _nextClusterId++;
+            _verifiedAddresses[clusterId].add(addr);
+            addressToClusterId[addr] = clusterId;    
+        }
     }
 
     function _hookDelete(uint256 clusterId) internal override {
