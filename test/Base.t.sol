@@ -126,6 +126,7 @@ abstract contract Base_Test is Test, Utils {
             assertEq(
                 values[clusterId].contains(containsAddrs[i]), true, "clusterId does not contain unverified address"
             );
+            assertEq(0, clusters.addressToClusterId(containsAddrs[i]), "address incorrectly assigned to clusterId");
         }
     }
 
@@ -139,6 +140,7 @@ abstract contract Base_Test is Test, Utils {
         assertEq(verified.length, count, "verified addresses array length error");
         for (uint256 i; i < containsAddrs.length; ++i) {
             assertEq(values[clusterId].contains(containsAddrs[i]), true, "clusterId does not contain verified address");
+            assertEq(clusterId, clusters.addressToClusterId(containsAddrs[i]), "address not assigned to clusterId");
         }
     }
 
@@ -152,6 +154,7 @@ abstract contract Base_Test is Test, Utils {
         assertEq(names.length, count, "cluster names array length error");
         for (uint256 i; i < containsNames.length; ++i) {
             assertEq(values[clusterId].contains(containsNames[i]), true, "clusterId does not contain name");
+            assertEq(clusterId, clusters.nameToClusterId(containsNames[i]), "name not assigned to clusterId");
         }
     }
 
