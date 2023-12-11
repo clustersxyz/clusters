@@ -259,6 +259,7 @@ abstract contract NameManager is IClusters {
             uint256 bid = bids[_name].ethAmount;
             if (bid > 0) {
                 bidder = bids[_name].bidder;
+                _fixZeroCluster(bidder);
                 nameBacking[_name] += bid;
                 totalNameBacking += bid;
                 totalBidBacking -= bid;
@@ -273,8 +274,8 @@ abstract contract NameManager is IClusters {
             protocolRevenue += spent;
             priceIntegral[_name] =
                 IClusters.PriceIntegral({lastUpdatedTimestamp: block.timestamp, lastUpdatedPrice: newPrice});
-            emit PokeName(_name);
         }
+        emit PokeName(_name);
     }
 
     /// @notice Place bids on valid names. Subsequent calls increases existing bid. If name is expired update ownership.
