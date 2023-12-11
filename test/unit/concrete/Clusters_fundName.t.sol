@@ -32,10 +32,16 @@ contract Clusters_fundName_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Te
     function testFundName_Reverts() public {
         string memory testName = constants.TEST_NAME();
         vm.startPrank(users.alicePrimary);
+        vm.expectRevert(IClusters.EmptyName.selector);
+        clusters.fundName{value: minPrice}(minPrice, "");
+        vm.expectRevert(IClusters.LongName.selector);
+        clusters.fundName{value: minPrice}(minPrice, "Privacy is necessary for an open society in the electronic age.");
+
         vm.expectRevert(IClusters.Unregistered.selector);
         clusters.fundName{value: minPrice}(minPrice, "zodomo");
         vm.expectRevert(IClusters.Unauthorized.selector);
         clusters.fundName{value: minPrice}(_addressToBytes32(users.bobPrimary), minPrice, "zodomo");
+
         vm.expectRevert(IClusters.BadInvariant.selector);
         clusters.fundName{value: minPrice}(minPrice + 1, testName);
         vm.stopPrank();

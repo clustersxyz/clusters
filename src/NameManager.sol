@@ -162,7 +162,10 @@ abstract contract NameManager is IClusters {
         priceIntegral[_name] =
             IClusters.PriceIntegral({lastUpdatedTimestamp: block.timestamp, lastUpdatedPrice: pricing.minAnnualPrice()});
         _assignName(_name, clusterId);
-        if (defaultClusterName[clusterId] == bytes32("")) defaultClusterName[clusterId] = _name;
+        if (defaultClusterName[clusterId] == bytes32("")) {
+            defaultClusterName[clusterId] = _name;
+            emit DefaultClusterName(_name, clusterId);
+        }
         emit BuyName(_name, clusterId, msgValue);
 
         _checkInvariant();
@@ -210,18 +213,22 @@ abstract contract NameManager is IClusters {
     /// @dev Transfer cluster name or delete cluster name without checking auth
     /// @dev Delete by transferring to cluster id 0
     function _transferName(bytes32 name, uint256 fromClusterId, uint256 toClusterId) internal {
-        // If name is canonical cluster name for sending cluster, remove that assignment
-        if (defaultClusterName[fromClusterId] == name) {
-            delete defaultClusterName[fromClusterId];
-        }
         // Assign name to new cluster, otherwise unassign
         if (toClusterId != 0) {
-            // Assign name to new cluster, _unassignName() isn't used because it resets nameToClusterId
-            _assignName(name, toClusterId);
-            _clusterNames[fromClusterId].remove(name);
-        } else {
-            // Purge name assignment and remove from cluster
             _unassignName(name, fromClusterId);
+            _assignName(name, toClusterId);
+        } else {
+            _unassignName(name, fromClusterId);
+            // Convert remaining name backing to protocol revenue and soft refund any existing bid
+            uint256 backing = nameBacking[name];
+            delete nameBacking[name];
+            totalNameBacking -= backing;
+            protocolRevenue += backing;
+            uint256 bid = bids[name].ethAmount;
+            if (bid > 0) {
+                bidRefunds[bids[name].bidder] += bid;
+                delete bids[name];
+            }
         }
         emit TransferName(name, fromClusterId, toClusterId);
         // Purge all addresses from cluster if last name was transferred out
@@ -254,6 +261,7 @@ abstract contract NameManager is IClusters {
                 bidder = bids[_name].bidder;
                 nameBacking[_name] += bid;
                 totalNameBacking += bid;
+                totalBidBacking -= bid;
                 delete bids[_name];
             }
             // If there isn't a highest bidder, name will expire and be deleted as bidder is bytes32(0)
@@ -477,11 +485,18 @@ abstract contract NameManager is IClusters {
     /// @dev Purge name-related state variables
     function _unassignName(bytes32 name, uint256 clusterId) internal {
         delete nameToClusterId[name];
-        if (defaultClusterName[clusterId] == name) {
-            delete defaultClusterName[clusterId];
-            emit DefaultClusterName(bytes32(""), clusterId);
-        }
         _clusterNames[clusterId].remove(name);
+        // If name is default cluster name for clusterId, reassign to the name at index 0 in _clusterNames
+        if (defaultClusterName[clusterId] == name) {
+            if (_clusterNames[clusterId].length() == 0) {
+                delete defaultClusterName[clusterId];
+                emit DefaultClusterName(bytes32(""), clusterId);
+            } else {
+                bytes32 newDefaultName = _clusterNames[clusterId].at(0);
+                defaultClusterName[clusterId] = newDefaultName;
+                emit DefaultClusterName(newDefaultName, clusterId);
+            }
+        }
     }
 
     /// TYPE HELPERS ///
