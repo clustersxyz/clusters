@@ -3,7 +3,7 @@ pragma solidity ^0.8.23;
 
 // Follow https://docs.soliditylang.org/en/latest/style-guide.html for style
 
-import {EnumerableSet} from "../lib/openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
+import {EnumerableSetLib} from "./EnumerableSetLib.sol";
 
 import {NameManager} from "./NameManager.sol";
 
@@ -21,15 +21,15 @@ import {console2} from "../lib/forge-std/src/Test.sol";
  */
 
 contract Clusters is NameManager {
-    using EnumerableSet for EnumerableSet.Bytes32Set;
+    using EnumerableSetLib for EnumerableSetLib.Bytes32Set;
 
     uint256 public nextClusterId = 1;
 
     /// @dev Enumerates all unverified addresses in a cluster
-    mapping(uint256 clusterId => EnumerableSet.Bytes32Set addrs) internal _unverifiedAddresses;
+    mapping(uint256 clusterId => EnumerableSetLib.Bytes32Set addrs) internal _unverifiedAddresses;
 
     /// @dev Enumerates all verified addresses in a cluster
-    mapping(uint256 clusterId => EnumerableSet.Bytes32Set addrs) internal _verifiedAddresses;
+    mapping(uint256 clusterId => EnumerableSetLib.Bytes32Set addrs) internal _verifiedAddresses;
 
     constructor(address pricing_, address endpoint_, uint256 marketOpenTimestamp_)
         NameManager(pricing_, endpoint_, marketOpenTimestamp_)

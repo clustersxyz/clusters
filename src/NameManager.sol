@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {EnumerableSet} from "../lib/openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
+import {EnumerableSetLib} from "./EnumerableSetLib.sol";
 
 import {IPricing} from "./IPricing.sol";
 
@@ -12,7 +12,7 @@ import {console2} from "../lib/forge-std/src/Test.sol";
 /// @notice The bidding, accepting, eth storing component of Clusters. Handles name assignment
 ///         to cluster ids and checks auth of cluster membership before acting on one of its names
 abstract contract NameManager is IClusters {
-    using EnumerableSet for EnumerableSet.Bytes32Set;
+    using EnumerableSetLib for EnumerableSetLib.Bytes32Set;
 
     address public immutable endpoint;
 
@@ -32,7 +32,7 @@ abstract contract NameManager is IClusters {
     mapping(uint256 clusterId => bytes32 name) public defaultClusterName;
 
     /// @notice Enumerate all names owned by a cluster
-    mapping(uint256 clusterId => EnumerableSet.Bytes32Set names) internal _clusterNames;
+    mapping(uint256 clusterId => EnumerableSetLib.Bytes32Set names) internal _clusterNames;
 
     /// @notice For example lookup[17]["hot"] -> 0x123...
     mapping(uint256 clusterId => mapping(bytes32 walletName => bytes32 addr)) public forwardLookup;
