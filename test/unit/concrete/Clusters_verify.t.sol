@@ -16,6 +16,9 @@ contract Clusters_verify_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Test
 
         vm.prank(users.bobPrimary);
         clusters.buyName{value: minPrice}(minPrice, "zodomo");
+
+        vm.prank(users.bobSecondary);
+        clusters.buyName{value: minPrice}(minPrice, "FOOBAR");
     }
 
     function testVerify() public {
@@ -44,6 +47,22 @@ contract Clusters_verify_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Test
         assertUnverifiedAddresses(1, 1, empty);
         assertVerifiedAddresses(1, 2, verified);
         assertClusterNames(1, 2, names);
+
+        vm.prank(users.bobSecondary);
+        clusters.add(_addressToBytes32(users.bobPrimary));
+
+        vm.prank(users.bobPrimary);
+        clusters.verify(3);
+
+        verified = new bytes32[](2);
+        verified[0] = _addressToBytes32(users.bobSecondary);
+        verified[1] = _addressToBytes32(users.bobPrimary);
+        assertUnverifiedAddresses(3, 0, empty);
+        assertVerifiedAddresses(3, 2, verified);
+        verified = new bytes32[](1);
+        verified[0] = _addressToBytes32(users.alicePrimary);
+        assertVerifiedAddresses(1, 1, verified);
+        assertVerifiedAddresses(2, 0, empty);
     }
 
     function testVerify_Reverts() public {

@@ -51,6 +51,39 @@ contract Clusters_reduceBid_Unit_Concrete_Test is PricingHarberger_Unit_Shared_T
         assertBalances(minPrice, protocolRevenue, totalNameBacking, 0);
     }
 
+    function testReduceBidOverage() public {
+        vm.startPrank(users.bobPrimary);
+        clusters.reduceBid(constants.TEST_NAME(), minPrice * 3);
+        vm.stopPrank();
+
+        (uint256 ethAmount, uint256 createdTimestamp, bytes32 bidder) =
+            clusters.bids(_stringToBytes32(constants.TEST_NAME()));
+        uint256 protocolRevenue = clusters.protocolRevenue();
+        uint256 totalNameBacking = clusters.totalNameBacking();
+        assertEq(minPrice, protocolRevenue + totalNameBacking, "protocolRevenue and totalNameBacking incoherence");
+        assertEq(ethAmount, 0, "bid value not reset");
+        assertEq(createdTimestamp, 0, "bid timestamp not reset");
+        assertEq(bidder, bytes32(""), "bid bidder not reset");
+        assertBalances(minPrice, protocolRevenue, totalNameBacking, 0);
+    }
+
+    function testReduceBidAfterExpiry() public {
+        vm.warp(constants.MARKET_OPEN_TIMESTAMP() + (10 * 365 days));
+        vm.startPrank(users.bobPrimary);
+        clusters.reduceBid(constants.TEST_NAME(), minPrice * 3);
+        vm.stopPrank();
+
+        (uint256 ethAmount, uint256 createdTimestamp, bytes32 bidder) =
+            clusters.bids(_stringToBytes32(constants.TEST_NAME()));
+        bytes32[] memory names = new bytes32[](1);
+        names[0] = _stringToBytes32(constants.TEST_NAME());
+        assertEq(ethAmount, 0, "bid value not reset");
+        assertEq(createdTimestamp, 0, "bid timestamp not reset");
+        assertEq(bidder, bytes32(""), "bid bidder not reset");
+        assertBalances(minPrice * 3, minPrice, minPrice * 2, 0);
+        assertClusterNames(2, 1, names);
+    }
+
     function testReduceBid_Reverts() public {
         string memory testName = constants.TEST_NAME();
         vm.startPrank(users.bobPrimary);
