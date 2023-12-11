@@ -158,6 +158,10 @@ abstract contract Base_Test is Test, Utils {
         }
     }
 
+    function assertNameBacking(string memory name, uint256 nameBacking) internal {
+        assertEq(nameBacking, clusters.nameBacking(_stringToBytes32(name)), "name backing incorrect");
+    }
+
     function assertEndpointVars(address clusters_, address signer) internal {
         assertEq(clusters_, endpoint.clusters(), "endpoint clusters address error");
         assertEq(signer, endpoint.signer(), "endpoint signer address error");

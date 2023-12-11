@@ -64,5 +64,6 @@ contract Clusters_buyName_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Tes
         clusters.buyName{value: minPrice}(minPrice, testName);
         vm.expectRevert(IClusters.Registered.selector);
         clusters.buyName{value: minPrice}(minPrice, testName);
+        vm.stopPrank();
     }
 }

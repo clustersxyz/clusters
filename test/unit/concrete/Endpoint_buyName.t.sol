@@ -2,7 +2,6 @@
 pragma solidity ^0.8.23;
 
 import {PricingHarberger_Unit_Shared_Test} from "../shared/SharedPricingHarberger.t.sol";
-import {IClusters} from "../../../src/interfaces/IClusters.sol";
 import {ECDSA} from "../../../lib/solady/src/utils/ECDSA.sol";
 
 contract Endpoint_buyName_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Test {
