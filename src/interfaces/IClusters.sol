@@ -79,8 +79,6 @@ interface IClusters {
     function getUnverifiedAddresses(uint256 clusterId) external view returns (bytes32[] memory addresses);
     function getVerifiedAddresses(uint256 clusterId) external view returns (bytes32[] memory addresses);
     function getClusterNamesBytes32(uint256 clusterId) external view returns (bytes32[] memory names);
-    function getClusterNamesString(uint256 clusterId) external view returns (string[] memory names);
-    function getBid(bytes32 name) external view returns (Bid memory bid);
 
     /// EXTERNAL FUNCTIONS ///
 

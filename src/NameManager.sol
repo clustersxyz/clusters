@@ -119,23 +119,6 @@ abstract contract NameManager is IClusters {
         return _clusterNames[clusterId].values();
     }
 
-    /// @notice Get all names owned by a cluster in string format
-    /// @dev Do not use this onchain as it is a denial-of-service vector due to loop potentially exceeding gas ceiling
-    /// @return names Array of names in string format
-    function getClusterNamesString(uint256 clusterId) external view returns (string[] memory names) {
-        bytes32[] memory namesBytes32 = _clusterNames[clusterId].values();
-        names = new string[](namesBytes32.length);
-        for (uint256 i; i < namesBytes32.length;) {
-            names[i] = _toString(namesBytes32[i]);
-        }
-    }
-
-    /// @notice Get Bid struct from storage
-    /// @return bid Bid struct
-    function getBid(bytes32 name) external view returns (IClusters.Bid memory bid) {
-        return bids[name];
-    }
-
     /// ECONOMIC FUNCTIONS ///
 
     /// @notice Buy unregistered name. Must pay at least minimum yearly payment.
@@ -505,27 +488,7 @@ abstract contract NameManager is IClusters {
     /// @dev Returns bytes32 representation of string < 32 characters, used in name-related state vars and functions
     function _toBytes32(string memory smallString) internal pure returns (bytes32 result) {
         bytes memory smallBytes = bytes(smallString);
-        if (smallBytes.length > 32) revert LongName();
         return bytes32(smallBytes);
-    }
-
-    /// @dev Returns a string from a right-padded bytes32 representation.
-    function _toString(bytes32 smallBytes) internal pure returns (string memory result) {
-        if (smallBytes == bytes32("")) return result;
-        /// @solidity memory-safe-assembly
-        assembly {
-            result := mload(0x40)
-            let n
-            for {} 1 {} {
-                n := add(n, 1)
-                if iszero(byte(n, smallBytes)) { break } // Scan for '\0'.
-            }
-            mstore(result, n)
-            let o := add(result, 0x20)
-            mstore(o, smallBytes)
-            mstore(add(o, n), 0)
-            mstore(0x40, add(result, 0x40))
-        }
     }
 
     /// @dev Returns bytes32 representation of address
