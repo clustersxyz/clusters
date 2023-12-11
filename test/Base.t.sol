@@ -159,6 +159,11 @@ abstract contract Base_Test is Test, Utils {
         }
     }
 
+    function assertWalletName(uint256 clusterId, bytes32 addr, string memory name) internal {
+        assertEq(addr, clusters.forwardLookup(clusterId, _stringToBytes32(name)), "forwardLookup error");
+        assertEq(_stringToBytes32(name), clusters.reverseLookup(addr));
+    }
+
     function assertNameBacking(string memory name, uint256 nameBacking) internal {
         assertEq(nameBacking, clusters.nameBacking(_stringToBytes32(name)), "name backing incorrect");
     }
