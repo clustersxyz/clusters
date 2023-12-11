@@ -14,13 +14,14 @@ import {console2} from "../lib/forge-std/src/Test.sol";
 abstract contract NameManager is IClusters {
     using EnumerableSetLib for EnumerableSetLib.Bytes32Set;
 
-    struct NameData{
+    struct NameData {
         /// @notice Which cluster a name belongs to
         uint96 clusterId;
         /// @notice The amount of money backing each name registration
         uint96 backing;
         /// @notice Data required for proper harberger tax calculation when pokeName() is called    
         IClusters.PriceIntegral integral;
+        uint256 integralPacked;
         /// @notice Bid info storage, all bidIds are incremental and are not sorted by name
         IClusters.Bid bid;
     }
@@ -194,11 +195,7 @@ abstract contract NameManager is IClusters {
         // Process price accounting updates
         nameData.backing += uint96(msgValue);
         _totalNameBacking += uint96(msgValue);
-        nameData.integral = IClusters.PriceIntegral({
-            name: _name,
-            lastUpdatedTimestamp: block.timestamp,
-            lastUpdatedPrice: pricing.minAnnualPrice()
-        });
+        _setIntegral(nameData, _name, pricing.minAnnualPrice());
         _assignName(_name, clusterId);
         if (defaultClusterName[clusterId] == bytes32("")) defaultClusterName[clusterId] = _name;
         emit BuyName(_name, clusterId, msgValue);
@@ -274,7 +271,7 @@ abstract contract NameManager is IClusters {
         bytes32 _name = _toBytes32(name);
         NameData storage nameData = _nameData[_name];
         if (nameData.clusterId == 0) revert Unregistered();
-        IClusters.PriceIntegral memory integral = nameData.integral;
+        IClusters.PriceIntegral memory integral = _getIntegral(nameData);
         (uint256 spent, uint256 newPrice) = pricing.getIntegratedPrice(
             integral.lastUpdatedPrice,
             block.timestamp - integral.lastUpdatedTimestamp,
@@ -303,12 +300,37 @@ abstract contract NameManager is IClusters {
             nameData.backing -= uint96(spent);
             _totalNameBacking -= uint96(spent);
             _protocolRevenue += uint96(spent);
-            nameData.integral = IClusters.PriceIntegral({
-                name: _name,
-                lastUpdatedTimestamp: block.timestamp,
-                lastUpdatedPrice: newPrice
-            });
+            _setIntegral(nameData, _name, newPrice);
             emit PokeName(_name);
+        }
+    }
+
+    function _setIntegral(NameData storage nameData, bytes32 name_, uint256 lastUpdatedPrice) internal {
+        bytes32 truncatedName = bytes32(bytes20(name_));
+        if (truncatedName == name_) {
+            if (block.timestamp <= 0xffffffff) {
+                if (lastUpdatedPrice <= 0xffffffffffffffff) {
+                    nameData.integralPacked = uint256(truncatedName) | (block.timestamp << 64) | lastUpdatedPrice;
+                    return;
+                }
+            }
+        }
+        nameData.integralPacked = 0;
+        nameData.integral = IClusters.PriceIntegral({
+            name: name_,
+            lastUpdatedTimestamp: block.timestamp,
+            lastUpdatedPrice: lastUpdatedPrice
+        });
+    }
+
+    function _getIntegral(NameData storage nameData) internal view returns (IClusters.PriceIntegral memory integral) {
+        uint256 integralPacked = nameData.integralPacked;
+        if (integralPacked == 0) {
+            integral = nameData.integral;
+        } else {
+            integral.name = bytes32((integralPacked >> 96) << 96);
+            integral.lastUpdatedTimestamp = (integralPacked >> 64) & 0xffffffff;
+            integral.lastUpdatedPrice = integralPacked & 0xffffffffffffffff;
         }
     }
 
