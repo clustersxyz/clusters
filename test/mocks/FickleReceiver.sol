@@ -2,19 +2,38 @@
 pragma solidity ^0.8.23;
 
 contract FickleReceiver {
-    bool isReceiving;
+    error NotReceiving();
+
+    bool isReceiving = true;
 
     constructor() {}
 
-    function flipflop() external {
+    function toggle() external {
         isReceiving = !isReceiving;
     }
 
-    function deposit() external payable {
-        return;
+    function execute(address to, uint256 value, bytes memory data)
+        external
+        returns (bool success, bytes memory result)
+    {
+        (success, result) = to.call{value: value}(data);
+        if (!success) {
+            if (result.length > 0) {
+                assembly {
+                    let result_size := mload(result)
+                    revert(add(32, result), result_size)
+                }
+            } else {
+                revert("External call failed without revert reason");
+            }
+        }
     }
 
     receive() external payable {
-        if (isReceiving) revert();
+        if (!isReceiving) revert NotReceiving();
+    }
+
+    fallback() external payable {
+        if (!isReceiving) revert NotReceiving();
     }
 }

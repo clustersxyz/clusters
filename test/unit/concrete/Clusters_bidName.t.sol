@@ -44,6 +44,40 @@ contract Clusters_bidName_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Tes
         assertBalances(minPrice * 4, 0, minPrice * 2, minPrice * 2);
     }
 
+    function testBidNameOutbid() public {
+        string memory testName = constants.TEST_NAME();
+        vm.startPrank(users.bobPrimary);
+        clusters.bidName{value: minPrice}(minPrice, testName);
+        vm.stopPrank();
+
+        vm.prank(users.bidder);
+        clusters.bidName{value: minPrice * 2}(minPrice * 2, testName);
+
+        (uint256 ethAmount, uint256 createdTimestamp, bytes32 bidder) =
+            clusters.bids(_stringToBytes32(constants.TEST_NAME()));
+        assertEq(ethAmount, minPrice * 2, "bid value not updated");
+        assertEq(createdTimestamp, constants.MARKET_OPEN_TIMESTAMP() + 1 days, "bid timestamp error");
+        assertEq(bidder, _addressToBytes32(users.bidder), "bid bidder not updated");
+        assertBalances(minPrice * 4, 0, minPrice * 2, minPrice * 2);
+    }
+
+    function testBidNameOutbidFickleReceiver() public {
+        string memory testName = constants.TEST_NAME();
+        bytes memory data = abi.encodeWithSignature("bidName(uint256,string)", minPrice, testName);
+        fickleReceiver.execute(address(clusters), minPrice, data);
+        fickleReceiver.toggle();
+
+        vm.prank(users.bidder);
+        clusters.bidName{value: minPrice * 2}(minPrice * 2, testName);
+
+        (uint256 ethAmount, uint256 createdTimestamp, bytes32 bidder) =
+            clusters.bids(_stringToBytes32(constants.TEST_NAME()));
+        assertEq(ethAmount, minPrice * 2, "bid value not updated");
+        assertEq(createdTimestamp, constants.MARKET_OPEN_TIMESTAMP() + 1 days, "bid timestamp error");
+        assertEq(bidder, _addressToBytes32(users.bidder), "bid bidder not updated");
+        assertBalances(minPrice * 5, 0, minPrice * 2, minPrice * 3);
+    }
+
     function testBidName_Reverts() public {
         string memory testName = constants.TEST_NAME();
         vm.startPrank(users.alicePrimary);

@@ -61,6 +61,7 @@ abstract contract Base_Test is Test, Utils {
     function setUp() public virtual {
         constants = new Constants();
         fickleReceiver = new FickleReceiver();
+        vm.deal(address(fickleReceiver), constants.USERS_FUNDING_AMOUNT());
 
         users = Users({
             signerPrivKey: 0,
