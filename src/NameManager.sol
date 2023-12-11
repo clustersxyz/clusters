@@ -14,6 +14,17 @@ import {console2} from "../lib/forge-std/src/Test.sol";
 abstract contract NameManager is IClusters {
     using EnumerableSetLib for EnumerableSetLib.Bytes32Set;
 
+    struct NameData{
+        /// @notice Which cluster a name belongs to
+        uint96 clusterId;
+        /// @notice The amount of money backing each name registration
+        uint96 backing;
+        /// @notice Data required for proper harberger tax calculation when pokeName() is called    
+        IClusters.PriceIntegral integral;
+        /// @notice Bid info storage, all bidIds are incremental and are not sorted by name
+        IClusters.Bid bid;
+    }
+
     address public immutable endpoint;
 
     uint256 internal immutable marketOpenTimestamp;
@@ -24,10 +35,7 @@ abstract contract NameManager is IClusters {
 
     /// @notice Which cluster an address belongs to
     mapping(bytes32 addr => uint256 clusterId) public addressToClusterId;
-
-    /// @notice Which cluster a name belongs to
-    mapping(bytes32 name => uint256 clusterId) public nameToClusterId;
-
+    
     /// @notice Display name to be shown for a cluster, like ENS reverse records
     mapping(uint256 clusterId => bytes32 name) public defaultClusterName;
 
@@ -40,14 +48,7 @@ abstract contract NameManager is IClusters {
     /// @notice For example lookup[0x123...] -> "hot", then combine with cluster name in a diff method
     mapping(bytes32 addr => bytes32 walletName) public reverseLookup;
 
-    /// @notice Data required for proper harberger tax calculation when pokeName() is called
-    mapping(bytes32 name => IClusters.PriceIntegral integral) public priceIntegral;
-
-    /// @notice The amount of money backing each name registration
-    mapping(bytes32 name => uint256 amount) public nameBacking;
-
-    /// @notice Bid info storage, all bidIds are incremental and are not sorted by name
-    mapping(bytes32 name => IClusters.Bid bidData) public bids;
+    mapping(bytes32 name => NameData) internal _nameData;
 
     /// @notice Failed bid refunds are pooled so we don't have to revert when the highest bid is outbid
     mapping(bytes32 bidder => uint256 refund) public bidRefunds;
@@ -84,7 +85,7 @@ abstract contract NameManager is IClusters {
     function _checkNameOwnership(bytes32 addr, string memory name) internal view {
         if (addressToClusterId[addr] != 0) revert NoCluster();
         if (bytes(name).length == 0) return; // Short circuit for reset as cluster addresses never own name ""
-        if (addressToClusterId[addr] != nameToClusterId[_toBytes32(name)]) revert Unauthorized();
+        if (addressToClusterId[addr] != _nameData[_toBytes32(name)].clusterId) revert Unauthorized();
     }
 
     /// @dev Ensure addr has a cluster
@@ -111,6 +112,24 @@ abstract contract NameManager is IClusters {
 
     function totalNameBacking() public view returns (uint256) {
         return uint256(_totalNameBacking);
+    }
+
+    function nameToClusterId(bytes32 name) public view returns (uint256) {
+        return uint256(_nameData[name].clusterId);
+    }
+
+    function bids(bytes32 name) public view returns (uint256, uint256, bytes32) {
+        IClusters.Bid memory bid = _nameData[name].bid;
+        return (uint256(bid.ethAmount), uint256(bid.createdTimestamp), bytes32(bid.bidder));
+    }
+
+    function priceIntegral(bytes32 name) public view returns (bytes32, uint256, uint256) {
+        IClusters.PriceIntegral memory integral = _nameData[name].integral;
+        return (bytes32(integral.name), uint256(integral.lastUpdatedTimestamp), uint256(integral.lastUpdatedPrice));
+    }
+
+    function nameBacking(bytes32 name) public view returns (uint256) {
+        return uint256(_nameData[name].backing);
     }
 
     /// @notice Used to restrict external functions to
@@ -148,7 +167,7 @@ abstract contract NameManager is IClusters {
     /// @notice Get Bid struct from storage
     /// @return bid Bid struct
     function getBid(bytes32 name) external view returns (IClusters.Bid memory bid) {
-        return bids[name];
+        return _nameData[name].bid;
     }
 
     /// ECONOMIC FUNCTIONS ///
@@ -167,14 +186,15 @@ abstract contract NameManager is IClusters {
         _checkNameValid(name);
         _fixZeroCluster(msgSender);
         bytes32 _name = _toBytes32(name);
+        NameData storage nameData = _nameData[_name];
         uint256 clusterId = addressToClusterId[msgSender];
         // Check that name is unused and sufficient payment is made
-        if (nameToClusterId[_name] != 0) revert Registered();
+        if (nameData.clusterId != 0) revert Registered();
         if (msgValue < pricing.minAnnualPrice()) revert Insufficient();
         // Process price accounting updates
-        nameBacking[_name] += msgValue;
+        nameData.backing += uint96(msgValue);
         _totalNameBacking += uint96(msgValue);
-        priceIntegral[_name] = IClusters.PriceIntegral({
+        nameData.integral = IClusters.PriceIntegral({
             name: _name,
             lastUpdatedTimestamp: block.timestamp,
             lastUpdatedPrice: pricing.minAnnualPrice()
@@ -196,8 +216,9 @@ abstract contract NameManager is IClusters {
     function fundName(bytes32 msgSender, uint256 msgValue, string memory name) public payable onlyEndpoint(msgSender) {
         _checkNameValid(name);
         bytes32 _name = _toBytes32(name);
-        if (nameToClusterId[_name] == 0) revert Unregistered();
-        nameBacking[_name] += msgValue;
+        NameData storage nameData = _nameData[_name];
+        if (nameData.clusterId == 0) revert Unregistered();
+        nameData.backing += uint96(msgValue);
         _totalNameBacking += uint96(msgValue);
         emit FundName(_name, msgSender, msgValue);
 
@@ -251,8 +272,9 @@ abstract contract NameManager is IClusters {
     function pokeName(string memory name) public payable {
         _checkNameValid(name);
         bytes32 _name = _toBytes32(name);
-        if (nameToClusterId[_name] == 0) revert Unregistered();
-        IClusters.PriceIntegral memory integral = priceIntegral[_name];
+        NameData storage nameData = _nameData[_name];
+        if (nameData.clusterId == 0) revert Unregistered();
+        IClusters.PriceIntegral memory integral = nameData.integral;
         (uint256 spent, uint256 newPrice) = pricing.getIntegratedPrice(
             integral.lastUpdatedPrice,
             block.timestamp - integral.lastUpdatedTimestamp,
@@ -260,28 +282,28 @@ abstract contract NameManager is IClusters {
                 // creation time atm. Need to do that or relax pricing algo params
         );
         // If out of backing (expired), transfer to highest sufficient bidder or delete registration
-        uint256 backing = nameBacking[_name];
+        uint256 backing = uint256(nameData.backing);
         if (spent >= backing) {
-            delete nameBacking[_name];
+            delete nameData.backing;
             _totalNameBacking -= uint96(backing);
             _protocolRevenue += uint96(backing);
             // If there is a valid bid, transfer to the bidder
             bytes32 bidder;
-            uint256 bid = bids[_name].ethAmount;
+            uint256 bid = nameData.bid.ethAmount;
             if (bid > 0) {
-                bidder = bids[_name].bidder;
-                nameBacking[_name] += bid;
+                bidder = nameData.bid.bidder;
+                nameData.backing += uint96(bid);
                 _totalNameBacking += uint96(bid);
-                delete bids[_name];
+                delete nameData.bid;
             }
             // If there isn't a highest bidder, name will expire and be deleted as bidder is bytes32(0)
-            _transferName(_name, nameToClusterId[_name], addressToClusterId[bidder]);
+            _transferName(_name, nameData.clusterId, addressToClusterId[bidder]);
         } else {
             // Process price data update
-            nameBacking[_name] -= spent;
+            nameData.backing -= uint96(spent);
             _totalNameBacking -= uint96(spent);
             _protocolRevenue += uint96(spent);
-            priceIntegral[_name] = IClusters.PriceIntegral({
+            nameData.integral = IClusters.PriceIntegral({
                 name: _name,
                 lastUpdatedTimestamp: block.timestamp,
                 lastUpdatedPrice: newPrice
@@ -305,29 +327,30 @@ abstract contract NameManager is IClusters {
         _checkNameValid(name);
         if (msgValue == 0) revert NoBid();
         bytes32 _name = _toBytes32(name);
-        uint256 clusterId = nameToClusterId[_name];
+        NameData storage nameData = _nameData[_name];
+        uint256 clusterId = nameData.clusterId;
         if (clusterId == 0) revert Unregistered();
         // Prevent name owner from bidding on their own name
         if (clusterId == addressToClusterId[msgSender]) revert SelfBid();
         // Retrieve bidder values to process refund in case they're outbid
-        uint256 prevBid = bids[_name].ethAmount;
-        bytes32 prevBidder = bids[_name].bidder;
+        uint256 prevBid = nameData.bid.ethAmount;
+        bytes32 prevBidder = nameData.bid.bidder;
         // Revert if bid isn't sufficient or greater than the highest bid, bypass for highest bidder
         if (prevBidder != msgSender && (msgValue <= prevBid || msgValue < pricing.minAnnualPrice())) {
             revert Insufficient();
         }
         // If the caller is the highest bidder, increase their bid and reset the timestamp
         else if (prevBidder == msgSender) {
-            bids[_name].ethAmount += msgValue;
+            nameData.bid.ethAmount += msgValue;
             _totalBidBacking += uint96(msgValue);
             // TODO: Determine which way is best to handle bid update timestamps
-            // bids[_name].createdTimestamp = block.timestamp;
+            // nameData.bid.createdTimestamp = block.timestamp;
             emit BidIncreased(_name, msgSender, prevBid + msgValue);
         }
         // Process new highest bid
         else {
             // Overwrite previous bid
-            bids[_name] = IClusters.Bid(msgValue, block.timestamp, msgSender);
+            nameData.bid = IClusters.Bid(msgValue, block.timestamp, msgSender);
             _totalBidBacking += uint96(msgValue);
             emit BidPlaced(_name, msgSender, msgValue);
             // Process bid refund if there is one. Store balance for recipient if transfer fails instead of reverting.
@@ -357,18 +380,19 @@ abstract contract NameManager is IClusters {
     function reduceBid(bytes32 msgSender, string memory name, uint256 amount) public payable onlyEndpoint(msgSender) {
         _checkNameValid(name);
         bytes32 _name = _toBytes32(name);
-        uint256 bid = bids[_name].ethAmount;
+        NameData storage nameData = _nameData[_name];
+        uint256 bid = nameData.bid.ethAmount;
         if (bid == 0) revert NoBid();
-        if (bids[_name].bidder != msgSender) revert Unauthorized();
+        if (nameData.bid.bidder != msgSender) revert Unauthorized();
         // Prevent reducing or revoking a bid before the bid timelock is up
-        if (block.timestamp < bids[_name].createdTimestamp + BID_TIMELOCK) revert Timelock();
+        if (block.timestamp < nameData.bid.createdTimestamp + BID_TIMELOCK) revert Timelock();
         // Overwrite amount with total bid in assumption caller is revoking bid
         if (amount > bid) amount = bid;
 
         // Poke name to update backing and ownership (if required) prior to bid adjustment
         pokeName(name);
         // Short circuit if pokeName() processed transfer to bidder due to name expiry
-        if (bids[_name].ethAmount == 0) return;
+        if (nameData.bid.ethAmount == 0) return;
 
         // Revert if reduction will push bid beneath minAnnualPrice
         uint256 diff = bid - amount;
@@ -376,13 +400,13 @@ abstract contract NameManager is IClusters {
 
         // If reducing bid to 0 or by maximum uint256 value, revoke altogether
         if (diff == 0) {
-            delete bids[_name];
+            delete nameData.bid;
             _totalBidBacking -= uint96(bid);
             emit BidRevoked(_name, msgSender, bid);
         }
         // Otherwise, decrease bid and update timestamp
         else {
-            bids[_name].ethAmount -= amount;
+            nameData.bid.ethAmount -= amount;
             _totalBidBacking -= uint96(amount);
             // TODO: Determine which way is best to handle bid update timestamps
             // bids[_name].createdTimestamp = block.timestamp;
@@ -412,12 +436,13 @@ abstract contract NameManager is IClusters {
         _checkNameValid(name);
         _checkNameOwnership(msgSender, name);
         bytes32 _name = _toBytes32(name);
-        Bid memory bid = bids[_name];
+        NameData storage nameData = _nameData[_name];
+        Bid memory bid = nameData.bid;
         _fixZeroCluster(bid.bidder);
         if (bid.ethAmount == 0) revert NoBid();
-        delete bids[_name];
+        delete nameData.bid;
         _totalBidBacking -= uint96(bid.ethAmount);
-        _transferName(_name, nameToClusterId[_name], addressToClusterId[bid.bidder]);
+        _transferName(_name, nameData.clusterId, addressToClusterId[bid.bidder]);
         (bool success,) = payable(_bytesToAddress(msgSender)).call{value: bid.ethAmount}("");
         if (!success) revert NativeTokenTransferFailed();
         return bid.ethAmount;
@@ -491,13 +516,13 @@ abstract contract NameManager is IClusters {
 
     /// @dev Set name-related state variables
     function _assignName(bytes32 name, uint256 clusterId) internal {
-        nameToClusterId[name] = clusterId;
+        _nameData[name].clusterId = uint96(clusterId);
         _clusterNames[clusterId].add(name);
     }
 
     /// @dev Purge name-related state variables
     function _unassignName(bytes32 name, uint256 clusterId) internal {
-        delete nameToClusterId[name];
+        delete _nameData[name].clusterId;
         if (defaultClusterName[clusterId] == name) {
             delete defaultClusterName[clusterId];
             emit DefaultClusterName(bytes32(""), clusterId);
