@@ -52,6 +52,7 @@ contract Clusters_pokeName_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Te
     }
 
     function testPokeName_Reverts() public {
+        vm.startPrank(users.alicePrimary);
         vm.expectRevert(IClusters.EmptyName.selector);
         clusters.pokeName("");
         vm.expectRevert(IClusters.LongName.selector);
@@ -59,5 +60,6 @@ contract Clusters_pokeName_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Te
 
         vm.expectRevert(IClusters.Unregistered.selector);
         clusters.pokeName("FOOBAR");
+        vm.stopPrank();
     }
 }

@@ -83,5 +83,6 @@ contract Clusters_transferName_Unit_Concrete_Test is PricingHarberger_Unit_Share
         vm.prank(users.hacker);
         vm.expectRevert(IClusters.NoCluster.selector);
         clusters.transferName(_addressToBytes32(users.hacker), "FOOBAR", 0);
+        vm.stopPrank();
     }
 }
