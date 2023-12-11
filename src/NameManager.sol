@@ -19,7 +19,7 @@ abstract contract NameManager is IClusters {
         uint96 clusterId;
         /// @notice The amount of money backing each name registration
         uint96 backing;
-        /// @notice Data required for proper harberger tax calculation when pokeName() is called    
+        /// @notice Data required for proper harberger tax calculation when pokeName() is called
         IClusters.PriceIntegral integral;
         uint256 integralPacked;
         /// @notice Bid info storage, all bidIds are incremental and are not sorted by name
@@ -36,7 +36,7 @@ abstract contract NameManager is IClusters {
 
     /// @notice Which cluster an address belongs to
     mapping(bytes32 addr => uint256 clusterId) public addressToClusterId;
-    
+
     /// @notice Display name to be shown for a cluster, like ENS reverse records
     mapping(uint256 clusterId => bytes32 name) public defaultClusterName;
 
@@ -71,8 +71,12 @@ abstract contract NameManager is IClusters {
     /// @dev Ensures balance invariant holds
     function _checkInvariant() internal view {
         unchecked {
-            if (address(this).balance < uint256(_protocolRevenue) + uint256(_totalNameBacking) + uint256(_totalBidBacking))
-                revert BadInvariant();    
+            if (
+                address(this).balance
+                    < uint256(_protocolRevenue) + uint256(_totalNameBacking) + uint256(_totalBidBacking)
+            ) {
+                revert BadInvariant();
+            }
         }
     }
 

@@ -145,7 +145,7 @@ contract Clusters is NameManager {
         unchecked {
             uint256 clusterId = _nextClusterId++;
             _verifiedAddresses[clusterId].add(addr);
-            addressToClusterId[addr] = clusterId;    
+            addressToClusterId[addr] = clusterId;
         }
     }
 
