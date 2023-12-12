@@ -3,9 +3,9 @@ pragma solidity ^0.8.23;
 
 import {EnumerableSet} from "../lib/openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 
-import {IPricing} from "./IPricing.sol";
+import {IPricing} from "./interfaces/IPricing.sol";
 
-import {IClusters} from "./IClusters.sol";
+import {IClusters} from "./interfaces/IClusters.sol";
 
 import {console2} from "../lib/forge-std/src/Test.sol";
 
@@ -79,7 +79,7 @@ abstract contract NameManager is IClusters {
 
     /// @dev Ensure addr owns name
     function _checkNameOwnership(bytes32 addr, string memory name) internal view {
-        if (addressToClusterId[addr] != 0) revert NoCluster();
+        if (addressToClusterId[addr] == 0) revert NoCluster();
         if (bytes(name).length == 0) return; // Short circuit for reset as cluster addresses never own name ""
         if (addressToClusterId[addr] != nameToClusterId[_toBytes32(name)]) revert Unauthorized();
     }
@@ -119,23 +119,6 @@ abstract contract NameManager is IClusters {
         return _clusterNames[clusterId].values();
     }
 
-    /// @notice Get all names owned by a cluster in string format
-    /// @dev Do not use this onchain as it is a denial-of-service vector due to loop potentially exceeding gas ceiling
-    /// @return names Array of names in string format
-    function getClusterNamesString(uint256 clusterId) external view returns (string[] memory names) {
-        bytes32[] memory namesBytes32 = _clusterNames[clusterId].values();
-        names = new string[](namesBytes32.length);
-        for (uint256 i; i < namesBytes32.length;) {
-            names[i] = _toString(namesBytes32[i]);
-        }
-    }
-
-    /// @notice Get Bid struct from storage
-    /// @return bid Bid struct
-    function getBid(bytes32 name) external view returns (IClusters.Bid memory bid) {
-        return bids[name];
-    }
-
     /// ECONOMIC FUNCTIONS ///
 
     /// @notice Buy unregistered name. Must pay at least minimum yearly payment.
@@ -159,13 +142,13 @@ abstract contract NameManager is IClusters {
         // Process price accounting updates
         nameBacking[_name] += msgValue;
         totalNameBacking += msgValue;
-        priceIntegral[_name] = IClusters.PriceIntegral({
-            name: _name,
-            lastUpdatedTimestamp: block.timestamp,
-            lastUpdatedPrice: pricing.minAnnualPrice()
-        });
+        priceIntegral[_name] =
+            IClusters.PriceIntegral({lastUpdatedTimestamp: block.timestamp, lastUpdatedPrice: pricing.minAnnualPrice()});
         _assignName(_name, clusterId);
-        if (defaultClusterName[clusterId] == bytes32("")) defaultClusterName[clusterId] = _name;
+        if (defaultClusterName[clusterId] == bytes32("")) {
+            defaultClusterName[clusterId] = _name;
+            emit DefaultClusterName(_name, clusterId);
+        }
         emit BuyName(_name, clusterId, msgValue);
 
         _checkInvariant();
@@ -213,18 +196,22 @@ abstract contract NameManager is IClusters {
     /// @dev Transfer cluster name or delete cluster name without checking auth
     /// @dev Delete by transferring to cluster id 0
     function _transferName(bytes32 name, uint256 fromClusterId, uint256 toClusterId) internal {
-        // If name is canonical cluster name for sending cluster, remove that assignment
-        if (defaultClusterName[fromClusterId] == name) {
-            delete defaultClusterName[fromClusterId];
-        }
         // Assign name to new cluster, otherwise unassign
         if (toClusterId != 0) {
-            // Assign name to new cluster, _unassignName() isn't used because it resets nameToClusterId
-            _assignName(name, toClusterId);
-            _clusterNames[fromClusterId].remove(name);
-        } else {
-            // Purge name assignment and remove from cluster
             _unassignName(name, fromClusterId);
+            _assignName(name, toClusterId);
+        } else {
+            _unassignName(name, fromClusterId);
+            // Convert remaining name backing to protocol revenue and soft refund any existing bid
+            uint256 backing = nameBacking[name];
+            delete nameBacking[name];
+            totalNameBacking -= backing;
+            protocolRevenue += backing;
+            uint256 bid = bids[name].ethAmount;
+            if (bid > 0) {
+                bidRefunds[bids[name].bidder] += bid;
+                delete bids[name];
+            }
         }
         emit TransferName(name, fromClusterId, toClusterId);
         // Purge all addresses from cluster if last name was transferred out
@@ -255,8 +242,10 @@ abstract contract NameManager is IClusters {
             uint256 bid = bids[_name].ethAmount;
             if (bid > 0) {
                 bidder = bids[_name].bidder;
+                _fixZeroCluster(bidder);
                 nameBacking[_name] += bid;
                 totalNameBacking += bid;
+                totalBidBacking -= bid;
                 delete bids[_name];
             }
             // If there isn't a highest bidder, name will expire and be deleted as bidder is bytes32(0)
@@ -266,13 +255,10 @@ abstract contract NameManager is IClusters {
             nameBacking[_name] -= spent;
             totalNameBacking -= spent;
             protocolRevenue += spent;
-            priceIntegral[_name] = IClusters.PriceIntegral({
-                name: _name,
-                lastUpdatedTimestamp: block.timestamp,
-                lastUpdatedPrice: newPrice
-            });
-            emit PokeName(_name);
+            priceIntegral[_name] =
+                IClusters.PriceIntegral({lastUpdatedTimestamp: block.timestamp, lastUpdatedPrice: newPrice});
         }
+        emit PokeName(_name);
     }
 
     /// @notice Place bids on valid names. Subsequent calls increases existing bid. If name is expired update ownership.
@@ -456,7 +442,7 @@ abstract contract NameManager is IClusters {
         onlyEndpoint(msgSender)
     {
         uint256 clusterId = addressToClusterId[msgSender];
-        if (clusterId != 0) revert NoCluster();
+        if (clusterId == 0) revert NoCluster();
         if (bytes(walletName).length > 32) revert LongName();
         bytes32 _walletName = _toBytes32(walletName);
         if (clusterId != addressToClusterId[addr]) revert Unauthorized();
@@ -466,8 +452,8 @@ abstract contract NameManager is IClusters {
             delete reverseLookup[addr];
             emit SetWalletName(bytes32(""), addr);
         } else {
-            bytes32 prev = forwardLookup[clusterId][_walletName];
-            if (prev != bytes32("")) delete reverseLookup[prev];
+            bytes32 prev = reverseLookup[addr];
+            if (prev != bytes32("")) delete forwardLookup[clusterId][prev];
             forwardLookup[clusterId][_walletName] = addr;
             reverseLookup[addr] = _walletName;
             emit SetWalletName(_walletName, addr);
@@ -483,11 +469,18 @@ abstract contract NameManager is IClusters {
     /// @dev Purge name-related state variables
     function _unassignName(bytes32 name, uint256 clusterId) internal {
         delete nameToClusterId[name];
-        if (defaultClusterName[clusterId] == name) {
-            delete defaultClusterName[clusterId];
-            emit DefaultClusterName(bytes32(""), clusterId);
-        }
         _clusterNames[clusterId].remove(name);
+        // If name is default cluster name for clusterId, reassign to the name at index 0 in _clusterNames
+        if (defaultClusterName[clusterId] == name) {
+            if (_clusterNames[clusterId].length() == 0) {
+                delete defaultClusterName[clusterId];
+                emit DefaultClusterName(bytes32(""), clusterId);
+            } else {
+                bytes32 newDefaultName = _clusterNames[clusterId].at(0);
+                defaultClusterName[clusterId] = newDefaultName;
+                emit DefaultClusterName(newDefaultName, clusterId);
+            }
+        }
     }
 
     /// TYPE HELPERS ///
@@ -495,27 +488,7 @@ abstract contract NameManager is IClusters {
     /// @dev Returns bytes32 representation of string < 32 characters, used in name-related state vars and functions
     function _toBytes32(string memory smallString) internal pure returns (bytes32 result) {
         bytes memory smallBytes = bytes(smallString);
-        if (smallBytes.length > 32) revert LongName();
         return bytes32(smallBytes);
-    }
-
-    /// @dev Returns a string from a right-padded bytes32 representation.
-    function _toString(bytes32 smallBytes) internal pure returns (string memory result) {
-        if (smallBytes == bytes32("")) return result;
-        /// @solidity memory-safe-assembly
-        assembly {
-            result := mload(0x40)
-            let n
-            for {} 1 {} {
-                n := add(n, 1)
-                if iszero(byte(n, smallBytes)) { break } // Scan for '\0'.
-            }
-            mstore(result, n)
-            let o := add(result, 0x20)
-            mstore(o, smallBytes)
-            mstore(add(o, n), 0)
-            mstore(0x40, add(result, 0x40))
-        }
     }
 
     /// @dev Returns bytes32 representation of address

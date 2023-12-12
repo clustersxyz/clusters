@@ -7,7 +7,7 @@ import {EnumerableSet} from "../lib/openzeppelin-contracts/contracts/utils/struc
 
 import {NameManager} from "./NameManager.sol";
 
-import {IClusters} from "./IClusters.sol";
+import {IClusters} from "./interfaces/IClusters.sol";
 
 import {console2} from "../lib/forge-std/src/Test.sol";
 
@@ -78,7 +78,7 @@ contract Clusters is NameManager {
     function add(bytes32 msgSender, bytes32 addr) public payable onlyEndpoint(msgSender) {
         uint256 clusterId = addressToClusterId[msgSender];
         if (clusterId == 0) revert NoCluster();
-        if (!_verifiedAddresses[clusterId].contains(msgSender)) revert Unauthorized();
+        if (_verifiedAddresses[clusterId].contains(addr)) revert Registered();
         _add(addr, clusterId);
     }
 
@@ -104,13 +104,14 @@ contract Clusters is NameManager {
         uint256 clusterId = addressToClusterId[msgSender];
         if (clusterId == 0) revert NoCluster();
         if (clusterId != addressToClusterId[addr]) revert Unauthorized();
+        // If the cluster has valid names, prevent removing final address, regardless of what is supplied for addr
+        if (_clusterNames[clusterId].length() > 0 && _verifiedAddresses[clusterId].length() == 1) revert Invalid();
         _remove(addr);
     }
 
     /// INTERNAL FUNCTIONS ///
 
     function _add(bytes32 addr, uint256 clusterId) internal {
-        if (_verifiedAddresses[clusterId].contains(addr)) revert Registered();
         _unverifiedAddresses[clusterId].add(addr);
         emit Add(clusterId, addr);
     }
@@ -124,10 +125,8 @@ contract Clusters is NameManager {
 
     function _remove(bytes32 addr) internal {
         uint256 clusterId = addressToClusterId[addr];
-        // If the cluster has valid names, prevent removing final address, regardless of what is supplied for addr
-        if (_clusterNames[clusterId].length() > 0 && _unverifiedAddresses[clusterId].length() == 1) revert Invalid();
         delete addressToClusterId[addr];
-        _unverifiedAddresses[clusterId].remove(addr);
+        _verifiedAddresses[clusterId].remove(addr);
         bytes32 walletName = reverseLookup[addr];
         if (walletName != bytes32("")) {
             delete forwardLookup[clusterId][walletName];
@@ -151,6 +150,7 @@ contract Clusters is NameManager {
     }
 
     function _hookCheck(uint256 clusterId) internal view override {
+        if (clusterId == 0) return;
         if (_verifiedAddresses[clusterId].length() == 0) revert Invalid();
     }
 }
