@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {EnumerableSet} from "../lib/openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
+import {EnumerableSetLib} from "./EnumerableSetLib.sol";
 
 import {IPricing} from "./interfaces/IPricing.sol";
 
@@ -12,7 +12,7 @@ import {console2} from "../lib/forge-std/src/Test.sol";
 /// @notice The bidding, accepting, eth storing component of Clusters. Handles name assignment
 ///         to cluster ids and checks auth of cluster membership before acting on one of its names
 abstract contract NameManager is IClusters {
-    using EnumerableSet for EnumerableSet.Bytes32Set;
+    using EnumerableSetLib for EnumerableSetLib.Bytes32Set;
 
     address public immutable endpoint;
 
@@ -32,7 +32,7 @@ abstract contract NameManager is IClusters {
     mapping(uint256 clusterId => bytes32 name) public defaultClusterName;
 
     /// @notice Enumerate all names owned by a cluster
-    mapping(uint256 clusterId => EnumerableSet.Bytes32Set names) internal _clusterNames;
+    mapping(uint256 clusterId => EnumerableSetLib.Bytes32Set names) internal _clusterNames;
 
     /// @notice For example lookup[17]["hot"] -> 0x123...
     mapping(uint256 clusterId => mapping(bytes32 walletName => bytes32 addr)) public forwardLookup;
@@ -191,6 +191,8 @@ abstract contract NameManager is IClusters {
         // Prevent transfers to empty/invalid clusters
         _hookCheck(toClusterId);
         _transferName(_name, fromClusterId, toClusterId);
+        // Purge all addresses from cluster if last name was transferred out
+        if (_clusterNames[fromClusterId].length() == 0) _hookDelete(fromClusterId);
     }
 
     /// @dev Transfer cluster name or delete cluster name without checking auth
@@ -214,8 +216,6 @@ abstract contract NameManager is IClusters {
             }
         }
         emit TransferName(name, fromClusterId, toClusterId);
-        // Purge all addresses from cluster if last name was transferred out
-        if (_clusterNames[fromClusterId].length() == 0) _hookDelete(fromClusterId);
     }
 
     /// @notice Move accrued revenue from ethBacked to protocolRevenue, and transfer names upon expiry to highest
@@ -384,10 +384,10 @@ abstract contract NameManager is IClusters {
         _checkNameOwnership(msgSender, name);
         bytes32 _name = _toBytes32(name);
         Bid memory bid = bids[_name];
-        _fixZeroCluster(bid.bidder);
         if (bid.ethAmount == 0) revert NoBid();
         delete bids[_name];
         totalBidBacking -= bid.ethAmount;
+        _fixZeroCluster(bid.bidder);
         _transferName(_name, nameToClusterId[_name], addressToClusterId[bid.bidder]);
         (bool success,) = payable(_bytesToAddress(msgSender)).call{value: bid.ethAmount}("");
         if (!success) revert NativeTokenTransferFailed();

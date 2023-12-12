@@ -14,7 +14,7 @@ contract Endpoint_buyName_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Tes
         vm.stopPrank();
 
         vm.prank(users.alicePrimary);
-        endpoint.buyName{value: minPrice}(minPrice, testName, sig);
+        endpoint.buyName{value: minPrice}(testName, sig);
 
         bytes32[] memory unverified;
         bytes32[] memory verified = new bytes32[](1);
@@ -37,6 +37,6 @@ contract Endpoint_buyName_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Tes
 
         vm.prank(users.aliceSecondary);
         vm.expectRevert(ECDSA.InvalidSignature.selector);
-        endpoint.buyName{value: minPrice}(minPrice, testName, sig);
+        endpoint.buyName{value: minPrice}(testName, sig);
     }
 }

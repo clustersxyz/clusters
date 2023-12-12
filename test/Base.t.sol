@@ -47,6 +47,7 @@ abstract contract Base_Test is Test, Utils {
         privKey = uint256(uint160(makeAddr("SIGNER")));
         address payable user = payable(vm.addr(privKey));
         vm.label({account: user, newLabel: name});
+        vm.deal(user, constants.USERS_FUNDING_AMOUNT());
         return (privKey, user);
     }
 
