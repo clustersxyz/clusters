@@ -191,6 +191,8 @@ abstract contract NameManager is IClusters {
         // Prevent transfers to empty/invalid clusters
         _hookCheck(toClusterId);
         _transferName(_name, fromClusterId, toClusterId);
+        // Purge all addresses from cluster if last name was transferred out
+        if (_clusterNames[fromClusterId].length() == 0) _hookDelete(fromClusterId);
     }
 
     /// @dev Transfer cluster name or delete cluster name without checking auth
@@ -214,8 +216,6 @@ abstract contract NameManager is IClusters {
             }
         }
         emit TransferName(name, fromClusterId, toClusterId);
-        // Purge all addresses from cluster if last name was transferred out
-        if (_clusterNames[fromClusterId].length() == 0) _hookDelete(fromClusterId);
     }
 
     /// @notice Move accrued revenue from ethBacked to protocolRevenue, and transfer names upon expiry to highest

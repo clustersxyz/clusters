@@ -92,10 +92,8 @@ contract Clusters is NameManager {
                 for (uint256 i; i < names.length; ++i) {
                     _transferName(names[i], currentClusterId, clusterId);
                 }
-                // Transferring the last name deletes the caller's cluster, so _verify() has a clean state
-            } else {
-                _remove(msgSender);
             }
+            _remove(msgSender);
         }
         _verify(msgSender, clusterId);
     }

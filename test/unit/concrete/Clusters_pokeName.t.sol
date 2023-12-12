@@ -42,10 +42,12 @@ contract Clusters_pokeName_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Te
         clusters.pokeName("zodomo");
 
         bytes32[] memory empty;
-        bytes32[] memory addrs = clusters.getVerifiedAddresses(2);
+        bytes32[] memory addrs = new bytes32[](1);
+        addrs[0] = _addressToBytes32(users.alicePrimary);
         bytes32[] memory names = clusters.getClusterNamesBytes32(2);
         assertBalances(minPrice * 3, minPrice * 2, minPrice, 0);
-        assertVerifiedAddresses(1, 0, empty);
+        assertVerifiedAddresses(1, 1, addrs);
+        addrs = clusters.getVerifiedAddresses(2);
         assertVerifiedAddresses(2, 1, addrs);
         assertClusterNames(1, 0, empty);
         assertClusterNames(2, 1, names);
