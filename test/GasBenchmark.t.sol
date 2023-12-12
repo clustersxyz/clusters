@@ -21,8 +21,8 @@ contract GasBenchmarkTest is Base_Test {
         vm.stopPrank();
 
         vm.startPrank(users.alicePrimary);
-        endpoint.buyName{value: minPrice}(minPrice, constants.TEST_NAME(), sig1);
-        endpoint.buyName{value: minPrice}(minPrice, "zodomo", sig2);
+        endpoint.buyName{value: minPrice}(constants.TEST_NAME(), sig1);
+        endpoint.buyName{value: minPrice}("zodomo", sig2);
         clusters.fundName{value: 0.5 ether}(0.5 ether, constants.TEST_NAME());
         clusters.add(_addressToBytes32(users.aliceSecondary));
         clusters.setDefaultClusterName("zodomo");
