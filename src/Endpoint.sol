@@ -107,8 +107,11 @@ contract Endpoint is Ownable, IEndpoint {
         (uint256 bidAmount,,) = IClustersEndpoint(clusters).bids(nameBytes);
         if (msg.value < ethAmount || msg.value <= bidAmount) revert Insufficient();
         if (!isGeneralOrder && !isSpecificOrder) revert Invalid();
+
         IClustersEndpoint(clusters).bidName{value: msg.value}(callerBytes, msg.value, name);
         IClustersEndpoint(clusters).acceptBid{value: 0}(originatorBytes, name);
+        nonces[originatorBytes] = ++nonce;
+        emit Nonce(originatorBytes, nonce);
     }
 
     function invalidateOrder(uint256 nonce) external {
