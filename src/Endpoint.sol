@@ -42,16 +42,11 @@ contract Endpoint is Ownable, IEndpoint {
 
     /// ECDSA HELPERS ///
 
-    function getEthSignedMessageHash(bytes32 to, string memory name) public pure returns (bytes32) {
-        return ECDSA.toEthSignedMessageHash(keccak256(abi.encodePacked(to, name)));
+    function getBuyHash(bytes32 to, string memory name) public pure returns (bytes32) {
+        return keccak256(abi.encodePacked(to, name));
     }
 
-    function verify(bytes32 to, string memory name, bytes calldata sig) public view returns (bool) {
-        bytes32 ethSignedMessageHash = getEthSignedMessageHash(to, name);
-        return ECDSA.recoverCalldata(ethSignedMessageHash, sig) == signer;
-    }
-
-    function prepareOrder(
+    function getOrderHash(
         uint256 nonce,
         uint256 expirationTimestamp,
         uint256 ethAmount,
@@ -61,9 +56,17 @@ contract Endpoint is Ownable, IEndpoint {
         bytes32 callerBytes = _addressToBytes32(msg.sender);
         if (nonces[callerBytes] > nonce) return bytes32("");
         if (block.timestamp > expirationTimestamp) return bytes32("");
-        return ECDSA.toEthSignedMessageHash(
-            keccak256(abi.encodePacked(nonce, expirationTimestamp, ethAmount, bidder, _stringToBytes32(name)))
-        );
+        return keccak256(abi.encodePacked(nonce, expirationTimestamp, ethAmount, bidder, _stringToBytes32(name)));
+    }
+
+    function getEthSignedMessageHash(bytes32 messageHash) public pure returns (bytes32) {
+        return ECDSA.toEthSignedMessageHash(messageHash);
+    }
+
+    function verifyBuy(bytes32 to, string memory name, bytes calldata sig) public view returns (bool) {
+        bytes32 messageHash = getBuyHash(to, name);
+        bytes32 ethSignedMessageHash = getEthSignedMessageHash(messageHash);
+        return ECDSA.recoverCalldata(ethSignedMessageHash, sig) == signer;
     }
 
     function verifyOrder(
@@ -79,7 +82,8 @@ contract Endpoint is Ownable, IEndpoint {
         if (sig.length == 0) return false;
         if (nonces[originatorBytes] > nonce) return false;
         if (block.timestamp > expirationTimestamp) return false;
-        bytes32 ethSignedMessageHash = prepareOrder(nonce, expirationTimestamp, ethAmount, bidder, name);
+        bytes32 messageHash = getOrderHash(nonce, expirationTimestamp, ethAmount, bidder, name);
+        bytes32 ethSignedMessageHash = getEthSignedMessageHash(messageHash);
         return ECDSA.recoverCalldata(ethSignedMessageHash, sig) == originator;
     }
 
@@ -87,7 +91,7 @@ contract Endpoint is Ownable, IEndpoint {
 
     function buyName(string memory name, bytes calldata sig) external payable {
         bytes32 callerBytes = _addressToBytes32(msg.sender);
-        if (!verify(callerBytes, name, sig)) revert ECDSA.InvalidSignature();
+        if (!verifyBuy(callerBytes, name, sig)) revert ECDSA.InvalidSignature();
         IClustersEndpoint(clusters).buyName{value: msg.value}(callerBytes, msg.value, name);
     }
 

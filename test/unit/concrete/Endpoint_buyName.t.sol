@@ -8,7 +8,8 @@ contract Endpoint_buyName_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Tes
     function testBuyName() public {
         string memory testName = constants.TEST_NAME();
         vm.startPrank(users.signer);
-        bytes32 digest = endpoint.getEthSignedMessageHash(_addressToBytes32(users.alicePrimary), testName);
+        bytes32 messageHash = endpoint.getBuyHash(_addressToBytes32(users.alicePrimary), testName);
+        bytes32 digest = endpoint.getEthSignedMessageHash(messageHash);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(users.signerPrivKey, digest);
         bytes memory sig = abi.encodePacked(r, s, v);
         vm.stopPrank();
@@ -30,7 +31,8 @@ contract Endpoint_buyName_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Tes
     function testBuyName_RevertInvalidSignature() public {
         string memory testName = constants.TEST_NAME();
         vm.startPrank(users.signer);
-        bytes32 digest = endpoint.getEthSignedMessageHash(_addressToBytes32(users.alicePrimary), testName);
+        bytes32 messageHash = endpoint.getBuyHash(_addressToBytes32(users.alicePrimary), testName);
+        bytes32 digest = endpoint.getEthSignedMessageHash(messageHash);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(users.signerPrivKey, digest);
         bytes memory sig = abi.encodePacked(r, s, v);
         vm.stopPrank();

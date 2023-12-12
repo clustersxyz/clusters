@@ -17,15 +17,16 @@ interface IEndpoint {
 
     /// ECDSA HELPERS ///
 
-    function getEthSignedMessageHash(bytes32 to, string memory name) external pure returns (bytes32);
-    function verify(bytes32 to, string memory name, bytes calldata sig) external view returns (bool);
-    function prepareOrder(
+    function getBuyHash(bytes32 to, string memory name) external pure returns (bytes32);
+    function getOrderHash(
         uint256 nonce,
         uint256 expirationTimestamp,
         uint256 ethAmount,
         address bidder,
         string memory name
     ) external view returns (bytes32);
+    function getEthSignedMessageHash(bytes32 messageHash) external pure returns (bytes32);
+    function verifyBuy(bytes32 to, string memory name, bytes calldata sig) external view returns (bool);
     function verifyOrder(
         uint256 nonce,
         uint256 expirationTimestamp,

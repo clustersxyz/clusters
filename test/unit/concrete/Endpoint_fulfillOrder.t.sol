@@ -20,8 +20,9 @@ contract Endpoint_fulfillOrder_Unit_Concrete_Test is PricingHarberger_Unit_Share
     function testFulfillOrder() public {
         vm.startPrank(users.signer);
         string memory testName = constants.TEST_NAME();
-        bytes32 digest =
-            endpoint.prepareOrder(0, constants.MARKET_OPEN_TIMESTAMP() + 2 days, minPrice * 3, address(0), testName);
+        bytes32 messageHash =
+            endpoint.getOrderHash(0, constants.MARKET_OPEN_TIMESTAMP() + 2 days, minPrice * 3, address(0), testName);
+        bytes32 digest = endpoint.getEthSignedMessageHash(messageHash);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(users.signerPrivKey, digest);
         bytes memory sig = abi.encodePacked(r, s, v);
         vm.stopPrank();
@@ -33,9 +34,10 @@ contract Endpoint_fulfillOrder_Unit_Concrete_Test is PricingHarberger_Unit_Share
         vm.stopPrank();
 
         vm.startPrank(users.signer);
-        digest = endpoint.prepareOrder(
+        messageHash = endpoint.getOrderHash(
             2, constants.MARKET_OPEN_TIMESTAMP() + 2 days, minPrice * 3, users.alicePrimary, "zodomo"
         );
+        digest = endpoint.getEthSignedMessageHash(messageHash);
         (v, r, s) = vm.sign(users.signerPrivKey, digest);
         sig = abi.encodePacked(r, s, v);
         console2.log(
