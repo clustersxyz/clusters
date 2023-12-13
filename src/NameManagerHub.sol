@@ -14,6 +14,8 @@ import {console2} from "../lib/forge-std/src/Test.sol";
 abstract contract NameManagerHub is IClusters {
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
+    bool internal _inMulticall;
+
     address public immutable endpoint;
 
     bool internal _inMulticall;
@@ -81,12 +83,26 @@ abstract contract NameManagerHub is IClusters {
     function _checkNameOwnership(bytes32 addr, string memory name) internal view {
         if (addressToClusterId[addr] == 0) revert NoCluster();
         if (bytes(name).length == 0) return; // Short circuit for reset as cluster addresses never own name ""
-        if (addressToClusterId[addr] != nameToClusterId[_toBytes32(name)]) revert Unauthorized();
+        if (addressToClusterId[addr] != nameToClusterId[_stringToBytes32(name)]) revert Unauthorized();
     }
 
-    /// @notice Used to restrict external functions to endpoint
-    modifier onlyEndpoint(address msgSender) {
-        if (msg.sender != msgSender && msg.sender != endpoint) revert Unauthorized();
+    /// @dev Ensure addr has a cluster
+    function _fixZeroCluster(bytes32 addr) internal {
+        if (addressToClusterId[addr] == 0) _hookCreate(addr);
+    }
+
+    /// @dev Hook used to access _add() from Clusters.sol to abstract away cluster creation
+    function _hookCreate(bytes32 msgSender) internal virtual;
+
+    /// @dev Hook used to access clusterAddresses() from Clusters.sol to delete clusters if all names are removed
+    function _hookDelete(uint256 clusterId) internal virtual;
+
+    /// @dev Hook used to access cluster's _verifiedAddresses length to confirm cluster is valid before name transfer
+    function _hookCheck(uint256 clusterId) internal virtual;
+
+    /// @notice Used to restrict external functions to
+    modifier onlyEndpoint(bytes32 msgSender) {
+        if (_addressToBytes32(msg.sender) != msgSender && msg.sender != endpoint) revert Unauthorized();
         _;
     }
 
@@ -107,9 +123,9 @@ abstract contract NameManagerHub is IClusters {
 
     /// @notice Buy unregistered name. Must pay at least minimum yearly payment.
     /// @dev Processing is handled in overload
-    function buyName(uint256 msgValue, string memory name) public payable returns (bytes memory) {
-        buyName(msg.sender, msgValue, name);
-        return bytes("");
+    function buyName(uint256 msgValue, string memory name) external payable {
+        bytes32 msgSender = _addressToBytes32(msg.sender);
+        buyName(msgSender, msgValue, name);
     }
 
     /// @notice buyName() overload used by endpoint, msgSender must be msg.sender or endpoint
@@ -120,8 +136,8 @@ abstract contract NameManagerHub is IClusters {
         returns (bytes memory payload)
     {
         _checkNameValid(name);
-        _checkZeroCluster(msgSender);
-        bytes32 _name = _toBytes32(name);
+        _fixZeroCluster(msgSender);
+        bytes32 _name = _stringToBytes32(name);
         uint256 clusterId = addressToClusterId[msgSender];
         // Check that name is unused and sufficient payment is made
         if (nameToClusterId[_name] != 0) revert Registered();
@@ -147,9 +163,8 @@ abstract contract NameManagerHub is IClusters {
 
     /// @notice Fund an existing and specific name, callable by anyone
     /// @dev Processing is handled in overload
-    function fundName(uint256 msgValue, string memory name) public payable returns (bytes memory) {
-        fundName(msg.sender, msgValue, name);
-        return bytes("");
+    function fundName(uint256 msgValue, string memory name) external payable {
+        fundName(_addressToBytes32(msg.sender), msgValue, name);
     }
 
     /// @notice fundName() overload used by endpoint, msgSender must be msg.sender or endpoint
@@ -160,7 +175,7 @@ abstract contract NameManagerHub is IClusters {
         returns (bytes memory payload)
     {
         _checkNameValid(name);
-        bytes32 _name = _toBytes32(name);
+        bytes32 _name = _stringToBytes32(name);
         if (nameToClusterId[_name] == 0) revert Unregistered();
         nameBacking[_name] += msgValue;
         totalNameBacking += msgValue;
@@ -175,9 +190,8 @@ abstract contract NameManagerHub is IClusters {
 
     /// @notice Move name from one cluster to another without payment
     /// @dev Processing is handled in overload
-    function transferName(string memory name, uint256 toClusterId) public payable returns (bytes memory) {
-        transferName(msg.sender, name, toClusterId);
-        return bytes("");
+    function transferName(string memory name, uint256 toClusterId) external payable {
+        transferName(_addressToBytes32(msg.sender), name, toClusterId);
     }
 
     /// @notice transferName() overload used by endpoint, msgSender must be msg.sender or endpoint
@@ -190,14 +204,13 @@ abstract contract NameManagerHub is IClusters {
         _checkNameValid(name);
         _checkZeroCluster(msgSender);
         _checkNameOwnership(msgSender, name);
-        bytes32 _name = _toBytes32(name);
-        if (toClusterId >= nextClusterId) revert Unregistered();
-        uint256 clusterId = addressToClusterId[msgSender];
-        _transferName(_name, clusterId, toClusterId);
-
-        payload = abi.encodeWithSignature("transferName(address,string,uint256)", msg.sender, name, toClusterId);
-        if (_inMulticall) return payload;
-        else IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
+        bytes32 _name = _stringToBytes32(name);
+        uint256 fromClusterId = addressToClusterId[msgSender];
+        // Prevent transfers to empty/invalid clusters
+        _hookCheck(toClusterId);
+        _transferName(_name, fromClusterId, toClusterId);
+        // Purge all addresses from cluster if last name was transferred out
+        if (_clusterNames[fromClusterId].length() == 0) _hookDelete(fromClusterId);
     }
 
     /// @dev Transfer cluster name or delete cluster name without checking auth
@@ -227,7 +240,7 @@ abstract contract NameManagerHub is IClusters {
     ///         sufficient bidder. If no bids above yearly minimum, delete name registration.
     function pokeName(string memory name) public payable returns (bytes memory payload) {
         _checkNameValid(name);
-        bytes32 _name = _toBytes32(name);
+        bytes32 _name = _stringToBytes32(name);
         if (nameToClusterId[_name] == 0) revert Unregistered();
         IClusters.PriceIntegral memory integral = priceIntegral[_name];
         (uint256 spent, uint256 newPrice) =
@@ -274,9 +287,8 @@ abstract contract NameManagerHub is IClusters {
     /// @dev Should work smoothly for fully expired names and names partway through their duration
     /// @dev Needs to be onchain ETH bid escrowed in one place because otherwise prices shift
     /// @dev Processing is handled in overload
-    function bidName(uint256 msgValue, string memory name) public payable returns (bytes memory) {
-        bidName(msg.sender, msgValue, name);
-        return bytes("");
+    function bidName(uint256 msgValue, string memory name) external payable {
+        bidName(_addressToBytes32(msg.sender), msgValue, name);
     }
 
     /// @notice bidName() overload used in endpoint, msgSender must be msg.sender or endpoint
@@ -289,7 +301,7 @@ abstract contract NameManagerHub is IClusters {
         _checkNameValid(name);
         _checkZeroCluster(msgSender);
         if (msgValue == 0) revert NoBid();
-        bytes32 _name = _toBytes32(name);
+        bytes32 _name = _stringToBytes32(name);
         uint256 clusterId = nameToClusterId[_name];
         if (clusterId == 0) revert Unregistered();
         // Prevent name owner from bidding on their own name
@@ -317,7 +329,7 @@ abstract contract NameManagerHub is IClusters {
             emit BidPlaced(_name, msgSender, msgValue);
             // Process bid refund if there is one. Store balance for recipient if transfer fails instead of reverting.
             if (prevBid > 0) {
-                (bool success,) = payable(_bytesToAddress(prevBidder)).call{value: prevBid}("");
+                (bool success,) = payable(_bytes32ToAddress(prevBidder)).call{value: prevBid}("");
                 if (!success) {
                     bidRefunds[prevBidder] += prevBid;
                 } else {
@@ -338,9 +350,8 @@ abstract contract NameManagerHub is IClusters {
 
     /// @notice Reduce bid and refund difference. Revoke if amount is the total bid or is the max uint256 value.
     /// @dev Processing is handled in overload
-    function reduceBid(string memory name, uint256 amount) public payable returns (bytes memory) {
-        reduceBid(msg.sender, name, amount);
-        return bytes("");
+    function reduceBid(string memory name, uint256 amount) external payable {
+        reduceBid(_addressToBytes32(msg.sender), name, amount);
     }
 
     /// @notice reduceBid() overload used by endpoint, msgSender must be msg.sender or endpoint
@@ -351,7 +362,7 @@ abstract contract NameManagerHub is IClusters {
         returns (bytes memory payload)
     {
         _checkNameValid(name);
-        bytes32 _name = _toBytes32(name);
+        bytes32 _name = _stringToBytes32(name);
         uint256 bid = bids[_name].ethAmount;
         if (bid == 0) revert NoBid();
         if (bids[_name].bidder != msgSender) revert Unauthorized();
@@ -386,7 +397,7 @@ abstract contract NameManagerHub is IClusters {
 
         // Transfer bid reduction after all state is purged to prevent reentrancy
         // This bid refund reverts upon failure because it isn't happening in a forced context such as being outbid
-        (bool success,) = payable(msgSender).call{value: amount}("");
+        (bool success,) = payable(_bytes32ToAddress(msgSender)).call{value: amount}("");
         if (!success) revert NativeTokenTransferFailed();
 
         payload = abi.encodeWithSignature("reduceBid(address,string,uint256)", msg.sender, name, amount);
@@ -397,9 +408,8 @@ abstract contract NameManagerHub is IClusters {
     /// @notice Accept bid and transfer name to bidder
     /// @dev Retrieves bid, adjusts state, then sends payment to avoid reentrancy
     /// @dev Processing is handled in overload
-    function acceptBid(string memory name) public payable returns (bytes memory) {
-        acceptBid(msg.sender, name);
-        return bytes("");
+    function acceptBid(string memory name) external payable returns (uint256 bidAmount) {
+        return acceptBid(_addressToBytes32(msg.sender), name);
     }
 
     /// @notice acceptBid() overload used by endpoint, msgSender must be msg.sender or endpoint
@@ -412,14 +422,14 @@ abstract contract NameManagerHub is IClusters {
         _checkNameValid(name);
         _checkZeroCluster(msgSender);
         _checkNameOwnership(msgSender, name);
-        bytes32 _name = _toBytes32(name);
+        bytes32 _name = _stringToBytes32(name);
         Bid memory bid = bids[_name];
         if (bid.ethAmount == 0) revert NoBid();
         delete bids[_name];
         totalBidBacking -= bid.ethAmount;
         _fixZeroCluster(bid.bidder);
         _transferName(_name, nameToClusterId[_name], addressToClusterId[bid.bidder]);
-        (bool success,) = payable(msgSender).call{value: bid.ethAmount}("");
+        (bool success,) = payable(_bytes32ToAddress(msgSender)).call{value: bid.ethAmount}("");
         if (!success) revert NativeTokenTransferFailed();
 
         payload = abi.encodeWithSignature("acceptBid(address,string)", msg.sender, name);
@@ -428,10 +438,9 @@ abstract contract NameManagerHub is IClusters {
     }
 
     /// @notice Allow failed bid refunds to be withdrawn
-    /// @dev Processing is handled in overload
-    function refundBid() public payable returns (bytes memory) {
-        refundBid(msg.sender);
-        return bytes("");
+    /// @dev No endpoint overload is provided as I don't see why someone would retry a failed bid refund via bridge
+    function refundBid() external payable {
+        refundBid(_addressToBytes32(msg.sender));
     }
 
     /// @notice acceptBid() overload used by endpoint, msgSender must be msg.sender or endpoint
@@ -440,7 +449,7 @@ abstract contract NameManagerHub is IClusters {
         if (refund == 0) revert NoBid();
         delete bidRefunds[msgSender];
         totalBidBacking -= refund;
-        (bool success,) = payable(msgSender).call{value: refund}("");
+        (bool success,) = payable(_bytes32ToAddress(msgSender)).call{value: refund}("");
         if (!success) revert NativeTokenTransferFailed();
 
         payload = abi.encodeWithSignature("refundBid(address)", msg.sender);
@@ -452,9 +461,8 @@ abstract contract NameManagerHub is IClusters {
 
     /// @notice Set canonical name or erase it by setting ""
     /// @dev Processing is handled in overload
-    function setDefaultClusterName(string memory name) public payable returns (bytes memory) {
-        setDefaultClusterName(msg.sender, name);
-        return bytes("");
+    function setDefaultClusterName(string memory name) external payable {
+        setDefaultClusterName(_addressToBytes32(msg.sender), name);
     }
 
     /// @notice setDefaultClusterName() overload used by endpoint, msgSender must be msg.sender or endpoint
@@ -467,7 +475,7 @@ abstract contract NameManagerHub is IClusters {
         if (bytes(name).length > 32) revert LongName();
         _checkZeroCluster(msgSender);
         _checkNameOwnership(msgSender, name);
-        bytes32 _name = _toBytes32(name);
+        bytes32 _name = _stringToBytes32(name);
         uint256 clusterId = addressToClusterId[msgSender];
         if (bytes(name).length == 0) {
             delete canonicalClusterName[clusterId];
@@ -484,9 +492,8 @@ abstract contract NameManagerHub is IClusters {
 
     /// @notice Set wallet name for msg.sender or erase it by setting ""
     /// @dev Processing is handled in overload
-    function setWalletName(address addr, string memory walletName) public payable returns (bytes memory) {
-        setWalletName(msg.sender, addr, walletName);
-        return bytes("");
+    function setWalletName(bytes32 addr, string memory walletName) external payable {
+        setWalletName(_addressToBytes32(msg.sender), addr, walletName);
     }
 
     /// @notice setWalletName() overload used by endpoint, msgSender must be msg.sender or endpoint
@@ -497,9 +504,7 @@ abstract contract NameManagerHub is IClusters {
         returns (bytes memory payload)
     {
         if (bytes(walletName).length > 32) revert LongName();
-        _checkZeroCluster(msgSender);
-        bytes32 _walletName = _toBytes32(walletName);
-        uint256 clusterId = addressToClusterId[msgSender];
+        bytes32 _walletName = _stringToBytes32(walletName);
         if (clusterId != addressToClusterId[addr]) revert Unauthorized();
         if (bytes(walletName).length == 0) {
             _walletName = reverseLookup[addr];
@@ -549,18 +554,18 @@ abstract contract NameManagerHub is IClusters {
     /// TYPE HELPERS ///
 
     /// @dev Returns bytes32 representation of string < 32 characters, used in name-related state vars and functions
-    function _toBytes32(string memory smallString) internal pure returns (bytes32 result) {
+    function _stringToBytes32(string memory smallString) internal pure returns (bytes32 result) {
         bytes memory smallBytes = bytes(smallString);
         return bytes32(smallBytes);
     }
 
     /// @dev Returns bytes32 representation of address
-    function _addressToBytes(address addr) internal pure returns (bytes32) {
+    function _addressToBytes32(address addr) internal pure returns (bytes32) {
         return bytes32(uint256(uint160(addr)));
     }
 
     /// @dev Returns address representation of bytes32
-    function _bytesToAddress(bytes32 addr) internal pure returns (address) {
+    function _bytes32ToAddress(bytes32 addr) internal pure returns (address) {
         return address(uint160(uint256(addr)));
     }
 }
