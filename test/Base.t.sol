@@ -110,7 +110,7 @@ abstract contract Base_Test is Test, Utils {
     ) internal {
         assertEq(address(endpoint).balance, 0, "endpoint has balance");
         assertEq(address(clusters).balance, totalBal, "clusters total balance error");
-        assertEq(clusters.protocolAccrual(), protocolAccrual, "clusters protocol revenue error");
+        assertEq(clusters.protocolAccrual(), protocolAccrual, "clusters protocol accrual error");
         assertEq(clusters.totalNameBacking(), totalNameBacking, "clusters total name backing error");
         assertEq(clusters.totalBidBacking(), totalBidBacking, "clusters total bid backing error");
         assertEq(totalBal, protocolAccrual + totalNameBacking + totalBidBacking, "clusters balance invariant error");
