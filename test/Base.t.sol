@@ -23,6 +23,9 @@ abstract contract Base_Test is Test, Utils {
 
     /// VARIABLES ///
 
+    // TODO: UPDATE LAYERZERO ENDPOINT HANDLING
+    address internal constant LAYERZERO = address(uint160(uint256(keccak256(abi.encodePacked("LAYERZERO")))));
+
     Users internal users;
     uint256 internal minPrice;
     mapping(uint256 clusterId => EnumerableSet.Bytes32Set vals) internal values;
@@ -85,8 +88,8 @@ abstract contract Base_Test is Test, Utils {
     function deployLocalFlat() internal {
         pricingFlat = new PricingFlat();
         minPrice = pricingFlat.minAnnualPrice();
-        endpoint = new Endpoint(users.adminEndpoint, users.signer);
-        clusters = new Clusters(address(pricingFlat), address(endpoint), constants.MARKET_OPEN_TIMESTAMP());
+        endpoint = new Endpoint(users.adminEndpoint, users.signer, LAYERZERO);
+        clusters = new ClustersHub(address(pricingFlat), address(endpoint), constants.MARKET_OPEN_TIMESTAMP());
         vm.prank(users.adminEndpoint);
         endpoint.setClustersAddr(address(clusters));
     }
@@ -94,8 +97,8 @@ abstract contract Base_Test is Test, Utils {
     function deployLocalHarberger() internal {
         pricingHarberger = new PricingHarbergerHarness(block.timestamp);
         minPrice = pricingHarberger.minAnnualPrice();
-        endpoint = new Endpoint(users.adminEndpoint, users.signer);
-        clusters = new Clusters(address(pricingHarberger), address(endpoint), constants.MARKET_OPEN_TIMESTAMP());
+        endpoint = new Endpoint(users.adminEndpoint, users.signer, LAYERZERO);
+        clusters = new ClustersHub(address(pricingHarberger), address(endpoint), constants.MARKET_OPEN_TIMESTAMP());
         vm.prank(users.adminEndpoint);
         endpoint.setClustersAddr(address(clusters));
     }

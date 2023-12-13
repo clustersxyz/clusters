@@ -9,6 +9,8 @@ import {NameManagerHub} from "./NameManagerHub.sol";
 
 import {IClusters, IEndpoint} from "./IClusters.sol";
 
+import {IEndpoint} from "./interfaces/IEndpoint.sol";
+
 import {console2} from "../lib/forge-std/src/Test.sol";
 
 /**

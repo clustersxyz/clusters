@@ -7,16 +7,18 @@ import {PricingHarberger} from "../src/PricingHarberger.sol";
 import {Endpoint} from "../src/Endpoint.sol";
 import {ClustersHub} from "../src/ClustersHub.sol";
 
-contract CounterScript is Script {
-    address constant LZENDPOINT = address(uint160(uint256(keccak256(abi.encode("lzEndpoint")))));
+contract ClustersScript is Script {
+    address internal constant SIGNER = address(uint160(uint256(keccak256(abi.encodePacked("SIGNER")))));
+    // TODO: UPDATE LAYERZERO ENDPOINT HANDLING
+    address internal constant LAYERZERO = address(uint160(uint256(keccak256(abi.encodePacked("LAYERZERO")))));
 
     function setUp() public {}
 
     function run() public {
         vm.startBroadcast();
         PricingHarberger pricing = new PricingHarberger();
-        Endpoint endpoint = new Endpoint(LZENDPOINT);
-        new ClustersHub(address(pricing), address(endpoint));
+        Endpoint endpoint = new Endpoint(msg.sender, SIGNER, LAYERZERO);
+        new ClustersHub(address(pricing), address(endpoint), block.timestamp + 7 days);
         vm.stopBroadcast();
     }
 }
