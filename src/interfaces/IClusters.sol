@@ -94,9 +94,15 @@ interface IClusters {
     function buyName(uint256 msgValue, string memory name) external payable returns (bytes memory);
     function buyName(bytes32 msgSender, uint256 msgValue, string memory name) external payable returns (bytes memory);
     function fundName(uint256 msgValue, string memory name) external payable returns (bytes memory);
-    function fundName(bytes32 msgSender, uint256 msgValue, string memory name) external payable returns (bytes memory);
+    function fundName(bytes32 msgSender, uint256 msgValue, string memory name)
+        external
+        payable
+        returns (bytes memory);
     function transferName(string memory name, uint256 toClusterId) external payable returns (bytes memory);
-    function transferName(bytes32 msgSender, string memory name, uint256 toClusterId) external payable returns (bytes memory);
+    function transferName(bytes32 msgSender, string memory name, uint256 toClusterId)
+        external
+        payable
+        returns (bytes memory);
     function pokeName(string memory name) external payable returns (bytes memory);
 
     function bidName(uint256 msgValue, string memory name) external payable returns (bytes memory);
@@ -111,5 +117,8 @@ interface IClusters {
     function setDefaultClusterName(string memory name) external payable returns (bytes memory);
     function setDefaultClusterName(bytes32 msgSender, string memory name) external payable returns (bytes memory);
     function setWalletName(bytes32 addr, string memory walletname) external payable returns (bytes memory);
-    function setWalletName(bytes32 msgSender, bytes32 addr, string memory walletname) external payable returns (bytes memory);
+    function setWalletName(bytes32 msgSender, bytes32 addr, string memory walletname)
+        external
+        payable
+        returns (bytes memory);
 }
