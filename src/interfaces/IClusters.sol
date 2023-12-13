@@ -72,7 +72,7 @@ interface IClusters {
     function bids(bytes32 name) external view returns (uint256 ethAmount, uint256 createdTimestamp, bytes32 bidder);
     function bidRefunds(bytes32 _bidder) external view returns (uint256 refund);
 
-    function protocolRevenue() external view returns (uint256 revenue);
+    function protocolAccrual() external view returns (uint256 accrual);
     function totalNameBacking() external view returns (uint256 nameBacking);
     function totalBidBacking() external view returns (uint256 bidBacking);
 

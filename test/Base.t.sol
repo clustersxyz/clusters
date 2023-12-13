@@ -104,16 +104,16 @@ abstract contract Base_Test is Test, Utils {
 
     function assertBalances(
         uint256 totalBal,
-        uint256 protocolRevenue,
+        uint256 protocolAccrual,
         uint256 totalNameBacking,
         uint256 totalBidBacking
     ) internal {
         assertEq(address(endpoint).balance, 0, "endpoint has balance");
         assertEq(address(clusters).balance, totalBal, "clusters total balance error");
-        assertEq(clusters.protocolRevenue(), protocolRevenue, "clusters protocol revenue error");
+        assertEq(clusters.protocolAccrual(), protocolAccrual, "clusters protocol revenue error");
         assertEq(clusters.totalNameBacking(), totalNameBacking, "clusters total name backing error");
         assertEq(clusters.totalBidBacking(), totalBidBacking, "clusters total bid backing error");
-        assertEq(totalBal, protocolRevenue + totalNameBacking + totalBidBacking, "clusters balance invariant error");
+        assertEq(totalBal, protocolAccrual + totalNameBacking + totalBidBacking, "clusters balance invariant error");
     }
 
     function assertUnverifiedAddresses(uint256 clusterId, uint256 count, bytes32[] memory containsAddrs) internal {

@@ -227,7 +227,7 @@ contract ClustersTest is Test {
         assertEq(address(clusters).balance, buyAmount, "contract balance issue");
         assertEq(
             address(clusters).balance,
-            clusters.protocolRevenue() + clusters.totalNameBacking() + clusters.totalBidBacking(),
+            clusters.protocolAccrual() + clusters.totalNameBacking() + clusters.totalBidBacking(),
             "invariant balance error"
         );
     }
@@ -310,7 +310,7 @@ contract ClustersTest is Test {
         assertEq(address(clusters).balance, buyAmount + fundAmount, "contract balance issue");
         assertEq(
             address(clusters).balance,
-            clusters.protocolRevenue() + clusters.totalNameBacking() + clusters.totalBidBacking(),
+            clusters.protocolAccrual() + clusters.totalNameBacking() + clusters.totalBidBacking(),
             "invariant balance error"
         );
     }
@@ -348,7 +348,7 @@ contract ClustersTest is Test {
         assertEq(address(clusters).balance, buyAmount + fundAmount, "contract balance issue");
         assertEq(
             address(clusters).balance,
-            clusters.protocolRevenue() + clusters.totalNameBacking() + clusters.totalBidBacking(),
+            clusters.protocolAccrual() + clusters.totalNameBacking() + clusters.totalBidBacking(),
             "invariant balance error"
         );
     }
@@ -409,7 +409,7 @@ contract ClustersTest is Test {
         assertEq(address(clusters).balance, buyAmount, "contract balance issue");
         assertEq(
             address(clusters).balance,
-            clusters.protocolRevenue() + clusters.totalNameBacking() + clusters.totalBidBacking(),
+            clusters.protocolAccrual() + clusters.totalNameBacking() + clusters.totalBidBacking(),
             "invariant balance error"
         );
     }
@@ -445,7 +445,7 @@ contract ClustersTest is Test {
         assertEq(clusters.defaultClusterName(2), bytes32(""), "defaultClusterName possibly transferred");
         assertEq(
             address(clusters).balance,
-            clusters.protocolRevenue() + clusters.totalNameBacking() + clusters.totalBidBacking(),
+            clusters.protocolAccrual() + clusters.totalNameBacking() + clusters.totalBidBacking(),
             "invariant balance error"
         );
     }
@@ -567,7 +567,7 @@ contract ClustersTest is Test {
         assertEq(address(clusters).balance, buyAmount, "contract balance issue");
         assertEq(
             address(clusters).balance,
-            clusters.protocolRevenue() + clusters.totalNameBacking() + clusters.totalBidBacking(),
+            clusters.protocolAccrual() + clusters.totalNameBacking() + clusters.totalBidBacking(),
             "invariant balance error"
         );
     }
@@ -636,7 +636,7 @@ contract ClustersTest is Test {
         assertEq(address(clusters).balance, buyAmount + bidAmount, "contract balance issue");
         assertEq(
             address(clusters).balance,
-            clusters.protocolRevenue() + clusters.totalNameBacking() + clusters.totalBidBacking(),
+            clusters.protocolAccrual() + clusters.totalNameBacking() + clusters.totalBidBacking(),
             "invariant balance error"
         );
     }
@@ -677,7 +677,7 @@ contract ClustersTest is Test {
         assertEq(address(clusters).balance, buyAmount + bidAmount, "contract balance issue");
         assertEq(
             address(clusters).balance,
-            clusters.protocolRevenue() + clusters.totalNameBacking() + clusters.totalBidBacking(),
+            clusters.protocolAccrual() + clusters.totalNameBacking() + clusters.totalBidBacking(),
             "invariant balance error"
         );
 
@@ -691,7 +691,7 @@ contract ClustersTest is Test {
         assertEq(address(clusters).balance, buyAmount + bidAmount + bidIncrease, "contract balance issue");
         assertEq(
             address(clusters).balance,
-            clusters.protocolRevenue() + clusters.totalNameBacking() + clusters.totalBidBacking(),
+            clusters.protocolAccrual() + clusters.totalNameBacking() + clusters.totalBidBacking(),
             "invariant balance error"
         );
     }
@@ -738,7 +738,7 @@ contract ClustersTest is Test {
         assertEq(bid.bidder, _addressToBytes(PRANKED_ADDRESS), "bid bidder incorrect");
         assertEq(
             address(clusters).balance,
-            clusters.protocolRevenue() + clusters.totalNameBacking() + clusters.totalBidBacking(),
+            clusters.protocolAccrual() + clusters.totalNameBacking() + clusters.totalBidBacking(),
             "invariant balance error"
         );
     }
@@ -878,7 +878,7 @@ contract ClustersTest is Test {
         assertEq(address(clusters).balance, buyAmount + bidAmount, "contract balance issue");
         assertEq(
             address(clusters).balance,
-            clusters.protocolRevenue() + clusters.totalNameBacking() + clusters.totalBidBacking(),
+            clusters.protocolAccrual() + clusters.totalNameBacking() + clusters.totalBidBacking(),
             "invariant balance error"
         );
 
@@ -931,7 +931,7 @@ contract ClustersTest is Test {
         assertEq(bid.bidder, addrBytes, "bid bidder incorrect");
         assertEq(
             address(clusters).balance,
-            clusters.protocolRevenue() + clusters.totalNameBacking() + clusters.totalBidBacking(),
+            clusters.protocolAccrual() + clusters.totalNameBacking() + clusters.totalBidBacking(),
             "invariant balance error"
         );
     }
@@ -977,7 +977,7 @@ contract ClustersTest is Test {
         assertEq(bid.bidder, _addressToBytes(address(0)), "bid bidder not purged");
         assertEq(
             address(clusters).balance,
-            clusters.protocolRevenue() + clusters.totalNameBacking() + clusters.totalBidBacking(),
+            clusters.protocolAccrual() + clusters.totalNameBacking() + clusters.totalBidBacking(),
             "invariant balance error"
         );
     }
@@ -1023,7 +1023,7 @@ contract ClustersTest is Test {
         assertEq(bid.bidder, _addressToBytes(address(0)), "bid bidder not purged");
         assertEq(
             address(clusters).balance,
-            clusters.protocolRevenue() + clusters.totalNameBacking() + clusters.totalBidBacking(),
+            clusters.protocolAccrual() + clusters.totalNameBacking() + clusters.totalBidBacking(),
             "invariant balance error"
         );
     }
@@ -1071,7 +1071,7 @@ contract ClustersTest is Test {
         assertEq(bid.bidder, _addressToBytes(address(0)), "bid bidder not purged");
         assertEq(
             address(clusters).balance,
-            clusters.protocolRevenue() + clusters.totalNameBacking() + clusters.totalBidBacking(),
+            clusters.protocolAccrual() + clusters.totalNameBacking() + clusters.totalBidBacking(),
             "invariant balance error"
         );
     }
@@ -1266,7 +1266,7 @@ contract ClustersTest is Test {
         assertEq(address(caller).balance, balance + bidAmount, "bid payment issue");
         assertEq(
             address(clusters).balance,
-            clusters.protocolRevenue() + clusters.totalNameBacking() + clusters.totalBidBacking(),
+            clusters.protocolAccrual() + clusters.totalNameBacking() + clusters.totalBidBacking(),
             "invariant balance error"
         );
     }
@@ -1382,7 +1382,7 @@ contract ClustersTest is Test {
         assertEq(names[0], name, "name array error");
         assertEq(
             address(clusters).balance,
-            clusters.protocolRevenue() + clusters.totalNameBacking() + clusters.totalBidBacking(),
+            clusters.protocolAccrual() + clusters.totalNameBacking() + clusters.totalBidBacking(),
             "invariant balance error"
         );
     }
@@ -1421,7 +1421,7 @@ contract ClustersTest is Test {
         assertEq(names[1], _name2, "name array error");
         assertEq(
             address(clusters).balance,
-            clusters.protocolRevenue() + clusters.totalNameBacking() + clusters.totalBidBacking(),
+            clusters.protocolAccrual() + clusters.totalNameBacking() + clusters.totalBidBacking(),
             "invariant balance error"
         );
     }
@@ -1447,7 +1447,7 @@ contract ClustersTest is Test {
         assertEq(names[0], name, "name array error");
         assertEq(
             address(clusters).balance,
-            clusters.protocolRevenue() + clusters.totalNameBacking() + clusters.totalBidBacking(),
+            clusters.protocolAccrual() + clusters.totalNameBacking() + clusters.totalBidBacking(),
             "invariant balance error"
         );
     }
