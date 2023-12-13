@@ -203,7 +203,7 @@ contract Endpoint is Ownable, IEndpoint, ILayerZeroReceiver {
         if (block.chainid == 1) _dstChainId = dstChainId;
         else _dstChainId = 101;
         bytes memory trustedRemote = lzTrustedRemotes[_dstChainId];
-        if (trustedRemote.length == 0) revert InvalidTrustedRemote();
+        if (trustedRemote.length == 0) return;
         ILayerZeroEndpoint(lzEndpoint).send{value: nativeFee}(
             _dstChainId, trustedRemote, payload, payable(msg.sender), zroPaymentAddress, adapterParams
         );
