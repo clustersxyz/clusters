@@ -40,6 +40,7 @@ contract ClustersHub is NameManagerHub {
     /// @dev For payable multicall to be secure, we cannot trust msg.value params in other external methods
     /// @dev Must instead do strict protocol invariant checking at the end of methods like Uniswap V2
     function multicall(bytes[] calldata data) external payable returns (bytes[] memory results) {
+        _inMulticall = true;
         results = new bytes[](data.length);
         bool success;
 
@@ -51,18 +52,22 @@ contract ClustersHub is NameManagerHub {
         }
 
         _checkInvariant();
+
+        bytes memory payload = abi.encodeWithSignature("multicall(bytes[])", results);
+        IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
+        _inMulticall = false;
     }
 
-    function add(bytes32 addr) external payable {
-        add(_addressToBytes(msg.sender), addr);
+    function add(bytes32 addr) external payable returns (bytes memory payload) {
+        return add(_addressToBytes32(msg.sender), addr);
     }
 
-    function verify(uint256 clusterId) external payable {
-        verify(_addressToBytes(msg.sender), clusterId);
+    function verify(uint256 clusterId) external payable returns (bytes memory payload) {
+        return verify(_addressToBytes32(msg.sender), clusterId);
     }
 
-    function remove(bytes32 addr) external payable {
-        remove(_addressToBytes(msg.sender), addr);
+    function remove(bytes32 addr) external payable returns (bytes memory payload) {
+        return remove(_addressToBytes32(msg.sender), addr);
     }
 
     function getUnverifiedAddresses(uint256 clusterId) external view returns (bytes32[] memory) {
@@ -75,14 +80,28 @@ contract ClustersHub is NameManagerHub {
 
     /// ENDPOINT FUNCTIONS ///
 
-    function add(bytes32 msgSender, bytes32 addr) public payable onlyEndpoint(msgSender) {
+    function add(bytes32 msgSender, bytes32 addr)
+        public
+        payable
+        onlyEndpoint(msgSender)
+        returns (bytes memory payload)
+    {
         uint256 clusterId = addressToClusterId[msgSender];
         if (clusterId == 0) revert NoCluster();
         if (_verifiedAddresses[clusterId].contains(addr)) revert Registered();
         _add(addr, clusterId);
+
+        payload = abi.encodeWithSignature("add(bytes32,bytes32)", msgSender, addr);
+        if (_inMulticall) return payload;
+        else IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
     }
 
-    function verify(bytes32 msgSender, uint256 clusterId) public payable onlyEndpoint(msgSender) {
+    function verify(bytes32 msgSender, uint256 clusterId)
+        public
+        payable
+        onlyEndpoint(msgSender)
+        returns (bytes memory payload)
+    {
         if (!_unverifiedAddresses[clusterId].contains(msgSender)) revert Unauthorized();
         uint256 currentClusterId = addressToClusterId[msgSender];
         if (currentClusterId != 0) {
@@ -96,15 +115,28 @@ contract ClustersHub is NameManagerHub {
             _remove(msgSender);
         }
         _verify(msgSender, clusterId);
+
+        payload = abi.encodeWithSignature("verify(bytes32,uint256)", msgSender, clusterId);
+        if (_inMulticall) return payload;
+        else IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
     }
 
-    function remove(bytes32 msgSender, bytes32 addr) public payable onlyEndpoint(msgSender) {
+    function remove(bytes32 msgSender, bytes32 addr)
+        public
+        payable
+        onlyEndpoint(msgSender)
+        returns (bytes memory payload)
+    {
         uint256 clusterId = addressToClusterId[msgSender];
         if (clusterId == 0) revert NoCluster();
         if (clusterId != addressToClusterId[addr]) revert Unauthorized();
         // If the cluster has valid names, prevent removing final address, regardless of what is supplied for addr
         if (_clusterNames[clusterId].length() > 0 && _verifiedAddresses[clusterId].length() == 1) revert Invalid();
         _remove(addr);
+
+        payload = abi.encodeWithSignature("remove(bytes32,bytes32)", msgSender, addr);
+        if (_inMulticall) return payload;
+        else IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
     }
 
     /// INTERNAL FUNCTIONS ///
