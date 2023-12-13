@@ -2,6 +2,21 @@
 pragma solidity ^0.8.23;
 
 interface IEndpoint {
+    /// STRUCTS ///
+
+    struct Origin {
+        uint32 srcEid; // The source chain's Endpoint ID.
+        bytes32 sender; // The sending OApp address.
+        uint64 nonce; // The message nonce for the pathway.
+    }
+
+    struct MessagingFee {
+        uint256 nativeFee; // Fee amount in native gas token
+        uint256 lzTokenFee; // Fee amount in ZRO token
+    }
+
+    /// ERRORS ///
+
     error Invalid();
     error TxFailed();
     error RelayChainId();
@@ -9,6 +24,8 @@ interface IEndpoint {
     error InvalidArray();
     error InvalidSender();
     error InvalidTrustedRemote();
+
+    /// EVENTS ///
 
     event Nonce(bytes32 indexed addr, uint256 indexed nonce);
     event SoftAbort();
@@ -65,7 +82,5 @@ interface IEndpoint {
 
     /// LAYERZERO ///
 
-    function lzSend(address zroPaymentAddress, bytes memory payload, uint256 nativeFee, bytes memory adapterParams)
-        external
-        payable;
+    function lzSend(bytes memory payload, bytes calldata options) external payable;
 }
