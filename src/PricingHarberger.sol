@@ -6,8 +6,6 @@ import {FixedPointMathLib} from "../lib/solady/src/utils/FixedPointMathLib.sol";
 
 import {IPricing} from "./interfaces/IPricing.sol";
 
-import {console2} from "../lib/forge-std/src/Test.sol";
-
 /*
 ECONOMIC MODEL:
 min annual price: 0.01 ether

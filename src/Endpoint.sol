@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {console2} from "../lib/forge-std/src/Test.sol";
 import {Ownable} from "../lib/solady/src/auth/Ownable.sol";
 import {IEndpoint} from "./interfaces/IEndpoint.sol";
 import {ECDSA} from "../lib/solady/src/utils/ECDSA.sol";

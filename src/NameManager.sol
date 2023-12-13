@@ -7,8 +7,6 @@ import {IPricing} from "./interfaces/IPricing.sol";
 
 import {IClusters} from "./interfaces/IClusters.sol";
 
-import {console2} from "../lib/forge-std/src/Test.sol";
-
 /// @notice The bidding, accepting, eth storing component of Clusters. Handles name assignment
 ///         to cluster ids and checks auth of cluster membership before acting on one of its names
 abstract contract NameManager is IClusters {
