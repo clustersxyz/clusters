@@ -3,10 +3,15 @@ pragma solidity ^0.8.23;
 
 interface IEndpoint {
     error Invalid();
+    error TxFailed();
+    error RelayChainId();
     error Insufficient();
-    error MulticallFailed();
+    error InvalidArray();
+    error InvalidSender();
+    error InvalidTrustedRemote();
 
     event Nonce(bytes32 indexed addr, uint256 indexed nonce);
+    event SoftAbort();
     event SignerAddr(address indexed addr);
     event ClustersAddr(address indexed addr);
 
@@ -61,5 +66,6 @@ interface IEndpoint {
     /// LAYERZERO ///
 
     function lzSend(address zroPaymentAddress, bytes memory payload, uint256 nativeFee, bytes memory adapterParams)
-        external;
+        external
+        payable;
 }
