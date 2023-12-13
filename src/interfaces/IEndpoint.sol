@@ -53,4 +53,9 @@ interface IEndpoint {
 
     function setSignerAddr(address signer_) external;
     function setClustersAddr(address clusters_) external;
+
+    /// LAYERZERO ///
+
+    function lzSend(address zroPaymentAddress, bytes memory payload, uint256 nativeFee, bytes memory adapterParams)
+        external;
 }
