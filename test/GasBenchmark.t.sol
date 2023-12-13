@@ -1,54 +1,64 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.23;
 
-import {Test, console2} from "../lib/forge-std/src/Test.sol";
-import {ClustersHub, NameManagerHub} from "../src/ClustersHub.sol";
-import {PricingHarberger} from "../src/PricingHarberger.sol";
-import {Endpoint} from "../src/Endpoint.sol";
-import {IClusters} from "../src/IClusters.sol";
+import {Base_Test} from "./Base.t.sol";
 
-contract GasBenchmarkTest is Test {
-    address constant LZENDPOINT = address(uint160(uint256(keccak256(abi.encode("lzEndpoint")))));
-
-    PricingHarberger public pricing;
-    Endpoint public endpoint;
-    ClustersHub public clusters;
-    uint256 public minPrice;
-
-    function setUp() public {
-        pricing = new PricingHarberger();
-        endpoint = new Endpoint(LZENDPOINT);
-        clusters = new ClustersHub(address(pricing), address(endpoint));
-        minPrice = pricing.minAnnualPrice();
-        vm.deal(address(this), 1 ether);
-    }
-
-    function _bytesToAddress(bytes32 _fuzzedBytes) internal pure returns (address) {
-        return address(uint160(uint256(keccak256(abi.encode(_fuzzedBytes)))));
+contract GasBenchmarkTest is Base_Test {
+    function setUp() public virtual override {
+        Base_Test.setUp();
+        deployLocalHarberger();
     }
 
     function testBenchmark() public {
-        bytes32 callerSalt = "caller";
-        bytes32 addrSalt = "addr";
-        bytes32 bidderSalt = "bidder";
-        address caller = _bytesToAddress(callerSalt);
-        address addr = _bytesToAddress(addrSalt);
-        address bidder = _bytesToAddress(bidderSalt);
+        vm.startPrank(users.signer);
+        bytes32 digest = endpoint.getEthSignedMessageHash(_addressToBytes32(users.alicePrimary), constants.TEST_NAME());
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(users.signerPrivKey, digest);
+        bytes memory sig1 = abi.encodePacked(r, s, v);
 
-        vm.startPrank(caller);
-        vm.deal(caller, minPrice);
-        clusters.create();
-        clusters.add(addr);
-        clusters.buyName{value: minPrice}(minPrice, "foobar");
+        digest = endpoint.getEthSignedMessageHash(_addressToBytes32(users.alicePrimary), "zodomo");
+        (v, r, s) = vm.sign(users.signerPrivKey, digest);
+        bytes memory sig2 = abi.encodePacked(r, s, v);
         vm.stopPrank();
 
-        vm.startPrank(bidder);
-        vm.deal(bidder, 1 ether);
-        // TODO: Should people be able to bid on names without owning a cluster themselves?
-        clusters.create();
-        clusters.bidName{value: 0.5 ether}(0.5 ether, "foobar");
-        vm.warp(block.timestamp + 30 days);
-        clusters.pokeName("foobar");
+        vm.startPrank(users.alicePrimary);
+        endpoint.buyName{value: minPrice}(constants.TEST_NAME(), sig1);
+        endpoint.buyName{value: minPrice}("zodomo", sig2);
+        clusters.fundName{value: 0.5 ether}(0.5 ether, constants.TEST_NAME());
+        clusters.add(_addressToBytes32(users.aliceSecondary));
+        clusters.setDefaultClusterName("zodomo");
+        clusters.setWalletName(_addressToBytes32(users.alicePrimary), "Primary");
+        vm.stopPrank();
+
+        vm.prank(users.aliceSecondary);
+        clusters.verify(1);
+
+        vm.startPrank(users.alicePrimary);
+        bytes[] memory data = new bytes[](5);
+        data[0] = abi.encodeWithSignature("fundName(uint256,string)", 0.5 ether, constants.TEST_NAME());
+        data[1] = abi.encodeWithSignature("fundName(uint256,string)", 1 ether, "zodomo");
+        data[2] = abi.encodeWithSignature("setDefaultClusterName(string)", constants.TEST_NAME());
+        data[3] =
+            abi.encodeWithSignature("setWalletName(bytes32,string)", _addressToBytes32(users.alicePrimary), "Main");
+        data[4] = abi.encodeWithSignature(
+            "setWalletName(bytes32,string)", _addressToBytes32(users.aliceSecondary), "Secondary"
+        );
+        clusters.multicall{value: minPrice + 1.5 ether}(data);
+        clusters.remove(_addressToBytes32(users.aliceSecondary));
+        vm.stopPrank();
+
+        vm.startPrank(users.bidder);
+        clusters.bidName{value: 2 ether}(2 ether, constants.TEST_NAME());
+        vm.warp(constants.START_TIME() + 14 days);
+        clusters.pokeName(constants.TEST_NAME());
+        vm.warp(constants.START_TIME() + 31 days);
+        clusters.reduceBid(constants.TEST_NAME(), 1 ether);
+        vm.stopPrank();
+
+        vm.startPrank(users.alicePrimary);
+        clusters.buyName{value: minPrice}(minPrice, "burned");
+        clusters.transferName("burned", 0);
+        clusters.acceptBid(constants.TEST_NAME());
+        clusters.transferName("zodomo", 2);
         vm.stopPrank();
     }
 }

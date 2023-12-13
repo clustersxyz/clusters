@@ -3,11 +3,11 @@ pragma solidity ^0.8.23;
 
 // Follow https://docs.soliditylang.org/en/latest/style-guide.html for style
 
-import {EnumerableSet} from "../lib/openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
+import {EnumerableSetLib} from "./EnumerableSetLib.sol";
 
 import {NameManagerHub} from "./NameManagerHub.sol";
 
-import {IClusters, IEndpoint} from "./IClusters.sol";
+import {IClusters} from "./interfaces/IClusters.sol";
 
 import {console2} from "../lib/forge-std/src/Test.sol";
 
@@ -21,118 +21,110 @@ import {console2} from "../lib/forge-std/src/Test.sol";
  */
 
 contract ClustersHub is NameManagerHub {
-    using EnumerableSet for EnumerableSet.AddressSet;
-    using EnumerableSet for EnumerableSet.Bytes32Set;
+    using EnumerableSetLib for EnumerableSetLib.Bytes32Set;
 
-    /// @dev Enumerate all addresses in a cluster
-    mapping(uint256 clusterId => EnumerableSet.AddressSet addrs) internal _clusterAddresses;
+    uint256 public nextClusterId = 1;
 
-    constructor(address pricing_, address endpoint_) NameManagerHub(pricing_, endpoint_) {}
+    /// @dev Enumerates all unverified addresses in a cluster
+    mapping(uint256 clusterId => EnumerableSetLib.Bytes32Set addrs) internal _unverifiedAddresses;
 
-    /// USER-FACING FUNCTIONS ///
+    /// @dev Enumerates all verified addresses in a cluster
+    mapping(uint256 clusterId => EnumerableSetLib.Bytes32Set addrs) internal _verifiedAddresses;
+
+    constructor(address pricing_, address endpoint_, uint256 marketOpenTimestamp_)
+        NameManagerHub(pricing_, endpoint_, marketOpenTimestamp_)
+    {}
+
+    /// EXTERNAL FUNCTIONS ///
 
     /// @dev For payable multicall to be secure, we cannot trust msg.value params in other external methods
     /// @dev Must instead do strict protocol invariant checking at the end of methods like Uniswap V2
     function multicall(bytes[] calldata data) external payable returns (bytes[] memory results) {
-        _inMulticall = true;
         results = new bytes[](data.length);
         bool success;
-        bytes4 multicallSig = bytes4(keccak256(bytes("multicall(bytes[])")));
 
         // Iterate through each call
-        for (uint256 i; i < data.length; ++i) {
-            bytes memory currentCall = data[i];
-            // Check selector to block nested multicalls
-            bytes4 signature;
-            assembly {
-                signature := mload(add(currentCall, 32))
-            }
-            if (signature == multicallSig) {
-                revert MulticallFailed();
-            }
+        for (uint256 i = 0; i < data.length; ++i) {
             //slither-disable-next-line calls-loop,delegatecall-loop
             (success, results[i]) = address(this).delegatecall(data[i]);
             if (!success) revert MulticallFailed();
         }
 
         _checkInvariant();
-
-        bytes memory payload = abi.encodeWithSignature("multicall(bytes[])", results);
-        IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
-        _inMulticall = false;
     }
 
-    function create() public payable returns (bytes memory payload) {
-        return create(msg.sender);
+    function add(bytes32 addr) external payable {
+        add(_addressToBytes(msg.sender), addr);
     }
 
-    function add(address addr) public payable returns (bytes memory payload) {
-        return add(msg.sender, addr);
+    function verify(uint256 clusterId) external payable {
+        verify(_addressToBytes(msg.sender), clusterId);
     }
 
-    function remove(address addr) public payable returns (bytes memory payload) {
-        return remove(msg.sender, addr);
+    function remove(bytes32 addr) external payable {
+        remove(_addressToBytes(msg.sender), addr);
     }
 
-    function clusterAddresses(uint256 clusterId) external view returns (address[] memory) {
-        return _clusterAddresses[clusterId].values();
+    function getUnverifiedAddresses(uint256 clusterId) external view returns (bytes32[] memory) {
+        return _unverifiedAddresses[clusterId].values();
+    }
+
+    function getVerifiedAddresses(uint256 clusterId) external view returns (bytes32[] memory) {
+        return _verifiedAddresses[clusterId].values();
     }
 
     /// ENDPOINT FUNCTIONS ///
 
-    function create(address msgSender) public payable onlyEndpoint(msgSender) returns (bytes memory payload) {
-        _add(msgSender, nextClusterId++);
-
-        payload = abi.encodeWithSignature("create(address)", msg.sender);
-        if (_inMulticall) return payload;
-        else IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
+    function add(bytes32 msgSender, bytes32 addr) public payable onlyEndpoint(msgSender) {
+        uint256 clusterId = addressToClusterId[msgSender];
+        if (clusterId == 0) revert NoCluster();
+        if (_verifiedAddresses[clusterId].contains(addr)) revert Registered();
+        _add(addr, clusterId);
     }
 
-    function add(address msgSender, address addr)
-        public
-        payable
-        onlyEndpoint(msgSender)
-        returns (bytes memory payload)
-    {
-        _checkZeroCluster(msgSender);
-        if (addressToClusterId[addr] != 0) revert Registered();
-        _add(addr, addressToClusterId[msgSender]);
-
-        payload = abi.encodeWithSignature("add(address,address)", msg.sender, addr);
-        if (_inMulticall) return payload;
-        else IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
+    function verify(bytes32 msgSender, uint256 clusterId) public payable onlyEndpoint(msgSender) {
+        if (!_unverifiedAddresses[clusterId].contains(msgSender)) revert Unauthorized();
+        uint256 currentClusterId = addressToClusterId[msgSender];
+        if (currentClusterId != 0) {
+            // If msgSender is the last address in their cluster, take all of their names with them
+            if (_verifiedAddresses[currentClusterId].length() == 1) {
+                bytes32[] memory names = _clusterNames[currentClusterId].values();
+                for (uint256 i; i < names.length; ++i) {
+                    _transferName(names[i], currentClusterId, clusterId);
+                }
+            }
+            _remove(msgSender);
+        }
+        _verify(msgSender, clusterId);
     }
 
-    function remove(address msgSender, address addr)
-        public
-        payable
-        onlyEndpoint(msgSender)
-        returns (bytes memory payload)
-    {
-        _checkZeroCluster(msgSender);
-        if (addressToClusterId[msgSender] != addressToClusterId[addr]) revert Unauthorized();
+    function remove(bytes32 msgSender, bytes32 addr) public payable onlyEndpoint(msgSender) {
+        uint256 clusterId = addressToClusterId[msgSender];
+        if (clusterId == 0) revert NoCluster();
+        if (clusterId != addressToClusterId[addr]) revert Unauthorized();
+        // If the cluster has valid names, prevent removing final address, regardless of what is supplied for addr
+        if (_clusterNames[clusterId].length() > 0 && _verifiedAddresses[clusterId].length() == 1) revert Invalid();
         _remove(addr);
-
-        payload = abi.encodeWithSignature("remove(address,address)", msg.sender, addr);
-        if (_inMulticall) return payload;
-        else IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
     }
 
     /// INTERNAL FUNCTIONS ///
 
-    function _add(address addr, uint256 clusterId) internal {
-        if (addressToClusterId[addr] != 0) revert Registered();
-        addressToClusterId[addr] = clusterId;
-        _clusterAddresses[clusterId].add(addr);
+    function _add(bytes32 addr, uint256 clusterId) internal {
+        _unverifiedAddresses[clusterId].add(addr);
         emit Add(clusterId, addr);
     }
 
-    function _remove(address addr) internal {
+    function _verify(bytes32 addr, uint256 clusterId) internal {
+        _unverifiedAddresses[clusterId].remove(addr);
+        _verifiedAddresses[clusterId].add(addr);
+        addressToClusterId[addr] = clusterId;
+        emit Verify(clusterId, addr);
+    }
+
+    function _remove(bytes32 addr) internal {
         uint256 clusterId = addressToClusterId[addr];
-        // If the cluster has valid names, prevent removing final address, regardless of what is supplied for addr
-        if (_clusterNames[clusterId].length() > 0 && _clusterAddresses[clusterId].length() == 1) revert Invalid();
         delete addressToClusterId[addr];
-        _clusterAddresses[clusterId].remove(addr);
+        _verifiedAddresses[clusterId].remove(addr);
         bytes32 walletName = reverseLookup[addr];
         if (walletName != bytes32("")) {
             delete forwardLookup[clusterId][walletName];
@@ -141,7 +133,22 @@ contract ClustersHub is NameManagerHub {
         emit Remove(clusterId, addr);
     }
 
-    function _addressToBytes32(address addr) internal pure returns (bytes32) {
-        return bytes32(uint256(uint160(addr)));
+    function _hookCreate(bytes32 addr) internal override {
+        uint256 clusterId = nextClusterId++;
+        _verifiedAddresses[clusterId].add(addr);
+        addressToClusterId[addr] = clusterId;
+    }
+
+    function _hookDelete(uint256 clusterId) internal override {
+        bytes32[] memory addresses = _verifiedAddresses[clusterId].values();
+        for (uint256 i; i < addresses.length; ++i) {
+            _remove(addresses[i]);
+        }
+        emit Delete(clusterId);
+    }
+
+    function _hookCheck(uint256 clusterId) internal view override {
+        if (clusterId == 0) return;
+        if (_verifiedAddresses[clusterId].length() == 0) revert Invalid();
     }
 }

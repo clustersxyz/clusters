@@ -4,7 +4,7 @@ pragma solidity ^0.8.23;
 import {toWadUnsafe, wadExp, wadLn, unsafeWadMul, unsafeWadDiv} from "../lib/solmate/src/utils/SignedWadMath.sol";
 import {FixedPointMathLib} from "../lib/solady/src/utils/FixedPointMathLib.sol";
 
-import {IPricing} from "./IPricing.sol";
+import {IPricing} from "./interfaces/IPricing.sol";
 
 import {console2} from "../lib/forge-std/src/Test.sol";
 
