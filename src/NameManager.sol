@@ -7,8 +7,6 @@ import {IPricing} from "./interfaces/IPricing.sol";
 
 import {IClusters} from "./interfaces/IClusters.sol";
 
-import {console2} from "../lib/forge-std/src/Test.sol";
-
 /// @notice The bidding, accepting, eth storing component of Clusters. Handles name assignment
 ///         to cluster ids and checks auth of cluster membership before acting on one of its names
 abstract contract NameManager is IClusters {
@@ -54,11 +52,11 @@ abstract contract NameManager is IClusters {
 
     /**
      * PROTOCOL INVARIANT TRACKING
-     * address(this).balance >= protocolRevenue + totalNameBacking + totalBidBacking
+     * address(this).balance >= protocolAccrual + totalNameBacking + totalBidBacking
      */
 
     /// @notice Amount of eth that's transferred from nameBacking to the protocol
-    uint256 public protocolRevenue;
+    uint256 public protocolAccrual;
 
     /// @notice Amount of eth that's backing names
     uint256 public totalNameBacking;
@@ -68,7 +66,7 @@ abstract contract NameManager is IClusters {
 
     /// @dev Ensures balance invariant holds
     function _checkInvariant() internal view {
-        if (address(this).balance < protocolRevenue + totalNameBacking + totalBidBacking) revert BadInvariant();
+        if (address(this).balance < protocolAccrual + totalNameBacking + totalBidBacking) revert BadInvariant();
     }
 
     /// @dev Ensure name is valid (not empty or too long)
@@ -121,7 +119,7 @@ abstract contract NameManager is IClusters {
 
     /// ECONOMIC FUNCTIONS ///
 
-    /// @notice Buy unregistered name. Must pay at least minimum yearly payment.
+    /// @notice Buy unregistered name. Must pay at least minimum yearly payment
     /// @dev Processing is handled in overload
     function buyName(uint256 msgValue, string memory name) external payable {
         bytes32 msgSender = _addressToBytes(msg.sender);
@@ -130,7 +128,7 @@ abstract contract NameManager is IClusters {
 
     /// @notice buyName() overload used by endpoint, msgSender must be msg.sender or endpoint
     function buyName(bytes32 msgSender, uint256 msgValue, string memory name) public payable onlyEndpoint(msgSender) {
-        // Only allow initial buys to come from endpoint to enforce an initial temporarily frontend controlled market
+        // Initial buys should be routed through endpoint to ensure proper activations
         if (block.timestamp < marketOpenTimestamp && msg.sender != endpoint) revert Unauthorized();
         _checkNameValid(name);
         _fixZeroCluster(msgSender);
@@ -146,7 +144,7 @@ abstract contract NameManager is IClusters {
             IClusters.PriceIntegral({lastUpdatedTimestamp: block.timestamp, lastUpdatedPrice: pricing.minAnnualPrice()});
         _assignName(_name, clusterId);
         if (defaultClusterName[clusterId] == bytes32("")) {
-            defaultClusterName[clusterId] = _name;
+            defaultClusterName[clusterId] = _name;  
             emit DefaultClusterName(_name, clusterId);
         }
         emit BuyName(_name, clusterId, msgValue);
@@ -204,11 +202,11 @@ abstract contract NameManager is IClusters {
             _assignName(name, toClusterId);
         } else {
             _unassignName(name, fromClusterId);
-            // Convert remaining name backing to protocol revenue and soft refund any existing bid
+            // Convert remaining name backing to protocol accrual and soft refund any existing bid
             uint256 backing = nameBacking[name];
             delete nameBacking[name];
             totalNameBacking -= backing;
-            protocolRevenue += backing;
+            protocolAccrual += backing;
             uint256 bid = bids[name].ethAmount;
             if (bid > 0) {
                 bidRefunds[bids[name].bidder] += bid;
@@ -218,7 +216,7 @@ abstract contract NameManager is IClusters {
         emit TransferName(name, fromClusterId, toClusterId);
     }
 
-    /// @notice Move accrued revenue from ethBacked to protocolRevenue, and transfer names upon expiry to highest
+    /// @notice Move amounts from ethBacked to protocolAccrual, and transfer names upon expiry to highest
     ///         sufficient bidder. If no bids above yearly minimum, delete name registration.
     function pokeName(string memory name) public payable {
         _checkNameValid(name);
@@ -236,7 +234,7 @@ abstract contract NameManager is IClusters {
         if (spent >= backing) {
             delete nameBacking[_name];
             totalNameBacking -= backing;
-            protocolRevenue += backing;
+            protocolAccrual += backing;
             // If there is a valid bid, transfer to the bidder
             bytes32 bidder;
             uint256 bid = bids[_name].ethAmount;
@@ -254,7 +252,7 @@ abstract contract NameManager is IClusters {
             // Process price data update
             nameBacking[_name] -= spent;
             totalNameBacking -= spent;
-            protocolRevenue += spent;
+            protocolAccrual += spent;
             priceIntegral[_name] =
                 IClusters.PriceIntegral({lastUpdatedTimestamp: block.timestamp, lastUpdatedPrice: newPrice});
         }

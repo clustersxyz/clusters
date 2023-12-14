@@ -33,10 +33,10 @@ contract Clusters_acceptBid_Unit_Concrete_Test is PricingHarberger_Unit_Shared_T
         verified[0] = _addressToBytes32(users.bidder);
         bytes32[] memory names = new bytes32[](1);
         names[0] = _stringToBytes32(constants.TEST_NAME());
-        uint256 protocolRevenue = clusters.protocolRevenue();
+        uint256 protocolAccrual = clusters.protocolAccrual();
         uint256 totalNameBacking = clusters.totalNameBacking();
-        assertEq(minPrice * 2, protocolRevenue + totalNameBacking, "protocolRevenue and totalNameBacking incoherence");
-        assertBalances(minPrice * 2, protocolRevenue, totalNameBacking, 0);
+        assertEq(minPrice * 2, protocolAccrual + totalNameBacking, "protocolAccrual and totalNameBacking incoherence");
+        assertBalances(minPrice * 2, protocolAccrual, totalNameBacking, 0);
         assertUnverifiedAddresses(3, 0, empty);
         assertVerifiedAddresses(3, 1, verified);
         assertClusterNames(3, 1, names);
