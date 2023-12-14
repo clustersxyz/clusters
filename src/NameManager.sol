@@ -119,7 +119,7 @@ abstract contract NameManager is IClusters {
 
     /// ECONOMIC FUNCTIONS ///
 
-    /// @notice Buy unregistered name. Must pay at least minimum yearly payment.
+    /// @notice Buy unregistered name. Must pay at least minimum yearly payment
     /// @dev Processing is handled in overload
     function buyName(uint256 msgValue, string memory name) external payable {
         bytes32 msgSender = _addressToBytes(msg.sender);
@@ -128,7 +128,7 @@ abstract contract NameManager is IClusters {
 
     /// @notice buyName() overload used by endpoint, msgSender must be msg.sender or endpoint
     function buyName(bytes32 msgSender, uint256 msgValue, string memory name) public payable onlyEndpoint(msgSender) {
-        // Only allow initial buys to come from endpoint to enforce an initial temporarily frontend controlled market
+        // Initial buys should be routed through endpoint to ensure proper activations
         if (block.timestamp < marketOpenTimestamp && msg.sender != endpoint) revert Unauthorized();
         _checkNameValid(name);
         _fixZeroCluster(msgSender);
@@ -144,7 +144,7 @@ abstract contract NameManager is IClusters {
             IClusters.PriceIntegral({lastUpdatedTimestamp: block.timestamp, lastUpdatedPrice: pricing.minAnnualPrice()});
         _assignName(_name, clusterId);
         if (defaultClusterName[clusterId] == bytes32("")) {
-            defaultClusterName[clusterId] = _name;
+            defaultClusterName[clusterId] = _name;  
             emit DefaultClusterName(_name, clusterId);
         }
         emit BuyName(_name, clusterId, msgValue);

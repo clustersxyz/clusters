@@ -2,10 +2,13 @@
 pragma solidity ^0.8.23;
 
 import {Ownable} from "../lib/solady/src/auth/Ownable.sol";
+import {IClusters} from "./interfaces/IClusters.sol";
 import {IEndpoint} from "./interfaces/IEndpoint.sol";
 import {ECDSA} from "../lib/solady/src/utils/ECDSA.sol";
 
 interface IClustersEndpoint {
+    function multicall(bytes[] calldata data) external payable returns (bytes[] memory results);
+
     function buyName(bytes32 msgSender, uint256 msgValue, string memory name) external payable;
 
     function bids(bytes32 name) external view returns (uint256 ethAmount, uint256 createdTimestamp, bytes32 bidder);
@@ -50,6 +53,11 @@ contract Endpoint is Ownable, IEndpoint {
         return ECDSA.recoverCalldata(ethSignedMessageHash, sig) == signer;
     }
 
+    function verifyMulticall(bytes[] calldata data, bytes calldata sig) public view returns (bool) {
+        // TODO
+        return true;
+    }
+
     function prepareOrder(
         uint256 nonce,
         uint256 expirationTimestamp,
@@ -83,6 +91,11 @@ contract Endpoint is Ownable, IEndpoint {
     }
 
     /// PERMISSIONED FUNCTIONS ///
+
+    function multicall(bytes[] calldata data, bytes calldata sig) external payable returns (bytes[] memory results) {
+        verifyMulticall(data, sig);
+        return IClusters(clusters).multicall(data);
+    }
 
     function buyName(string memory name, bytes calldata sig) external payable {
         bytes32 callerBytes = _addressToBytes32(msg.sender);
