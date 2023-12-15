@@ -72,8 +72,8 @@ contract Endpoint is Ownable, IEndpoint {
         return keccak256(abi.encodePacked(nonce, expirationTimestamp, ethAmount, bidder, _stringToBytes32(name)));
     }
 
-    function getMulticallHash(bytes32 caller, bytes[] calldata data) public pure returns (bytes32) {
-        return keccak256(abi.encode(caller, data));
+    function getMulticallHash(bytes[] calldata data) public pure returns (bytes32) {
+        return keccak256(abi.encode(data));
     }
 
     function getEthSignedMessageHash(bytes32 messageHash) public pure returns (bytes32) {
@@ -99,14 +99,14 @@ contract Endpoint is Ownable, IEndpoint {
         return _verify(getOrderHash(nonce, expirationTimestamp, ethAmount, bidder, name), sig, originator);
     }
 
-    function verifyMulticall(bytes32 caller, bytes[] calldata data, bytes calldata sig) public view returns (bool) {
-        return _verify(getMulticallHash(caller, data), sig, signer);
+    function verifyMulticall(bytes[] calldata data, bytes calldata sig) public view returns (bool) {
+        return _verify(getMulticallHash(data), sig, signer);
     }
 
     /// PERMISSIONED FUNCTIONS ///
 
     function multicall(bytes[] calldata data, bytes calldata sig) external payable returns (bytes[] memory results) {
-        if (!verifyMulticall(_addressToBytes32(msg.sender), data, sig)) revert ECDSA.InvalidSignature();
+        if (!verifyMulticall(data, sig)) revert ECDSA.InvalidSignature();
         results = IClustersEndpoint(clusters).multicall{value: msg.value}(data);
     }
 

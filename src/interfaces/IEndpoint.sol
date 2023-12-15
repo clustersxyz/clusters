@@ -26,7 +26,7 @@ interface IEndpoint {
         bytes32 bidder,
         string memory name
     ) external view returns (bytes32);
-    function getMulticallHash(bytes32 caller, bytes[] calldata data) external pure returns (bytes32);
+    function getMulticallHash(bytes[] calldata data) external pure returns (bytes32);
     function getEthSignedMessageHash(bytes32 messageHash) external pure returns (bytes32);
 
     function verifyBuy(bytes32 to, string memory name, bytes calldata sig) external view returns (bool);
@@ -39,7 +39,7 @@ interface IEndpoint {
         bytes calldata sig,
         address originator
     ) external view returns (bool);
-    function verifyMulticall(bytes32 caller, bytes[] calldata data, bytes calldata sig) external view returns (bool);
+    function verifyMulticall(bytes[] calldata data, bytes calldata sig) external view returns (bool);
 
     /// PERMISSIONED FUNCTIONS ///
 

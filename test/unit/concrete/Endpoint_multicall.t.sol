@@ -18,7 +18,7 @@ contract Endpoint_buyName_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Tes
         );
 
         vm.startPrank(users.signer);
-        bytes32 messageHash = endpoint.getMulticallHash(caller, data);
+        bytes32 messageHash = endpoint.getMulticallHash(data);
         bytes32 digest = endpoint.getEthSignedMessageHash(messageHash);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(users.signerPrivKey, digest);
         bytes memory sig = abi.encodePacked(r, s, v);
