@@ -50,7 +50,7 @@ contract Endpoint is Ownable, IEndpoint {
 
     /// @dev Confirms if signature was for Ethereum signed message hash
     function _verify(bytes32 messageHash, bytes calldata sig, address signer_) internal view returns (bool) {
-        return ECDSA.recoverCalldata(ECDSA.toEthSignedMessageHash(messageHash), sig) == signer_;
+        return ECDSA.recoverCalldata(getEthSignedMessageHash(messageHash), sig) == signer_;
     }
 
     /// ECDSA HELPERS ///
