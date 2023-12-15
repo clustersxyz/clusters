@@ -31,18 +31,21 @@ contract PricingHarberger is IPricing {
     uint256 public constant maxPriceBase = 0.02 ether;
     uint256 public constant maxPriceIncrement = 0.01 ether;
 
+    uint256 public immutable protocolDeployTimestamp;
+
+    constructor(uint256 _protocolDeployTimestamp) {
+        protocolDeployTimestamp = _protocolDeployTimestamp;
+    }
+
     /// PUBLIC FUNCTIONS ///
 
-    /// @notice The amount of eth that's been spent on a name since last update
-    /// @param lastUpdatedPrice Can be greater than max price, used to calculate decay times
-    /// @param secondsAfterUpdate How many seconds it's been since lastUpdatedPrice
-    /// @return spent How much eth has been spent
-    /// @return price The current un-truncated price, which can be greater than maxPrice
-    function getIntegratedPrice(uint256 lastUpdatedPrice, uint256 secondsAfterUpdate, uint256 secondsAfterCreation)
+    /// @inheritdoc IPricing
+    function getIntegratedPrice(uint256 lastUpdatedPrice, uint256 secondsAfterUpdate)
         public
-        pure
+        view
         returns (uint256, uint256)
     {
+        uint256 secondsAfterCreation = block.timestamp - protocolDeployTimestamp;
         if (lastUpdatedPrice <= minAnnualPrice) {
             // Lower bound
             return (minAnnualPrice * secondsAfterUpdate / SECONDS_IN_YEAR, minAnnualPrice);
@@ -108,9 +111,8 @@ contract PricingHarberger is IPricing {
                     getDecayPrice(lastUpdatedPrice, secondsAfterUpdate)
                 );
             } else {
-                (uint256 simpleMinLeftover,) = getIntegratedPrice(
-                    minAnnualPrice, secondsAfterUpdate - numSecondsUntilMinPrice, secondsAfterCreation
-                );
+                (uint256 simpleMinLeftover,) =
+                    getIntegratedPrice(minAnnualPrice, secondsAfterUpdate - numSecondsUntilMinPrice);
                 return (
                     getIntegratedDecayPrice(lastUpdatedPrice, numSecondsUntilMinPrice) + simpleMinLeftover,
                     minAnnualPrice
