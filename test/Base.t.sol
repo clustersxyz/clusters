@@ -92,7 +92,7 @@ abstract contract Base_Test is Test, Utils {
     }
 
     function deployLocalHarberger() internal {
-        pricingHarberger = new PricingHarbergerHarness();
+        pricingHarberger = new PricingHarbergerHarness(block.timestamp);
         minPrice = pricingHarberger.minAnnualPrice();
         endpoint = new Endpoint(users.adminEndpoint, users.signer);
         clusters = new Clusters(address(pricingHarberger), address(endpoint), constants.MARKET_OPEN_TIMESTAMP());

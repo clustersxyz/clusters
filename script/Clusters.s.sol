@@ -14,7 +14,7 @@ contract ClustersScript is Script {
 
     function run() public {
         vm.startBroadcast();
-        PricingHarberger pricing = new PricingHarberger();
+        PricingHarberger pricing = new PricingHarberger(block.timestamp);
         Endpoint endpoint = new Endpoint(msg.sender, SIGNER);
         Clusters clusters = new Clusters(address(pricing), address(endpoint), block.timestamp + 7 days);
         endpoint.setClustersAddr(address(clusters));
