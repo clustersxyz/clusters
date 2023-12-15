@@ -4,6 +4,7 @@ pragma solidity ^0.8.23;
 interface IEndpoint {
     error Invalid();
     error Insufficient();
+    error MulticallFailed();
 
     event Nonce(bytes32 indexed addr, uint256 indexed nonce);
     event SignerAddr(address indexed addr);
@@ -22,33 +23,38 @@ interface IEndpoint {
         uint256 nonce,
         uint256 expirationTimestamp,
         uint256 ethAmount,
-        address bidder,
+        bytes32 bidder,
         string memory name
     ) external view returns (bytes32);
+    function getMulticallHash(bytes32 caller, bytes[] calldata data) external pure returns (bytes32);
     function getEthSignedMessageHash(bytes32 messageHash) external pure returns (bytes32);
+
     function verifyBuy(bytes32 to, string memory name, bytes calldata sig) external view returns (bool);
     function verifyOrder(
         uint256 nonce,
         uint256 expirationTimestamp,
         uint256 ethAmount,
-        address bidder,
+        bytes32 bidder,
         string memory name,
         bytes calldata sig,
         address originator
     ) external view returns (bool);
+    function verifyMulticall(bytes32 caller, bytes[] calldata data, bytes calldata sig) external view returns (bool);
 
     /// PERMISSIONED FUNCTIONS ///
 
+    function multicall(bytes[] calldata data, bytes calldata sig) external payable returns (bytes[] memory results);
     function buyName(string memory name, bytes calldata sig) external payable;
     function fulfillOrder(
+        uint256 msgValue,
         uint256 nonce,
         uint256 expirationTimestamp,
-        uint256 ethAmount,
+        bytes32 authorized,
         string memory name,
         bytes calldata sig,
         address originator
     ) external payable;
-    function invalidateOrder(uint256 nonce) external;
+    function invalidateOrder(uint256 nonce) external payable;
 
     /// ADMIN FUNCTIONS ///
 

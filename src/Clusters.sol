@@ -9,17 +9,6 @@ import {NameManager} from "./NameManager.sol";
 
 import {IClusters} from "./interfaces/IClusters.sol";
 
-import {console2} from "../lib/forge-std/src/Test.sol";
-
-/**
- * OPEN QUESTIONS/TODOS
- * Can you create a cluster without registering a name? No, there needs to be a bounty for adding others to your cluster
- * What does the empty foobar/ resolver point to?
- * If listings are offchain, then how can it hook into the onchain transfer function?
- * The first name added to a cluster should become the canonical name by default, every cluster should always have
- * canonical name
- */
-
 contract Clusters is NameManager {
     using EnumerableSetLib for EnumerableSetLib.Bytes32Set;
 
@@ -150,5 +139,11 @@ contract Clusters is NameManager {
     function _hookCheck(uint256 clusterId) internal view override {
         if (clusterId == 0) return;
         if (_verifiedAddresses[clusterId].length() == 0) revert Invalid();
+    }
+
+    function _hookCheck(uint256 clusterId, bytes32 addr) internal view override {
+        if (!_unverifiedAddresses[clusterId].contains(addr) && clusterId != addressToClusterId[addr]) {
+            revert Unauthorized();
+        }
     }
 }

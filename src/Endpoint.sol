@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {console2} from "../lib/forge-std/src/Test.sol";
 import {Ownable} from "../lib/solady/src/auth/Ownable.sol";
+import {IClusters} from "./interfaces/IClusters.sol";
 import {IEndpoint} from "./interfaces/IEndpoint.sol";
 import {ECDSA} from "../lib/solady/src/utils/ECDSA.sol";
 
 interface IClustersEndpoint {
+    function multicall(bytes[] calldata data) external payable returns (bytes[] memory results);
+
     function buyName(bytes32 msgSender, uint256 msgValue, string memory name) external payable;
 
     function bids(bytes32 name) external view returns (uint256 ethAmount, uint256 createdTimestamp, bytes32 bidder);
@@ -17,6 +19,12 @@ interface IClustersEndpoint {
 // TODO: Make this a proxy contract to swap out logic, ownership can be reverted later
 
 contract Endpoint is Ownable, IEndpoint {
+    bytes4 internal constant _BUYNAMESIG = bytes4(keccak256("buyName(string,bytes)"));
+    bytes4 internal constant _FULFILLORDERSIG =
+        bytes4(keccak256("fulfillOrder(uint256,uint256,uint256,string,bytes,address)"));
+    bytes4 internal constant _INVALIDATEORDERSIG = bytes4(keccak256("invalidateOrder(uint256)"));
+    bytes4 internal constant _MULTICALL = bytes4(keccak256("multicall(bytes[])"));
+
     address public clusters;
     address public signer;
     mapping(bytes32 addr => uint256 nonce) public nonces;
@@ -40,6 +48,11 @@ contract Endpoint is Ownable, IEndpoint {
         return bytes32(smallBytes);
     }
 
+    /// @dev Confirms if signature was for Ethereum signed message hash
+    function _verify(bytes32 messageHash, bytes calldata sig, address signer_) internal view returns (bool) {
+        return ECDSA.recoverCalldata(ECDSA.toEthSignedMessageHash(messageHash), sig) == signer_;
+    }
+
     /// ECDSA HELPERS ///
 
     function getBuyHash(bytes32 to, string memory name) public pure returns (bytes32) {
@@ -50,7 +63,7 @@ contract Endpoint is Ownable, IEndpoint {
         uint256 nonce,
         uint256 expirationTimestamp,
         uint256 ethAmount,
-        address bidder,
+        bytes32 bidder,
         string memory name
     ) public view returns (bytes32) {
         bytes32 callerBytes = _addressToBytes32(msg.sender);
@@ -59,35 +72,43 @@ contract Endpoint is Ownable, IEndpoint {
         return keccak256(abi.encodePacked(nonce, expirationTimestamp, ethAmount, bidder, _stringToBytes32(name)));
     }
 
+    function getMulticallHash(bytes32 caller, bytes[] calldata data) public pure returns (bytes32) {
+        return keccak256(abi.encode(caller, data));
+    }
+
     function getEthSignedMessageHash(bytes32 messageHash) public pure returns (bytes32) {
         return ECDSA.toEthSignedMessageHash(messageHash);
     }
 
     function verifyBuy(bytes32 to, string memory name, bytes calldata sig) public view returns (bool) {
-        bytes32 messageHash = getBuyHash(to, name);
-        bytes32 ethSignedMessageHash = getEthSignedMessageHash(messageHash);
-        return ECDSA.recoverCalldata(ethSignedMessageHash, sig) == signer;
+        return _verify(getBuyHash(to, name), sig, signer);
     }
 
     function verifyOrder(
         uint256 nonce,
         uint256 expirationTimestamp,
         uint256 ethAmount,
-        address bidder,
+        bytes32 bidder,
         string memory name,
         bytes calldata sig,
         address originator
     ) public view returns (bool) {
-        bytes32 originatorBytes = _addressToBytes32(originator);
         if (sig.length == 0) return false;
-        if (nonces[originatorBytes] > nonce) return false;
+        if (nonces[_addressToBytes32(originator)] > nonce) return false;
         if (block.timestamp > expirationTimestamp) return false;
-        bytes32 messageHash = getOrderHash(nonce, expirationTimestamp, ethAmount, bidder, name);
-        bytes32 ethSignedMessageHash = getEthSignedMessageHash(messageHash);
-        return ECDSA.recoverCalldata(ethSignedMessageHash, sig) == originator;
+        return _verify(getOrderHash(nonce, expirationTimestamp, ethAmount, bidder, name), sig, originator);
+    }
+
+    function verifyMulticall(bytes32 caller, bytes[] calldata data, bytes calldata sig) public view returns (bool) {
+        return _verify(getMulticallHash(caller, data), sig, signer);
     }
 
     /// PERMISSIONED FUNCTIONS ///
+
+    function multicall(bytes[] calldata data, bytes calldata sig) external payable returns (bytes[] memory results) {
+        if (!verifyMulticall(_addressToBytes32(msg.sender), data, sig)) revert ECDSA.InvalidSignature();
+        results = IClustersEndpoint(clusters).multicall{value: msg.value}(data);
+    }
 
     function buyName(string memory name, bytes calldata sig) external payable {
         bytes32 callerBytes = _addressToBytes32(msg.sender);
@@ -96,29 +117,29 @@ contract Endpoint is Ownable, IEndpoint {
     }
 
     function fulfillOrder(
+        uint256 msgValue,
         uint256 nonce,
         uint256 expirationTimestamp,
-        uint256 ethAmount,
+        bytes32 authorized,
         string memory name,
         bytes calldata sig,
         address originator
     ) external payable {
-        bytes32 callerBytes = _addressToBytes32(msg.sender);
-        bytes32 originatorBytes = _addressToBytes32(originator);
-        bytes32 nameBytes = _stringToBytes32(name);
-        bool isGeneralOrder = verifyOrder(nonce, expirationTimestamp, ethAmount, address(0), name, sig, originator);
-        bool isSpecificOrder = verifyOrder(nonce, expirationTimestamp, ethAmount, msg.sender, name, sig, originator);
-        (uint256 bidAmount,,) = IClustersEndpoint(clusters).bids(nameBytes);
-        if (msg.value < ethAmount || msg.value <= bidAmount) revert Insufficient();
-        if (!isGeneralOrder && !isSpecificOrder) revert Invalid();
+        bool isValid = verifyOrder(nonce, expirationTimestamp, msgValue, authorized, name, sig, originator);
+        (uint256 bidAmount,,) = IClustersEndpoint(clusters).bids(_stringToBytes32(name));
 
-        IClustersEndpoint(clusters).bidName{value: msg.value}(callerBytes, msg.value, name);
-        IClustersEndpoint(clusters).acceptBid{value: 0}(originatorBytes, name);
-        nonces[originatorBytes] = ++nonce;
-        emit Nonce(originatorBytes, nonce);
+        if (msg.value < msgValue || msgValue <= bidAmount) revert Insufficient();
+        if (!isValid) revert Invalid();
+        IClustersEndpoint(clusters).bidName{value: msg.value}(_addressToBytes32(msg.sender), msg.value, name);
+        {
+            bytes32 originatorBytes = _addressToBytes32(originator);
+            IClustersEndpoint(clusters).acceptBid{value: 0}(originatorBytes, name);
+            nonces[originatorBytes] = ++nonce;
+            emit Nonce(originatorBytes, nonce);
+        }
     }
 
-    function invalidateOrder(uint256 nonce) external {
+    function invalidateOrder(uint256 nonce) external payable {
         bytes32 callerBytes = _addressToBytes32(msg.sender);
         if (nonces[callerBytes] >= nonce) revert Invalid();
         nonces[callerBytes] = nonce;

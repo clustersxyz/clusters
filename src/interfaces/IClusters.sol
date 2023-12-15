@@ -28,7 +28,7 @@ interface IClusters {
     event TransferName(bytes32 indexed name, uint256 indexed fromClusterId, uint256 indexed toClusterId);
     event PokeName(bytes32 indexed name);
     event DefaultClusterName(bytes32 indexed name, uint256 indexed clusterId);
-    event SetWalletName(bytes32 indexed walletname, bytes32 indexed wallet);
+    event SetWalletName(bytes32 indexed walletName, bytes32 indexed wallet);
 
     event BidPlaced(bytes32 indexed name, bytes32 indexed bidder, uint256 indexed amount);
     event BidRefunded(bytes32 indexed name, bytes32 indexed bidder, uint256 indexed amount);
@@ -61,7 +61,7 @@ interface IClusters {
     function addressToClusterId(bytes32 addr) external view returns (uint256 clusterId);
     function nameToClusterId(bytes32 name) external view returns (uint256 clusterId);
     function defaultClusterName(uint256 clusterId) external view returns (bytes32 name);
-    function forwardLookup(uint256 clusterId, bytes32 walletname) external view returns (bytes32 addr);
+    function forwardLookup(uint256 clusterId, bytes32 walletName) external view returns (bytes32 addr);
     function reverseLookup(bytes32 addr) external view returns (bytes32 walletName);
 
     function priceIntegral(bytes32 name)
@@ -72,7 +72,7 @@ interface IClusters {
     function bids(bytes32 name) external view returns (uint256 ethAmount, uint256 createdTimestamp, bytes32 bidder);
     function bidRefunds(bytes32 _bidder) external view returns (uint256 refund);
 
-    function protocolRevenue() external view returns (uint256 revenue);
+    function protocolAccrual() external view returns (uint256 accrual);
     function totalNameBacking() external view returns (uint256 nameBacking);
     function totalBidBacking() external view returns (uint256 bidBacking);
 
@@ -110,6 +110,6 @@ interface IClusters {
 
     function setDefaultClusterName(string memory name) external payable;
     function setDefaultClusterName(bytes32 msgSender, string memory name) external payable;
-    function setWalletName(bytes32 addr, string memory walletname) external payable;
-    function setWalletName(bytes32 msgSender, bytes32 addr, string memory walletname) external payable;
+    function setWalletName(bytes32 addr, string memory walletName) external payable;
+    function setWalletName(bytes32 msgSender, bytes32 addr, string memory walletName) external payable;
 }

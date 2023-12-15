@@ -26,13 +26,13 @@ contract Clusters_reduceBid_Unit_Concrete_Test is PricingHarberger_Unit_Shared_T
 
         (uint256 ethAmount, uint256 createdTimestamp, bytes32 bidder) =
             clusters.bids(_stringToBytes32(constants.TEST_NAME()));
-        uint256 protocolRevenue = clusters.protocolRevenue();
+        uint256 protocolAccrual = clusters.protocolAccrual();
         uint256 totalNameBacking = clusters.totalNameBacking();
-        assertEq(minPrice, protocolRevenue + totalNameBacking, "protocolRevenue and totalNameBacking incoherence");
+        assertEq(minPrice, protocolAccrual + totalNameBacking, "protocolAccrual and totalNameBacking incoherence");
         assertEq(ethAmount, minPrice, "bid value error");
         assertEq(createdTimestamp, constants.MARKET_OPEN_TIMESTAMP() + 1 days, "bid timestamp error");
         assertEq(bidder, _addressToBytes32(users.bobPrimary), "bid bidder error");
-        assertBalances(minPrice * 2, protocolRevenue, totalNameBacking, minPrice);
+        assertBalances(minPrice * 2, protocolAccrual, totalNameBacking, minPrice);
     }
 
     function testReduceBidAll() public {
@@ -42,13 +42,13 @@ contract Clusters_reduceBid_Unit_Concrete_Test is PricingHarberger_Unit_Shared_T
 
         (uint256 ethAmount, uint256 createdTimestamp, bytes32 bidder) =
             clusters.bids(_stringToBytes32(constants.TEST_NAME()));
-        uint256 protocolRevenue = clusters.protocolRevenue();
+        uint256 protocolAccrual = clusters.protocolAccrual();
         uint256 totalNameBacking = clusters.totalNameBacking();
-        assertEq(minPrice, protocolRevenue + totalNameBacking, "protocolRevenue and totalNameBacking incoherence");
+        assertEq(minPrice, protocolAccrual + totalNameBacking, "protocolAccrual and totalNameBacking incoherence");
         assertEq(ethAmount, 0, "bid value not reset");
         assertEq(createdTimestamp, 0, "bid timestamp not reset");
         assertEq(bidder, bytes32(""), "bid bidder not reset");
-        assertBalances(minPrice, protocolRevenue, totalNameBacking, 0);
+        assertBalances(minPrice, protocolAccrual, totalNameBacking, 0);
     }
 
     function testReduceBidOverage() public {
@@ -58,13 +58,13 @@ contract Clusters_reduceBid_Unit_Concrete_Test is PricingHarberger_Unit_Shared_T
 
         (uint256 ethAmount, uint256 createdTimestamp, bytes32 bidder) =
             clusters.bids(_stringToBytes32(constants.TEST_NAME()));
-        uint256 protocolRevenue = clusters.protocolRevenue();
+        uint256 protocolAccrual = clusters.protocolAccrual();
         uint256 totalNameBacking = clusters.totalNameBacking();
-        assertEq(minPrice, protocolRevenue + totalNameBacking, "protocolRevenue and totalNameBacking incoherence");
+        assertEq(minPrice, protocolAccrual + totalNameBacking, "protocolAccrual and totalNameBacking incoherence");
         assertEq(ethAmount, 0, "bid value not reset");
         assertEq(createdTimestamp, 0, "bid timestamp not reset");
         assertEq(bidder, bytes32(""), "bid bidder not reset");
-        assertBalances(minPrice, protocolRevenue, totalNameBacking, 0);
+        assertBalances(minPrice, protocolAccrual, totalNameBacking, 0);
     }
 
     function testReduceBidAfterExpiry() public {
