@@ -13,10 +13,8 @@ contract GasBenchmarkTest is Base_Test {
 
     function testBenchmark() public {
         bytes[] memory buyBatchData = new bytes[](2);
-        // buyBatchData[0] = abi.encodeWithSelector(IClusters.buyName.selector, minPrice, constants.TEST_NAME());
         buyBatchData[0] = abi.encodeWithSignature("buyName(uint256,string)", minPrice, constants.TEST_NAME());
         buyBatchData[1] = abi.encodeWithSignature("buyName(uint256,string)", minPrice, "zodomo");
-        // buyBatchData[1] = abi.encodeWithSelector(IClusters.buyName.selector, minPrice, "zodomo");
 
         vm.startPrank(users.signer);
         bytes32 messageHash = endpoint.getMulticallHash(buyBatchData);
@@ -27,8 +25,6 @@ contract GasBenchmarkTest is Base_Test {
 
         vm.startPrank(users.alicePrimary);
         endpoint.multicall{value: 2 * minPrice}(buyBatchData, sig1);
-        // endpoint.buyName{value: minPrice}(constants.TEST_NAME(), sig1);
-        // endpoint.buyName{value: minPrice}("zodomo", sig2);
         clusters.fundName{value: 0.5 ether}(0.5 ether, constants.TEST_NAME());
         clusters.add(_addressToBytes32(users.aliceSecondary));
         clusters.setDefaultClusterName("zodomo");
