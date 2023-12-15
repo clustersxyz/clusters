@@ -40,6 +40,12 @@ contract PricingHarberger_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Tes
         assertEq(simpleDecayPrice2, 10000000175998132); // ~0.01 price after 6.64 years
     }
 
+    /// @dev Trying to recreate the overflow problem with large lastUpdatedPrice value
+    function testIntegratedPriceSimpleDecay3() public {
+        vm.warp(block.timestamp + secondsSinceDeployment); // Simulate large secondsSinceDeployment value
+        (uint256 simpleDecaySpent3, uint256 simpleDecayPrice3) = pricingHarberger.getIntegratedPrice(10 ether, 365 days);
+    }
+
     function testIntegratedPriceComplexDecay() public {
         vm.warp(block.timestamp + secondsSinceDeployment); // Simulate large secondsSinceDeployment value
         (uint256 complexDecaySpent, uint256 complexDecayPrice) =
