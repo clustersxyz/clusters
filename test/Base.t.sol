@@ -64,19 +64,20 @@ abstract contract Base_Test is Test, Utils {
 
     function setUp() public virtual {
         constants = new Constants();
+        uint256 fundingAmount = constants.USERS_FUNDING_AMOUNT();
         fickleReceiver = new FickleReceiver();
-        vm.deal(address(fickleReceiver), constants.USERS_FUNDING_AMOUNT());
+        vm.deal(address(fickleReceiver), fundingAmount);
 
         users = Users({
             signerPrivKey: 0,
             signer: payable(address(0)),
             adminEndpoint: createUser("Endpoint Admin"),
-            alicePrimary: createAndFundUser("Alice (Primary)", constants.USERS_FUNDING_AMOUNT()),
-            aliceSecondary: createAndFundUser("Alice (Secondary)", constants.USERS_FUNDING_AMOUNT()),
-            bobPrimary: createAndFundUser("Bob (Primary)", constants.USERS_FUNDING_AMOUNT()),
-            bobSecondary: createAndFundUser("Bob (Secondary)", constants.USERS_FUNDING_AMOUNT()),
-            bidder: createAndFundUser("Bidder", constants.USERS_FUNDING_AMOUNT()),
-            hacker: createAndFundUser("Malicious User", constants.USERS_FUNDING_AMOUNT())
+            alicePrimary: createAndFundUser("Alice (Primary)", fundingAmount),
+            aliceSecondary: createAndFundUser("Alice (Secondary)", fundingAmount),
+            bobPrimary: createAndFundUser("Bob (Primary)", fundingAmount),
+            bobSecondary: createAndFundUser("Bob (Secondary)", fundingAmount),
+            bidder: createAndFundUser("Bidder", fundingAmount),
+            hacker: createAndFundUser("Malicious User", fundingAmount)
         });
         (users.signerPrivKey, users.signer) = createUserWithPrivKey("Signer");
 
@@ -107,16 +108,16 @@ abstract contract Base_Test is Test, Utils {
 
     function assertBalances(
         uint256 totalBal,
-        uint256 protocolRevenue,
+        uint256 protocolAccrual,
         uint256 totalNameBacking,
         uint256 totalBidBacking
     ) internal {
         assertEq(address(endpoint).balance, 0, "endpoint has balance");
         assertEq(address(clusters).balance, totalBal, "clusters total balance error");
-        assertEq(clusters.protocolRevenue(), protocolRevenue, "clusters protocol revenue error");
+        assertEq(clusters.protocolAccrual(), protocolAccrual, "clusters protocol accrual error");
         assertEq(clusters.totalNameBacking(), totalNameBacking, "clusters total name backing error");
         assertEq(clusters.totalBidBacking(), totalBidBacking, "clusters total bid backing error");
-        assertEq(totalBal, protocolRevenue + totalNameBacking + totalBidBacking, "clusters balance invariant error");
+        assertEq(totalBal, protocolAccrual + totalNameBacking + totalBidBacking, "clusters balance invariant error");
     }
 
     function assertUnverifiedAddresses(uint256 clusterId, uint256 count, bytes32[] memory containsAddrs) internal {

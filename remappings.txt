@@ -4,3 +4,5 @@ erc4626-tests/=lib/openzeppelin-contracts/lib/erc4626-tests/
 forge-std/=lib/forge-std/src/
 openzeppelin-contracts/=lib/openzeppelin-contracts/
 solmate/=lib/solmate/src/
+@openzeppelin/contracts/=lib/LayerZero-v2/oapp/node_modules/@openzeppelin/contracts/
+@layerzerolabs/lz-evm-protocol-v2/=lib/LayerZero-v2/oapp/node_modules/@layerzerolabs/lz-evm-protocol-v2/

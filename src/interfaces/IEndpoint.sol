@@ -1,37 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-interface IOApp {
-    function oAppVersion() external view returns (uint64 senderVersion, uint64 receiverVersion);
-    function allowInitializePath(Origin calldata origin) external view returns (bool);
-    function nextNonce(uint32 srcEid, bytes32 sender) external view returns (uint64 nonce);
-    function peers(uint32 eid) external view returns (bytes32 peer);
-
-    function setPeer(uint32 eid, bytes32 peer) external;
-    function setDelegate(address delegate) external;
-}
-
-interface IEndpoint is IOApp {
-    /// STRUCTS ///
-
-    struct Origin {
-        uint32 srcEid; // The source chain's Endpoint ID.
-        bytes32 sender; // The sending OApp address.
-        uint64 nonce; // The message nonce for the pathway.
-    }
-
-    struct MessagingFee {
-        uint256 nativeFee; // Fee amount in native gas token
-        uint256 lzTokenFee; // Fee amount in ZRO token
-    }
-
+interface IEndpoint {
     /// ERRORS ///
 
     error Invalid();
     error TxFailed();
     error RelayEid();
     error UnknownEid();
+    error Unauthorized();
     error Insufficient();
+    error MulticallFailed();
 
     /// EVENTS ///
 
@@ -48,20 +27,22 @@ interface IEndpoint is IOApp {
 
     /// ECDSA HELPERS ///
 
-    function getEthSignedMessageHash(bytes32 to, string memory name) external pure returns (bytes32);
-    function verify(bytes32 to, string memory name, bytes calldata sig) external view returns (bool);
-    function prepareOrder(
+    function getMulticallHash(bytes[] calldata data) external pure returns (bytes32);
+    function getOrderHash(
         uint256 nonce,
         uint256 expirationTimestamp,
         uint256 ethAmount,
-        address bidder,
+        bytes32 bidder,
         string memory name
     ) external view returns (bytes32);
+    function getEthSignedMessageHash(bytes32 messageHash) external pure returns (bytes32);
+
+    function verifyMulticall(bytes[] calldata data, bytes calldata sig) external view returns (bool);
     function verifyOrder(
         uint256 nonce,
         uint256 expirationTimestamp,
         uint256 ethAmount,
-        address bidder,
+        bytes32 bidder,
         string memory name,
         bytes calldata sig,
         address originator
@@ -69,16 +50,17 @@ interface IEndpoint is IOApp {
 
     /// PERMISSIONED FUNCTIONS ///
 
-    function buyName(string memory name, bytes calldata sig) external payable;
+    function multicall(bytes[] calldata data, bytes calldata sig) external payable returns (bytes[] memory results);
     function fulfillOrder(
+        uint256 msgValue,
         uint256 nonce,
         uint256 expirationTimestamp,
-        uint256 ethAmount,
+        bytes32 authorized,
         string memory name,
         bytes calldata sig,
         address originator
     ) external payable;
-    function invalidateOrder(uint256 nonce) external;
+    function invalidateOrder(uint256 nonce) external payable;
 
     /// ADMIN FUNCTIONS ///
 
@@ -88,5 +70,5 @@ interface IEndpoint is IOApp {
     /// LAYERZERO ///
 
     function setDstEid(uint32 eid) external;
-    function sendPayload(bytes calldata payload) external payable;
+    function sendPayload(bytes calldata payload) external payable returns (bytes memory result);
 }

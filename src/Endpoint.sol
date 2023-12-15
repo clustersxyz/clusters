@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {OApp} from "../lib/LayerZero-v2/oapp/contracts/oapp/OApp.sol";
+import {OApp, Origin, MessagingFee} from "../lib/LayerZero-v2/oapp/contracts/oapp/OApp.sol";
 import {IEndpoint} from "./interfaces/IEndpoint.sol";
 import {ECDSA} from "../lib/solady/src/utils/ECDSA.sol";
 import {EnumerableSetLib} from "./EnumerableSetLib.sol";
@@ -21,6 +21,11 @@ interface IClustersEndpoint {
 
 contract Endpoint is OApp, IEndpoint {
     using EnumerableSetLib for EnumerableSetLib.Bytes32Set;
+
+    bytes4 internal constant _FULFILLORDERSIG =
+        bytes4(keccak256("fulfillOrder(uint256,uint256,uint256,string,bytes,address)"));
+    bytes4 internal constant _INVALIDATEORDERSIG = bytes4(keccak256("invalidateOrder(uint256)"));
+    bytes4 internal constant _MULTICALL = bytes4(keccak256("multicall(bytes[])"));
 
     uint32 public dstEid;
     address public clusters;
@@ -54,79 +59,82 @@ contract Endpoint is OApp, IEndpoint {
 
     /// ECDSA HELPERS ///
 
-    function getEthSignedMessageHash(bytes32 to, string memory name) public pure returns (bytes32) {
-        return ECDSA.toEthSignedMessageHash(keccak256(abi.encodePacked(to, name)));
+    /// @dev Confirms if signature was for Ethereum signed message hash
+    function _verify(bytes32 messageHash, bytes calldata sig, address signer_) internal view returns (bool) {
+        return ECDSA.recoverCalldata(getEthSignedMessageHash(messageHash), sig) == signer_;
     }
 
-    function verify(bytes32 to, string memory name, bytes calldata sig) public view returns (bool) {
-        bytes32 ethSignedMessageHash = getEthSignedMessageHash(to, name);
-        return ECDSA.recoverCalldata(ethSignedMessageHash, sig) == signer;
+    function getMulticallHash(bytes[] calldata data) public pure returns (bytes32) {
+        return keccak256(abi.encode(data));
     }
 
-    function prepareOrder(
+    function getOrderHash(
         uint256 nonce,
         uint256 expirationTimestamp,
         uint256 ethAmount,
-        address bidder,
+        bytes32 bidder,
         string memory name
     ) public view returns (bytes32) {
         bytes32 callerBytes = _addressToBytes32(msg.sender);
         if (userNonces[callerBytes] > nonce) return bytes32("");
         if (block.timestamp > expirationTimestamp) return bytes32("");
-        return ECDSA.toEthSignedMessageHash(
-            keccak256(abi.encodePacked(nonce, expirationTimestamp, ethAmount, bidder, _stringToBytes32(name)))
-        );
+        return keccak256(abi.encodePacked(nonce, expirationTimestamp, ethAmount, bidder, _stringToBytes32(name)));
+    }
+
+    function getEthSignedMessageHash(bytes32 messageHash) public pure returns (bytes32) {
+        return ECDSA.toEthSignedMessageHash(messageHash);
     }
 
     function verifyOrder(
         uint256 nonce,
         uint256 expirationTimestamp,
         uint256 ethAmount,
-        address bidder,
+        bytes32 bidder,
         string memory name,
         bytes calldata sig,
         address originator
     ) public view returns (bool) {
-        bytes32 originatorBytes = _addressToBytes32(originator);
         if (sig.length == 0) return false;
-        if (userNonces[originatorBytes] > nonce) return false;
+        if (userNonces[_addressToBytes32(originator)] > nonce) return false;
         if (block.timestamp > expirationTimestamp) return false;
-        bytes32 ethSignedMessageHash = prepareOrder(nonce, expirationTimestamp, ethAmount, bidder, name);
-        return ECDSA.recoverCalldata(ethSignedMessageHash, sig) == originator;
+        return _verify(getOrderHash(nonce, expirationTimestamp, ethAmount, bidder, name), sig, originator);
+    }
+
+    function verifyMulticall(bytes[] calldata data, bytes calldata sig) public view returns (bool) {
+        return _verify(getMulticallHash(data), sig, signer);
     }
 
     /// PERMISSIONED FUNCTIONS ///
 
-    function buyName(string memory name, bytes calldata sig) external payable {
-        bytes32 callerBytes = _addressToBytes32(msg.sender);
-        if (!verify(callerBytes, name, sig)) revert ECDSA.InvalidSignature();
-        IClustersEndpoint(clusters).buyName{value: msg.value}(callerBytes, msg.value, name);
+    function multicall(bytes[] calldata data, bytes calldata sig) external payable returns (bytes[] memory results) {
+        if (!verifyMulticall(data, sig)) revert ECDSA.InvalidSignature();
+        results = IClustersEndpoint(clusters).multicall{value: msg.value}(data);
     }
 
     function fulfillOrder(
+        uint256 msgValue,
         uint256 nonce,
         uint256 expirationTimestamp,
-        uint256 ethAmount,
+        bytes32 authorized,
         string memory name,
         bytes calldata sig,
         address originator
     ) external payable {
-        bytes32 callerBytes = _addressToBytes32(msg.sender);
-        bytes32 originatorBytes = _addressToBytes32(originator);
-        bytes32 nameBytes = _stringToBytes32(name);
-        bool isGeneralOrder = verifyOrder(nonce, expirationTimestamp, ethAmount, address(0), name, sig, originator);
-        bool isSpecificOrder = verifyOrder(nonce, expirationTimestamp, ethAmount, msg.sender, name, sig, originator);
-        (uint256 bidAmount,,) = IClustersEndpoint(clusters).bids(nameBytes);
-        if (msg.value < ethAmount || msg.value <= bidAmount) revert Insufficient();
-        if (!isGeneralOrder && !isSpecificOrder) revert Invalid();
+        bool isValid = verifyOrder(nonce, expirationTimestamp, msgValue, authorized, name, sig, originator);
+        (uint256 bidAmount,,) = IClustersEndpoint(clusters).bids(_stringToBytes32(name));
 
-        IClustersEndpoint(clusters).bidName{value: msg.value}(callerBytes, msg.value, name);
-        IClustersEndpoint(clusters).acceptBid{value: 0}(originatorBytes, name);
-        userNonces[originatorBytes] = ++nonce;
-        emit Nonce(originatorBytes, nonce);
+        if (msg.value < msgValue || msgValue <= bidAmount) revert Insufficient();
+        if (!isValid) revert Invalid();
+        IClustersEndpoint(clusters).bidName{value: msg.value}(_addressToBytes32(msg.sender), msg.value, name);
+        {
+            bytes32 originatorBytes = _addressToBytes32(originator);
+            IClustersEndpoint(clusters).acceptBid{value: 0}(originatorBytes, name);
+            userNonces[originatorBytes] = ++nonce;
+            emit Nonce(originatorBytes, nonce);
+        }
     }
 
-    function invalidateOrder(uint256 nonce) external {
+    function invalidateOrder(uint256 nonce) external payable {
         bytes32 callerBytes = _addressToBytes32(msg.sender);
         if (userNonces[callerBytes] >= nonce) revert Invalid();
         userNonces[callerBytes] = nonce;
@@ -166,21 +174,21 @@ contract Endpoint is OApp, IEndpoint {
         super.setPeer(eid, peer);
     }
 
-    function sendPayload(bytes calldata payload) external payable onlyClusters {
+    function sendPayload(bytes calldata payload) external payable onlyClusters returns (bytes memory result) {
         // TODO: Figure out how to assign these
         bytes memory options;
         MessagingFee memory fee;
         address refundAddress;
-        _lzSend(payload, options, fee, refundAddress);
+        return _lzSend(payload, options, fee, refundAddress);
     }
 
     function _lzSend(bytes memory message, bytes memory options, MessagingFee memory fee, address refundAddress)
         internal
-        returns (MessagingReceipt memory receipt)
+        returns (bytes memory)
     {
         // All endpoints only have one of two send paths: ETH -> Relay, Any -> ETH
-        if (peers[_dstEid] == bytes32(0)) return;
-        _lzSend(dstEid, message, options, fee, refundAddress);
+        if (peers[dstEid] == bytes32(0)) return bytes("");
+        return abi.encode(_lzSend(dstEid, message, options, fee, refundAddress));
     }
 
     function _lzReceive(
@@ -189,7 +197,7 @@ contract Endpoint is OApp, IEndpoint {
         bytes calldata payload,
         address executor,
         bytes calldata extraData
-    ) internal {
+    ) internal override {
         // Only the relay chain will receive from Ethereum Mainnet, so if it does, relay to all other chains
         if (origin.srcEid == 30101) _relayMessage(payload);
         (bool success,) = clusters.call{value: msg.value}(payload);

@@ -3,6 +3,8 @@ pragma solidity ^0.8.23;
 
 import {Base_Test} from "./Base.t.sol";
 
+import {IClusters} from "../src/interfaces/IClusters.sol";
+
 contract GasBenchmarkTest is Base_Test {
     function setUp() public virtual override {
         Base_Test.setUp();
@@ -10,19 +12,22 @@ contract GasBenchmarkTest is Base_Test {
     }
 
     function testBenchmark() public {
+        bytes[] memory buyBatchData = new bytes[](2);
+        buyBatchData[0] = abi.encodeWithSignature(
+            "buyName(bytes32,uint256,string)", users.alicePrimary, minPrice, constants.TEST_NAME()
+        );
+        buyBatchData[1] =
+            abi.encodeWithSignature("buyName(bytes32,uint256,string)", users.alicePrimary, minPrice, "zodomo");
+
         vm.startPrank(users.signer);
-        bytes32 digest = endpoint.getEthSignedMessageHash(_addressToBytes32(users.alicePrimary), constants.TEST_NAME());
+        bytes32 messageHash = endpoint.getMulticallHash(buyBatchData);
+        bytes32 digest = endpoint.getEthSignedMessageHash(messageHash);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(users.signerPrivKey, digest);
         bytes memory sig1 = abi.encodePacked(r, s, v);
-
-        digest = endpoint.getEthSignedMessageHash(_addressToBytes32(users.alicePrimary), "zodomo");
-        (v, r, s) = vm.sign(users.signerPrivKey, digest);
-        bytes memory sig2 = abi.encodePacked(r, s, v);
         vm.stopPrank();
 
         vm.startPrank(users.alicePrimary);
-        endpoint.buyName{value: minPrice}(constants.TEST_NAME(), sig1);
-        endpoint.buyName{value: minPrice}("zodomo", sig2);
+        endpoint.multicall{value: 2 * minPrice}(buyBatchData, sig1);
         clusters.fundName{value: 0.5 ether}(0.5 ether, constants.TEST_NAME());
         clusters.add(_addressToBytes32(users.aliceSecondary));
         clusters.setDefaultClusterName("zodomo");

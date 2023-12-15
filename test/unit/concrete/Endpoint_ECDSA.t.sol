@@ -5,20 +5,6 @@ import {PricingHarberger_Unit_Shared_Test} from "../shared/SharedPricingHarberge
 import {ECDSA} from "../../../lib/solady/src/utils/ECDSA.sol";
 
 contract Endpoint_ECDSA_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Test {
-    function testECDSABuyName() public {
-        string memory testName = constants.TEST_NAME();
-        bytes32 alicePrimary = _addressToBytes32(users.alicePrimary);
-
-        vm.startPrank(users.signer);
-        bytes32 digest = endpoint.getEthSignedMessageHash(alicePrimary, testName);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(users.signerPrivKey, digest);
-        bytes memory sig = abi.encodePacked(r, s, v);
-        vm.stopPrank();
-
-        bool valid = endpoint.verify(alicePrimary, testName, sig);
-        assertEq(valid, true, "ECDSA verification error");
-    }
-
     function testECDSAGeneralOrder() public {
         string memory testName = constants.TEST_NAME();
         vm.warp(constants.MARKET_OPEN_TIMESTAMP() + 1 days);
@@ -26,14 +12,15 @@ contract Endpoint_ECDSA_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Test 
         vm.startPrank(users.signer);
         clusters.buyName{value: minPrice}(minPrice, testName);
 
-        bytes32 digest =
-            endpoint.prepareOrder(0, constants.MARKET_OPEN_TIMESTAMP() + 2 days, minPrice * 3, address(0), testName);
+        bytes32 messageHash =
+            endpoint.getOrderHash(0, constants.MARKET_OPEN_TIMESTAMP() + 2 days, minPrice * 3, bytes32(""), testName);
+        bytes32 digest = endpoint.getEthSignedMessageHash(messageHash);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(users.signerPrivKey, digest);
         bytes memory sig = abi.encodePacked(r, s, v);
         vm.stopPrank();
 
         bool valid = endpoint.verifyOrder(
-            0, constants.MARKET_OPEN_TIMESTAMP() + 2 days, minPrice * 3, address(0), testName, sig, users.signer
+            0, constants.MARKET_OPEN_TIMESTAMP() + 2 days, minPrice * 3, bytes32(""), testName, sig, users.signer
         );
         assertEq(valid, true, "ECDSA verification error");
     }
@@ -45,15 +32,22 @@ contract Endpoint_ECDSA_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Test 
         vm.startPrank(users.signer);
         clusters.buyName{value: minPrice}(minPrice, testName);
 
-        bytes32 digest = endpoint.prepareOrder(
-            0, constants.MARKET_OPEN_TIMESTAMP() + 2 days, minPrice * 3, users.alicePrimary, testName
+        bytes32 messageHash = endpoint.getOrderHash(
+            0, constants.MARKET_OPEN_TIMESTAMP() + 2 days, minPrice * 3, _addressToBytes32(users.alicePrimary), testName
         );
+        bytes32 digest = endpoint.getEthSignedMessageHash(messageHash);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(users.signerPrivKey, digest);
         bytes memory sig = abi.encodePacked(r, s, v);
         vm.stopPrank();
 
         bool valid = endpoint.verifyOrder(
-            0, constants.MARKET_OPEN_TIMESTAMP() + 2 days, minPrice * 3, users.alicePrimary, testName, sig, users.signer
+            0,
+            constants.MARKET_OPEN_TIMESTAMP() + 2 days,
+            minPrice * 3,
+            _addressToBytes32(users.alicePrimary),
+            testName,
+            sig,
+            users.signer
         );
         assertEq(valid, true, "ECDSA verification error");
     }

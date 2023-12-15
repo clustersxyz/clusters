@@ -13,15 +13,6 @@ import {IEndpoint} from "./interfaces/IEndpoint.sol";
 
 import {console2} from "../lib/forge-std/src/Test.sol";
 
-/**
- * OPEN QUESTIONS/TODOS
- * Can you create a cluster without registering a name? No, there needs to be a bounty for adding others to your cluster
- * What does the empty foobar/ resolver point to?
- * If listings are offchain, then how can it hook into the onchain transfer function?
- * The first name added to a cluster should become the canonical name by default, every cluster should always have
- * canonical name
- */
-
 contract ClustersHub is NameManagerHub {
     using EnumerableSetLib for EnumerableSetLib.Bytes32Set;
 
@@ -56,7 +47,7 @@ contract ClustersHub is NameManagerHub {
         _checkInvariant();
 
         bytes memory payload = abi.encodeWithSignature("multicall(bytes[])", results);
-        IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
+        IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
         _inMulticall = false;
     }
 
@@ -184,5 +175,11 @@ contract ClustersHub is NameManagerHub {
     function _hookCheck(uint256 clusterId) internal view override {
         if (clusterId == 0) return;
         if (_verifiedAddresses[clusterId].length() == 0) revert Invalid();
+    }
+
+    function _hookCheck(uint256 clusterId, bytes32 addr) internal view override {
+        if (!_unverifiedAddresses[clusterId].contains(addr) && clusterId != addressToClusterId[addr]) {
+            revert Unauthorized();
+        }
     }
 }

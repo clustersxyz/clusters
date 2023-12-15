@@ -25,12 +25,12 @@ contract Clusters_pokeName_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Te
         clusters.pokeName("zodomo");
 
         bytes32[] memory names = clusters.getClusterNamesBytes32(1);
-        uint256 protocolRevenue = clusters.protocolRevenue();
+        uint256 protocolAccrual = clusters.protocolAccrual();
         uint256 totalNameBacking = clusters.totalNameBacking();
-        assertEq(protocolRevenue > 0, true, "protocolRevenue didn't increase");
+        assertEq(protocolAccrual > 0, true, "protocolAccrual didn't increase");
         assertEq(totalNameBacking < minPrice * 2, true, "totalNameBacking didn't decrease");
-        assertEq(minPrice * 2, protocolRevenue + totalNameBacking, "protocolRevenue and totalNameBacking incohesive");
-        assertBalances(minPrice * 3, protocolRevenue, totalNameBacking, minPrice);
+        assertEq(minPrice * 2, protocolAccrual + totalNameBacking, "protocolAccrual and totalNameBacking incohesive");
+        assertBalances(minPrice * 3, protocolAccrual, totalNameBacking, minPrice);
         assertClusterNames(1, 2, names);
     }
 

@@ -58,11 +58,11 @@ abstract contract NameManagerHub is IClusters {
 
     /**
      * PROTOCOL INVARIANT TRACKING
-     * address(this).balance >= protocolRevenue + totalNameBacking + totalBidBacking
+     * address(this).balance >= protocolAccrual + totalNameBacking + totalBidBacking
      */
 
     /// @notice Amount of eth that's transferred from nameBacking to the protocol
-    uint256 public protocolRevenue;
+    uint256 public protocolAccrual;
 
     /// @notice Amount of eth that's backing names
     uint256 public totalNameBacking;
@@ -72,7 +72,7 @@ abstract contract NameManagerHub is IClusters {
 
     /// @dev Ensures balance invariant holds
     function _checkInvariant() internal view {
-        if (address(this).balance < protocolRevenue + totalNameBacking + totalBidBacking) revert BadInvariant();
+        if (address(this).balance < protocolAccrual + totalNameBacking + totalBidBacking) revert BadInvariant();
     }
 
     /// @dev Ensure name is valid (not empty or too long)
@@ -102,6 +102,9 @@ abstract contract NameManagerHub is IClusters {
     /// @dev Hook used to access cluster's _verifiedAddresses length to confirm cluster is valid before name transfer
     function _hookCheck(uint256 clusterId) internal virtual;
 
+    /// @dev Hook used to check if an address is either unverified or verified
+    function _hookCheck(uint256 clusterId, bytes32 addr) internal virtual;
+
     /// @notice Used to restrict external functions to
     modifier onlyEndpoint(bytes32 msgSender) {
         if (_addressToBytes32(msg.sender) != msgSender && msg.sender != endpoint) revert Unauthorized();
@@ -125,7 +128,7 @@ abstract contract NameManagerHub is IClusters {
 
     /// ECONOMIC FUNCTIONS ///
 
-    /// @notice Buy unregistered name. Must pay at least minimum yearly payment.
+    /// @notice Buy unregistered name. Must pay at least minimum yearly payment
     /// @dev Processing is handled in overload
     function buyName(uint256 msgValue, string memory name) external payable returns (bytes memory) {
         buyName(_addressToBytes32(msg.sender), msgValue, name);
@@ -233,11 +236,11 @@ abstract contract NameManagerHub is IClusters {
             _assignName(name, toClusterId);
         } else {
             _unassignName(name, fromClusterId);
-            // Convert remaining name backing to protocol revenue and soft refund any existing bid
+            // Convert remaining name backing to protocol accrual and soft refund any existing bid
             uint256 backing = nameBacking[name];
             delete nameBacking[name];
             totalNameBacking -= backing;
-            protocolRevenue += backing;
+            protocolAccrual += backing;
             uint256 bid = bids[name].ethAmount;
             if (bid > 0) {
                 bidRefunds[bids[name].bidder] += bid;
@@ -247,7 +250,7 @@ abstract contract NameManagerHub is IClusters {
         emit TransferName(name, fromClusterId, toClusterId);
     }
 
-    /// @notice Move accrued revenue from ethBacked to protocolRevenue, and transfer names upon expiry to highest
+    /// @notice Move amounts from ethBacked to protocolAccrual, and transfer names upon expiry to highest
     ///         sufficient bidder. If no bids above yearly minimum, delete name registration.
     function pokeName(string memory name) public payable returns (bytes memory payload) {
         _checkNameValid(name);
@@ -265,7 +268,7 @@ abstract contract NameManagerHub is IClusters {
         if (spent >= backing) {
             delete nameBacking[_name];
             totalNameBacking -= backing;
-            protocolRevenue += backing;
+            protocolAccrual += backing;
             // If there is a valid bid, transfer to the bidder
             bytes32 bidder;
             uint256 bid = bids[_name].ethAmount;
@@ -283,7 +286,7 @@ abstract contract NameManagerHub is IClusters {
             // Process price data update
             nameBacking[_name] -= spent;
             totalNameBacking -= spent;
-            protocolRevenue += spent;
+            protocolAccrual += spent;
             priceIntegral[_name] =
                 IClusters.PriceIntegral({lastUpdatedTimestamp: block.timestamp, lastUpdatedPrice: newPrice});
         }
@@ -519,8 +522,8 @@ abstract contract NameManagerHub is IClusters {
         uint256 clusterId = addressToClusterId[msgSender];
         if (clusterId == 0) revert NoCluster();
         if (bytes(walletName).length > 32) revert LongName();
+        _hookCheck(clusterId, addr);
         bytes32 _walletName = _stringToBytes32(walletName);
-        if (clusterId != addressToClusterId[addr]) revert Unauthorized();
         if (bytes(walletName).length == 0) {
             _walletName = reverseLookup[addr];
             delete forwardLookup[clusterId][_walletName];
