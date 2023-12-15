@@ -13,8 +13,11 @@ contract GasBenchmarkTest is Base_Test {
 
     function testBenchmark() public {
         bytes[] memory buyBatchData = new bytes[](2);
-        buyBatchData[0] = abi.encodeWithSignature("buyName(uint256,string)", minPrice, constants.TEST_NAME());
-        buyBatchData[1] = abi.encodeWithSignature("buyName(uint256,string)", minPrice, "zodomo");
+        buyBatchData[0] = abi.encodeWithSignature(
+            "buyName(bytes32,uint256,string)", users.alicePrimary, minPrice, constants.TEST_NAME()
+        );
+        buyBatchData[1] =
+            abi.encodeWithSignature("buyName(bytes32,uint256,string)", users.alicePrimary, minPrice, "zodomo");
 
         vm.startPrank(users.signer);
         bytes32 messageHash = endpoint.getMulticallHash(buyBatchData);

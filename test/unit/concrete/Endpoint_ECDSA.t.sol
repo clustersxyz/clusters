@@ -5,7 +5,6 @@ import {PricingHarberger_Unit_Shared_Test} from "../shared/SharedPricingHarberge
 import {ECDSA} from "../../../lib/solady/src/utils/ECDSA.sol";
 
 contract Endpoint_ECDSA_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Test {
-
     function testECDSAGeneralOrder() public {
         string memory testName = constants.TEST_NAME();
         vm.warp(constants.MARKET_OPEN_TIMESTAMP() + 1 days);
