@@ -95,7 +95,7 @@ contract ClustersHub is NameManagerHub {
 
         payload = abi.encodeWithSignature("add(bytes32,bytes32)", msgSender, addr);
         if (_inMulticall) return payload;
-        else IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
+        else IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
     }
 
     function verify(bytes32 msgSender, uint256 clusterId)
@@ -120,7 +120,7 @@ contract ClustersHub is NameManagerHub {
 
         payload = abi.encodeWithSignature("verify(bytes32,uint256)", msgSender, clusterId);
         if (_inMulticall) return payload;
-        else IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
+        else IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
     }
 
     function remove(bytes32 msgSender, bytes32 addr)
@@ -138,7 +138,7 @@ contract ClustersHub is NameManagerHub {
 
         payload = abi.encodeWithSignature("remove(bytes32,bytes32)", msgSender, addr);
         if (_inMulticall) return payload;
-        else IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
+        else IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
     }
 
     /// INTERNAL FUNCTIONS ///

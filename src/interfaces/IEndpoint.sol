@@ -1,7 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-interface IEndpoint {
+interface IOApp {
+    function oAppVersion() external view returns (uint64 senderVersion, uint64 receiverVersion);
+    function allowInitializePath(Origin calldata origin) external view returns (bool);
+    function nextNonce(uint32 srcEid, bytes32 sender) external view returns (uint64 nonce);
+    function peers(uint32 eid) external view returns (bytes32 peer);
+
+    function setPeer(uint32 eid, bytes32 peer) external;
+    function setDelegate(address delegate) external;
+}
+
+interface IEndpoint is IOApp {
     /// STRUCTS ///
 
     struct Origin {
@@ -19,11 +29,9 @@ interface IEndpoint {
 
     error Invalid();
     error TxFailed();
-    error RelayChainId();
+    error RelayEid();
+    error UnknownEid();
     error Insufficient();
-    error InvalidArray();
-    error InvalidSender();
-    error InvalidTrustedRemote();
 
     /// EVENTS ///
 
@@ -36,7 +44,7 @@ interface IEndpoint {
 
     function clusters() external view returns (address);
     function signer() external view returns (address);
-    function nonces(bytes32 addr) external view returns (uint256);
+    function userNonces(bytes32 addr) external view returns (uint256);
 
     /// ECDSA HELPERS ///
 
@@ -82,5 +90,6 @@ interface IEndpoint {
 
     /// LAYERZERO ///
 
-    function lzSend(bytes memory payload, bytes calldata options) external payable;
+    function setDstEid(uint32 eid) external;
+    function sendPayload(bytes calldata payload) external payable;
 }

@@ -162,7 +162,7 @@ abstract contract NameManagerHub is IClusters {
 
         payload = abi.encodeWithSignature("buyName(bytes32,uint256,string)", msgSender, msgValue, name);
         if (_inMulticall) return payload;
-        else IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
+        else IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
     }
 
     /// @notice Fund an existing and specific name, callable by anyone
@@ -190,7 +190,7 @@ abstract contract NameManagerHub is IClusters {
 
         payload = abi.encodeWithSignature("fundName(bytes32,uint256,string)", msgSender, msgValue, name);
         if (_inMulticall) return payload;
-        else IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
+        else IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
     }
 
     /// @notice Move name from one cluster to another without payment
@@ -220,7 +220,7 @@ abstract contract NameManagerHub is IClusters {
 
         payload = abi.encodeWithSignature("transferName(bytes32,string,uint256)", msgSender, name, toClusterId);
         if (_inMulticall) return payload;
-        else IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
+        else IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
     }
 
     /// @dev Transfer cluster name or delete cluster name without checking auth
@@ -290,7 +290,7 @@ abstract contract NameManagerHub is IClusters {
 
         payload = abi.encodeWithSignature("pokeName(string)", name);
         if (_inMulticall) return payload;
-        else IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
+        else IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
     }
 
     /// @notice Place bids on valid names. Subsequent calls increases existing bid. If name is expired update ownership.
@@ -358,7 +358,7 @@ abstract contract NameManagerHub is IClusters {
 
         payload = abi.encodeWithSignature("bidName(bytes32,uint256,string)", msgSender, msgValue, name);
         if (_inMulticall) return payload;
-        else IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
+        else IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
     }
 
     /// @notice Reduce bid and refund difference. Revoke if amount is the total bid or is the max uint256 value.
@@ -417,7 +417,7 @@ abstract contract NameManagerHub is IClusters {
 
         payload = abi.encodeWithSignature("reduceBid(bytes32,string,uint256)", msgSender, name, amount);
         if (_inMulticall) return payload;
-        else IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
+        else IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
     }
 
     /// @notice Accept bid and transfer name to bidder
@@ -450,7 +450,7 @@ abstract contract NameManagerHub is IClusters {
 
         payload = abi.encodeWithSignature("acceptBid(bytes32,string)", msgSender, name);
         if (_inMulticall) return payload;
-        else IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
+        else IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
     }
 
     /// @notice Allow failed bid refunds to be withdrawn
@@ -471,7 +471,7 @@ abstract contract NameManagerHub is IClusters {
 
         payload = abi.encodeWithSignature("refundBid(bytes32)", msgSender);
         if (_inMulticall) return payload;
-        else IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
+        else IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
     }
 
     /// LOCAL NAME MANAGEMENT ///
@@ -500,7 +500,7 @@ abstract contract NameManagerHub is IClusters {
 
         payload = abi.encodeWithSignature("setDefaultClusterName(bytes32,string)", msgSender, name);
         if (_inMulticall) return payload;
-        else IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
+        else IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
     }
 
     /// @notice Set wallet name for msg.sender or erase it by setting ""
@@ -535,7 +535,7 @@ abstract contract NameManagerHub is IClusters {
 
         payload = abi.encodeWithSignature("setWalletName(bytes32,bytes32,string)", msgSender, addr, walletName);
         if (_inMulticall) return payload;
-        else IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
+        else IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
     }
 
     /// @dev Set name-related state variables
