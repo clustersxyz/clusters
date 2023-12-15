@@ -140,4 +140,10 @@ contract Clusters is NameManager {
         if (clusterId == 0) return;
         if (_verifiedAddresses[clusterId].length() == 0) revert Invalid();
     }
+
+    function _hookCheck(uint256 clusterId, bytes32 addr) internal view override {
+        if (!_unverifiedAddresses[clusterId].contains(addr) && clusterId != addressToClusterId[addr]) {
+            revert Unauthorized();
+        }
+    }
 }

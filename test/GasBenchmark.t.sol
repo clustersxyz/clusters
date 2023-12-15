@@ -11,11 +11,13 @@ contract GasBenchmarkTest is Base_Test {
 
     function testBenchmark() public {
         vm.startPrank(users.signer);
-        bytes32 digest = endpoint.getEthSignedMessageHash(_addressToBytes32(users.alicePrimary), constants.TEST_NAME());
+        bytes32 messageHash = endpoint.getBuyHash(_addressToBytes32(users.alicePrimary), constants.TEST_NAME());
+        bytes32 digest = endpoint.getEthSignedMessageHash(messageHash);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(users.signerPrivKey, digest);
         bytes memory sig1 = abi.encodePacked(r, s, v);
 
-        digest = endpoint.getEthSignedMessageHash(_addressToBytes32(users.alicePrimary), "zodomo");
+        messageHash = endpoint.getBuyHash(_addressToBytes32(users.alicePrimary), "zodomo");
+        digest = endpoint.getEthSignedMessageHash(messageHash);
         (v, r, s) = vm.sign(users.signerPrivKey, digest);
         bytes memory sig2 = abi.encodePacked(r, s, v);
         vm.stopPrank();

@@ -96,6 +96,9 @@ abstract contract NameManager is IClusters {
     /// @dev Hook used to access cluster's _verifiedAddresses length to confirm cluster is valid before name transfer
     function _hookCheck(uint256 clusterId) internal virtual;
 
+    /// @dev Hook used to check if an address is either unverified or verified
+    function _hookCheck(uint256 clusterId, bytes32 addr) internal virtual;
+
     /// @notice Used to restrict external functions to
     modifier onlyEndpoint(bytes32 msgSender) {
         if (_addressToBytes(msg.sender) != msgSender && msg.sender != endpoint) revert Unauthorized();
@@ -442,8 +445,8 @@ abstract contract NameManager is IClusters {
         uint256 clusterId = addressToClusterId[msgSender];
         if (clusterId == 0) revert NoCluster();
         if (bytes(walletName).length > 32) revert LongName();
+        _hookCheck(clusterId, addr);
         bytes32 _walletName = _toBytes32(walletName);
-        if (clusterId != addressToClusterId[addr]) revert Unauthorized();
         if (bytes(walletName).length == 0) {
             _walletName = reverseLookup[addr];
             delete forwardLookup[clusterId][_walletName];
