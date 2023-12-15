@@ -14,5 +14,5 @@ interface IPricing {
 
     /// @notice The annual price of name registration if nobody bids on the name
     /// @return price The annualized price
-    function minAnnualPrice() external pure returns (uint256 price);
+    function minAnnualPrice() external view returns (uint256 price);
 }
