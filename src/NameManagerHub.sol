@@ -257,12 +257,8 @@ abstract contract NameManagerHub is IClusters {
         bytes32 _name = _stringToBytes32(name);
         if (nameToClusterId[_name] == 0) revert Unregistered();
         IClusters.PriceIntegral memory integral = priceIntegral[_name];
-        (uint256 spent, uint256 newPrice) = pricing.getIntegratedPrice(
-            integral.lastUpdatedPrice,
-            block.timestamp - integral.lastUpdatedTimestamp,
-            block.timestamp - integral.lastUpdatedTimestamp // TOOD: this isn't accurate, but we're not tracking
-                // creation time atm. Need to do that or relax pricing algo params
-        );
+        (uint256 spent, uint256 newPrice) =
+            pricing.getIntegratedPrice(integral.lastUpdatedPrice, block.timestamp - integral.lastUpdatedTimestamp);
         // If out of backing (expired), transfer to highest sufficient bidder or delete registration
         uint256 backing = nameBacking[_name];
         if (spent >= backing) {

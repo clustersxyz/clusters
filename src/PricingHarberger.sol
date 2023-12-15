@@ -31,22 +31,25 @@ contract PricingHarberger is IPricing {
     uint256 public constant maxPriceBase = 0.02 ether;
     uint256 public constant maxPriceIncrement = 0.01 ether;
 
+    uint256 public immutable protocolDeployTimestamp;
+
+    constructor(uint256 _protocolDeployTimestamp) {
+        protocolDeployTimestamp = _protocolDeployTimestamp;
+    }
+
     /// PUBLIC FUNCTIONS ///
 
-    /// @notice The amount of eth that's been spent on a name since last update
-    /// @param lastUpdatedPrice Can be greater than max price, used to calculate decay times
-    /// @param secondsAfterUpdate How many seconds it's been since lastUpdatedPrice
-    /// @return spent How much eth has been spent
-    /// @return price The current un-truncated price, which can be greater than maxPrice
-    function getIntegratedPrice(uint256 lastUpdatedPrice, uint256 secondsAfterUpdate, uint256 secondsAfterCreation)
+    /// @inheritdoc IPricing
+    function getIntegratedPrice(uint256 lastUpdatedPrice, uint256 secondsAfterUpdate)
         public
-        pure
+        view
         returns (uint256, uint256)
     {
+        uint256 secondsSinceDeployment = block.timestamp - protocolDeployTimestamp;
         if (lastUpdatedPrice <= minAnnualPrice) {
             // Lower bound
             return (minAnnualPrice * secondsAfterUpdate / SECONDS_IN_YEAR, minAnnualPrice);
-        } else if (lastUpdatedPrice >= getMaxPrice(secondsAfterCreation)) {
+        } else if (lastUpdatedPrice >= getMaxPrice(secondsSinceDeployment)) {
             // Upper bound
             // Calculate time until intersection with max price
             // Then calculate time until intersection with min price
@@ -56,7 +59,7 @@ contract PricingHarberger is IPricing {
             // Intersection of pe^(t*ln(0.5)) = p + 15t
             // t = 1.4427 * W0(0.49e^(0.49p)) - 2p/30
             // https://www.wolframalpha.com/input?i=plot+1.4427+*+lambert+w+function%280.49e%5E%280.49x%29%29+-+2x%2F30+for+x+in+%5B0%2C+10%5D
-            // uint256 secondsBeforeUpdate = secondsAfterCreation - secondsAfterUpdate;
+            // uint256 secondsBeforeUpdate = secondsSinceDeployment - secondsAfterUpdate;
             int256 numYearsUntilMaxPrice = unsafeWadMul(
                 1.4427e18,
                 FixedPointMathLib.lambertW0Wad(
@@ -80,7 +83,7 @@ contract PricingHarberger is IPricing {
                     uint256 maxPrice1 = getDecayPrice(lastUpdatedPrice, numSecondsUntilMaxPrice);
                     uint256 integralPart2 =
                         getIntegratedDecayPrice(maxPrice1, secondsAfterUpdate - numSecondsUntilMaxPrice);
-                    return (integralPart1 + integralPart2, getDecayPrice(lastUpdatedPrice, secondsAfterCreation));
+                    return (integralPart1 + integralPart2, getDecayPrice(lastUpdatedPrice, secondsSinceDeployment));
                 } else {
                     uint256 integralPart1 = getIntegratedMaxPrice(numSecondsUntilMaxPrice);
                     uint256 maxPrice1 = getDecayPrice(lastUpdatedPrice, numSecondsUntilMaxPrice);
@@ -108,9 +111,8 @@ contract PricingHarberger is IPricing {
                     getDecayPrice(lastUpdatedPrice, secondsAfterUpdate)
                 );
             } else {
-                (uint256 simpleMinLeftover,) = getIntegratedPrice(
-                    minAnnualPrice, secondsAfterUpdate - numSecondsUntilMinPrice, secondsAfterCreation
-                );
+                (uint256 simpleMinLeftover,) =
+                    getIntegratedPrice(minAnnualPrice, secondsAfterUpdate - numSecondsUntilMinPrice);
                 return (
                     getIntegratedDecayPrice(lastUpdatedPrice, numSecondsUntilMinPrice) + simpleMinLeftover,
                     minAnnualPrice
