@@ -5,20 +5,6 @@ import {PricingHarberger_Unit_Shared_Test} from "../shared/SharedPricingHarberge
 import {ECDSA} from "../../../lib/solady/src/utils/ECDSA.sol";
 
 contract Endpoint_ECDSA_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Test {
-    function testECDSABuyName() public {
-        string memory testName = constants.TEST_NAME();
-        bytes32 alicePrimary = _addressToBytes32(users.alicePrimary);
-
-        vm.startPrank(users.signer);
-        bytes32 messageHash = endpoint.getBuyHash(alicePrimary, testName);
-        bytes32 digest = endpoint.getEthSignedMessageHash(messageHash);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(users.signerPrivKey, digest);
-        bytes memory sig = abi.encodePacked(r, s, v);
-        vm.stopPrank();
-
-        bool valid = endpoint.verifyBuy(alicePrimary, testName, sig);
-        assertEq(valid, true, "ECDSA verification error");
-    }
 
     function testECDSAGeneralOrder() public {
         string memory testName = constants.TEST_NAME();
