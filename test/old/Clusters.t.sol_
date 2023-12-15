@@ -14,7 +14,7 @@ contract ClustersTest is Test {
     Endpoint public endpoint;
     Clusters public clusters;
 
-    uint256 secondsAfterCreation = 1000 * 365 days;
+    uint256 secondsSinceDeployment = 1000 * 365 days;
     uint256 minPrice;
 
     uint256 public immutable SIGNER_KEY = uint256(keccak256(abi.encodePacked("SIGNER")));
