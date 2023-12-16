@@ -53,21 +53,11 @@ contract PricingHarberger is IPricing {
             // Lower bound
             return (minAnnualPrice * secondsSinceUpdate / SECONDS_IN_YEAR, minAnnualPrice);
         } else if (lastUpdatedPrice >= getMaxPrice(secondsSinceDeployment)) {
-            // Calculate time until lastUpdatedPrice exponential decay intersects with max price positive slope line
-            // Solve pe^(t*ln(0.5)) = 0.02 + 0.01*t
-            // https://www.wolframalpha.com/input?i=pe%5E%28x*ln%280.5%29%29+%3D+0.02+%2B+0.01x%2C+solve+for+x
-            // Copy paste select 0 branch of Lambert W
-            // https://www.wolframalpha.com/input?i=-2+%2B+1.4427+ProductLog%280%2C+%28196722032+e%5E%2898361016%2F70952475%29+p%29%2F2838099%29
-            // Then simplify the large fractions per
-            // https://www.wolframalpha.com/input?i=196722032e%5E%2898361016%2F70952475%29%2F2838099
-            // Plot at
-            // https://www.wolframalpha.com/input?i=-2+%2B+1.4427+ProductLog%280%2C+277.2588x%29%2C+plot+for+x+in+%5B0%2C+1%5D
-            // Looks correct, p=x=0.02 yields 0, meaning starting price of 0.02 eth intersects with max price at time 0
-            // p=x=1 yields ~4, meaning starting price of 1 eth gets cut in half 4 times in 4 years landing at 0.061
-            // intersecting with 0.02 + 0.01*4years
-            uint256 numYearsUntilMaxPriceWad = uint256(
-                F.rawSMulWad(1.4427e18, F.lambertW0Wad(F.rawSMulWad(277.2588e18, int256(lastUpdatedPrice))))
-            ) - 2 * WAD;
+
+            uint256 numYearsUntilMaxPriceWad = getYearsWadUntilIntersectionOfExponentialDecayAndMaxPrice(lastUpdatedPrice, secondsSinceDeployment)
+            // uint256 numYearsUntilMaxPriceWad = uint256(
+            //     F.rawSMulWad(1.4427e18, F.lambertW0Wad(F.rawSMulWad(277.2588e18, int256(lastUpdatedPrice))))
+            // ) - 2 * WAD;
 
             uint256 numSecondsUntilMaxPrice = numYearsUntilMaxPriceWad * SECONDS_IN_YEAR / WAD;
 
@@ -134,6 +124,25 @@ contract PricingHarberger is IPricing {
     /// @notice The annual max price at an instantaneous point in time, derivative of getIntegratedMaxPrice
     function getMaxPrice(uint256 numSeconds) internal pure returns (uint256) {
         return maxPriceBase + (maxPriceIncrement * numSeconds) / SECONDS_IN_YEAR;
+    }
+
+    function getYearsWadUntilIntersectionOfExponentialDecayAndMaxPrice(uint256 p, uint256 yearsSinceDeployment) internal pure returns (uint256) {
+        // Calculate time until lastUpdatedPrice exponential decay intersects with max price positive slope line
+        // Solve pe^(t*ln(0.5)) = 0.02 + 0.01*(years+t)
+        // https://www.wolframalpha.com/input?i=pe%5E%28x*ln%280.5%29%29+%3D+0.02+%2B+0.01x%2C+solve+for+x
+        // Copy paste select 0 branch of Lambert W
+        // https://www.wolframalpha.com/input?i=-2+%2B+1.4427+ProductLog%280%2C+%28196722032+e%5E%2898361016%2F70952475%29+p%29%2F2838099%29
+        // Then simplify the large fractions per
+        // https://www.wolframalpha.com/input?i=196722032e%5E%2898361016%2F70952475%29%2F2838099
+        // Plot at
+        // https://www.wolframalpha.com/input?i=-2+%2B+1.4427+ProductLog%280%2C+277.2588x%29%2C+plot+for+x+in+%5B0%2C+1%5D
+        // Looks correct, p=x=0.02 yields 0, meaning starting price of 0.02 eth intersects with max price at time 0
+        // p=x=1 yields ~4, meaning starting price of 1 eth gets cut in half 4 times in 4 years landing at 0.061
+        // intersecting with 0.02 + 0.01*4years
+        
+        return uint256(
+                F.rawSMulWad(1.4427e18, F.lambertW0Wad(F.rawSMulWad(277.2588e18, int256(p))))
+            ) - 2 * WAD;
     }
 
     /// @notice The integral of the annual price while it's exponentially decaying over `numSeconds` starting at p0
