@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-// import {toWadUnsafe} from "../lib/solmate/src/utils/SignedWadMath.sol";
-
 import {FixedPointMathLib as F} from "../lib/solady/src/utils/FixedPointMathLib.sol";
 
 import {IPricing} from "./interfaces/IPricing.sol";
+
+import {console2} from "forge-std/console2.sol";
 
 /*
 ECONOMIC MODEL:
@@ -49,6 +49,7 @@ contract PricingHarberger is IPricing {
         returns (uint256, uint256)
     {
         uint256 secondsSinceDeployment = block.timestamp - protocolDeployTimestamp;
+        console2.log(secondsSinceDeployment);
         if (lastUpdatedPrice <= minAnnualPrice) {
             // Lower bound
             return (minAnnualPrice * secondsSinceUpdate / SECONDS_IN_YEAR, minAnnualPrice);
@@ -74,13 +75,13 @@ contract PricingHarberger is IPricing {
             if (secondsSinceUpdate <= numSecondsUntilMaxPrice) {
                 return (getIntegratedMaxPrice(secondsSinceUpdate), getDecayPrice(lastUpdatedPrice, secondsSinceUpdate));
             } else {
-                uint256 numYearsUntilMinPrice = uint256(
+                uint256 numYearsUntilMinPriceWad = uint256(
                     F.rawSDivWad(
                         F.lnWad(int256(F.rawDivWad(toWadUnsafe(minAnnualPrice), toWadUnsafe(lastUpdatedPrice)))),
                         F.lnWad(0.5e18)
                     )
                 );
-                uint256 numSecondsUntilMinPrice = numYearsUntilMinPrice * SECONDS_IN_YEAR;
+                uint256 numSecondsUntilMinPrice = numYearsUntilMinPriceWad * SECONDS_IN_YEAR / WAD;
 
                 if (secondsSinceUpdate <= numSecondsUntilMinPrice) {
                     uint256 integralPart1 = getIntegratedMaxPrice(numSecondsUntilMaxPrice);
@@ -98,13 +99,14 @@ contract PricingHarberger is IPricing {
                 }
             }
         } else {
+            console2.log("third else");
             // Exponential decay from middle range
             // Calculate time until intersection with min price
             // p0 * e^(t*ln0.5) = minPrice
             // t = ln(minPrice/p0) / ln(0.5)
-            uint256 numYearsUntilMinPrice =
+            uint256 numYearsUntilMinPriceWad =
                 uint256(F.rawSDivWad(F.lnWad(int256(F.rawDivWad(minAnnualPrice, lastUpdatedPrice))), F.lnWad(0.5e18)));
-            uint256 numSecondsUntilMinPrice = numYearsUntilMinPrice * SECONDS_IN_YEAR;
+            uint256 numSecondsUntilMinPrice = numYearsUntilMinPriceWad * SECONDS_IN_YEAR / WAD;
 
             if (secondsSinceUpdate <= numSecondsUntilMinPrice) {
                 // Return simple exponential decay integral
@@ -138,9 +140,7 @@ contract PricingHarberger is IPricing {
 
     /// @notice The integral of the annual price while it's exponentially decaying over `numSeconds` starting at p0
     function getIntegratedDecayPrice(uint256 p0, uint256 numSeconds) internal pure returns (uint256) {
-        return F.rawMulWad(
-            p0, uint256(F.rawSDivWad(int256(getDecayMultiplier(numSeconds)) - sWAD, F.lnWad(0.5e18)))
-        );
+        return F.rawMulWad(p0, uint256(F.rawSDivWad(int256(getDecayMultiplier(numSeconds)) - sWAD, F.lnWad(0.5e18))));
     }
 
     /// @notice The annual decayed price at an instantaneous point in time, derivative of getIntegratedDecayPrice
