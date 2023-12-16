@@ -60,12 +60,7 @@ contract PricingHarberger is IPricing {
             if (secondsSinceUpdate <= numSecondsUntilMaxPrice) {
                 return (getIntegratedMaxPrice(secondsSinceUpdate), getDecayPrice(lastUpdatedPrice, secondsSinceUpdate));
             } else {
-                uint256 numYearsUntilMinPriceWad = uint256(
-                    F.rawSDivWad(
-                        F.lnWad(int256(F.rawDivWad(toWadUnsafe(minAnnualPrice), toWadUnsafe(lastUpdatedPrice)))),
-                        F.lnWad(0.5e18)
-                    )
-                );
+                uint256 numYearsUntilMinPriceWad = getMinIntersection(lastUpdatedPrice);
                 uint256 numSecondsUntilMinPrice = numYearsUntilMinPriceWad * SECONDS_IN_YEAR / WAD;
 
                 if (secondsSinceUpdate <= numSecondsUntilMinPrice) {
@@ -137,6 +132,11 @@ contract PricingHarberger is IPricing {
                 )
             )
         ) - 2 * WAD - yearsSinceDeploymentWad;
+    }
+
+    /// @return yearsUntilIntersectionWad
+    function getMinIntersection(uint256 p) internal pure returns (uint256) {
+        return uint256(F.rawSDivWad(F.lnWad(int256(F.rawDivWad(minAnnualPrice, p))), F.lnWad(0.5e18)));
     }
 
     /// @notice The annual max price integrated over its duration

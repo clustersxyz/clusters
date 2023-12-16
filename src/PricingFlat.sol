@@ -7,7 +7,7 @@ contract PricingFlat is IPricing {
     uint256 public constant minAnnualPrice = 0.01 ether;
 
     /// @inheritdoc IPricing
-    function getIntegratedPrice(uint256 lastUpdatedPrice, uint256 secondsSinceUpdate)
+    function getIntegratedPrice(uint256, uint256 secondsSinceUpdate)
         public
         pure
         returns (uint256 spent, uint256 price)

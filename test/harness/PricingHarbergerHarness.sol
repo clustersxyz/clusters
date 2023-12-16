@@ -12,6 +12,10 @@ contract PricingHarbergerHarness is PricingHarberger {
         return getMaxIntersection(p, yearsSinceDeploymentWad);
     }
 
+    function exposed_getMinIntersection(uint256 p) public pure returns (uint256) {
+        return getMinIntersection(p);
+    }
+
     function exposed_getIntegratedMaxPrice(uint256 numSeconds) public pure returns (uint256) {
         return getIntegratedMaxPrice(numSeconds);
     }
