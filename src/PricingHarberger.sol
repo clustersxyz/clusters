@@ -49,28 +49,27 @@ contract PricingHarberger is IPricing {
         returns (uint256, uint256)
     {
         uint256 secondsSinceDeployment = block.timestamp - protocolDeployTimestamp;
-        console2.log(secondsSinceDeployment);
         if (lastUpdatedPrice <= minAnnualPrice) {
             // Lower bound
             return (minAnnualPrice * secondsSinceUpdate / SECONDS_IN_YEAR, minAnnualPrice);
         } else if (lastUpdatedPrice >= getMaxPrice(secondsSinceDeployment)) {
-            // Upper bound
-            // Calculate time until intersection with max price
-            // Then calculate time until intersection with min price
-            // https://www.wolframalpha.com/input?i=pe%5E%28x*ln%280.5%29%29+%3D+p+%2B+15x%2C+solve+for+x
-            // https://www.wolframalpha.com/input?i=pe%5E%28x*ln%280.5%29%29+%3D+p+%2B+0.01x%2C+solve+for+x
-            // https://www.wolframalpha.com/input?i=pe%5E%28x*ln%280.5%29%29+%3D+p+%2B+0.01%28x%2Bt%29%2C+solve+for+x
-            // Intersection of pe^(t*ln(0.5)) = p + 15t
-            // t = 1.4427 * W0(0.49e^(0.49p)) - 2p/30
-            // https://www.wolframalpha.com/input?i=plot+1.4427+*+lambert+w+function%280.49e%5E%280.49x%29%29+-+2x%2F30+for+x+in+%5B0%2C+10%5D
-            // uint256 secondsBeforeUpdate = secondsSinceDeployment - secondsSinceUpdate;
-            uint256 numYearsUntilMaxPrice = uint256(
-                F.rawSMulWad(
-                    1.4427e18,
-                    F.lambertW0Wad(F.rawSMulWad(69.314e18, F.expWad(int256(F.rawMulWad(69.314e18, lastUpdatedPrice)))))
-                )
-            ) - 100 * lastUpdatedPrice;
-            uint256 numSecondsUntilMaxPrice = numYearsUntilMaxPrice * SECONDS_IN_YEAR;
+            // Calculate time until lastUpdatedPrice exponential decay intersects with max price positive slope line
+            // Solve pe^(t*ln(0.5)) = 0.02 + 0.01*t
+            // https://www.wolframalpha.com/input?i=pe%5E%28x*ln%280.5%29%29+%3D+0.02+%2B+0.01x%2C+solve+for+x
+            // Copy paste select 0 branch of Lambert W
+            // https://www.wolframalpha.com/input?i=-2+%2B+1.4427+ProductLog%280%2C+%28196722032+e%5E%2898361016%2F70952475%29+p%29%2F2838099%29
+            // Then simplify the large fractions per
+            // https://www.wolframalpha.com/input?i=196722032e%5E%2898361016%2F70952475%29%2F2838099
+            // Plot at
+            // https://www.wolframalpha.com/input?i=-2+%2B+1.4427+ProductLog%280%2C+277.2588x%29%2C+plot+for+x+in+%5B0%2C+1%5D
+            // Looks correct, p=x=0.02 yields 0, meaning starting price of 0.02 eth intersects with max price at time 0
+            // p=x=1 yields ~4, meaning starting price of 1 eth gets cut in half 4 times in 4 years landing at 0.061
+            // intersecting with 0.02 + 0.01*4years
+            uint256 numYearsUntilMaxPriceWad = uint256(
+                F.rawSMulWad(1.4427e18, F.lambertW0Wad(F.rawSMulWad(277.2588e18, int256(lastUpdatedPrice))))
+            ) - 2 * WAD;
+
+            uint256 numSecondsUntilMaxPrice = numYearsUntilMaxPriceWad * SECONDS_IN_YEAR / WAD;
 
             if (secondsSinceUpdate <= numSecondsUntilMaxPrice) {
                 return (getIntegratedMaxPrice(secondsSinceUpdate), getDecayPrice(lastUpdatedPrice, secondsSinceUpdate));
@@ -99,7 +98,6 @@ contract PricingHarberger is IPricing {
                 }
             }
         } else {
-            console2.log("third else");
             // Exponential decay from middle range
             // Calculate time until intersection with min price
             // p0 * e^(t*ln0.5) = minPrice
