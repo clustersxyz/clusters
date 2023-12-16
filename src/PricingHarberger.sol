@@ -62,14 +62,10 @@ contract PricingHarberger is IPricing {
             // t = 1.4427 * W0(0.49e^(0.49p)) - 2p/30
             // https://www.wolframalpha.com/input?i=plot+1.4427+*+lambert+w+function%280.49e%5E%280.49x%29%29+-+2x%2F30+for+x+in+%5B0%2C+10%5D
             // uint256 secondsBeforeUpdate = secondsSinceDeployment - secondsSinceUpdate;
-            uint256 numYearsUntilMaxPrice = F.rawMulWad(
-                1.4427e18,
-                uint256(
-                    F.lambertW0Wad(
-                        int256(
-                            F.rawMulWad(69.314e18, uint256(F.expWad(int256(F.rawMulWad(69.314e18, lastUpdatedPrice)))))
-                        )
-                    )
+            uint256 numYearsUntilMaxPrice = uint256(
+                F.rawSMulWad(
+                    1.4427e18,
+                    F.lambertW0Wad(F.rawSMulWad(69.314e18, F.expWad(int256(F.rawMulWad(69.314e18, lastUpdatedPrice)))))
                 )
             ) - 100 * lastUpdatedPrice;
             uint256 numSecondsUntilMaxPrice =
@@ -80,14 +76,12 @@ contract PricingHarberger is IPricing {
             } else {
                 uint256 numYearsUntilMinPrice = uint256(
                     F.rawSDivWad(
-                        F.lnWad(
-                            F.rawSDivWad(int256(toWadUnsafe(minAnnualPrice)), int256(toWadUnsafe(lastUpdatedPrice)))
-                        ),
+                        F.lnWad(int256(F.rawDivWad(toWadUnsafe(minAnnualPrice), toWadUnsafe(lastUpdatedPrice)))),
                         F.lnWad(0.5e18)
                     )
                 );
                 uint256 numSecondsUntilMinPrice =
-                    uint256(F.rawMulWad(numYearsUntilMinPrice, toWadUnsafe(SECONDS_IN_YEAR)) / 1e18);
+                    F.rawMulWad(numYearsUntilMinPrice, toWadUnsafe(SECONDS_IN_YEAR)) / 1e18;
 
                 if (secondsSinceUpdate <= numSecondsUntilMinPrice) {
                     uint256 integralPart1 = getIntegratedMaxPrice(numSecondsUntilMaxPrice);
@@ -109,14 +103,9 @@ contract PricingHarberger is IPricing {
             // Calculate time until intersection with min price
             // p0 * e^(t*ln0.5) = minPrice
             // t = ln(minPrice/p0) / ln(0.5)
-            uint256 numYearsUntilMinPrice = uint256(
-                F.rawSDivWad(
-                    F.lnWad(int256(F.rawDivWad(toWadUnsafe(minAnnualPrice), toWadUnsafe(lastUpdatedPrice)))),
-                    F.lnWad(0.5e18)
-                )
-            );
-            uint256 numSecondsUntilMinPrice =
-                uint256(F.rawMulWad(numYearsUntilMinPrice, toWadUnsafe(SECONDS_IN_YEAR)) / 1e18);
+            uint256 numYearsUntilMinPrice =
+                uint256(F.rawSDivWad(F.lnWad(int256(F.rawDivWad(minAnnualPrice, lastUpdatedPrice))), F.lnWad(0.5e18)));
+            uint256 numSecondsUntilMinPrice = numYearsUntilMinPrice * SECONDS_IN_YEAR;
 
             if (secondsSinceUpdate <= numSecondsUntilMinPrice) {
                 // Return simple exponential decay integral
@@ -150,10 +139,8 @@ contract PricingHarberger is IPricing {
 
     /// @notice The integral of the annual price while it's exponentially decaying over `numSeconds` starting at p0
     function getIntegratedDecayPrice(uint256 p0, uint256 numSeconds) internal pure returns (uint256) {
-        return uint256(
-            F.rawSMulWad(
-                int256(p0), F.rawSDivWad(int256(getDecayMultiplier(numSeconds) - toWadUnsafe(1)), F.lnWad(0.5e18))
-            )
+        return F.rawMulWad(
+            p0, uint256(F.rawSDivWad(int256(getDecayMultiplier(numSeconds)) - int256(toWadUnsafe(1)), F.lnWad(0.5e18)))
         );
     }
 
