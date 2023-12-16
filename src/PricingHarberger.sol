@@ -54,11 +54,7 @@ contract PricingHarberger is IPricing {
             return (minAnnualPrice * secondsSinceUpdate / SECONDS_IN_YEAR, minAnnualPrice);
         } else if (lastUpdatedPrice >= getMaxPrice(secondsSinceDeployment)) {
             uint256 numYearsUntilMaxPriceWad =
-                getYearsWadUntilIntersectionOfExponentialDecayAndMaxPrice(lastUpdatedPrice, secondsSinceDeployment);
-            // uint256 numYearsUntilMaxPriceWad = uint256(
-            //     F.rawSMulWad(1.4427e18, F.lambertW0Wad(F.rawSMulWad(277.2588e18, int256(lastUpdatedPrice))))
-            // ) - 2 * WAD;
-
+                getMaxIntersection(lastUpdatedPrice, secondsSinceDeployment / SECONDS_IN_YEAR);
             uint256 numSecondsUntilMaxPrice = numYearsUntilMaxPriceWad * SECONDS_IN_YEAR / WAD;
 
             if (secondsSinceUpdate <= numSecondsUntilMaxPrice) {
@@ -115,22 +111,8 @@ contract PricingHarberger is IPricing {
 
     /// INTERNAL FUNCTIONS ///
 
-    /// @notice The annual max price integrated over its duration
-    function getIntegratedMaxPrice(uint256 numSeconds) internal pure returns (uint256) {
-        return maxPriceBase * numSeconds / SECONDS_IN_YEAR
-            + (maxPriceIncrement * numSeconds ** 2) / (2 * SECONDS_IN_YEAR ** 2);
-    }
-
-    /// @notice The annual max price at an instantaneous point in time, derivative of getIntegratedMaxPrice
-    function getMaxPrice(uint256 numSeconds) internal pure returns (uint256) {
-        return maxPriceBase + (maxPriceIncrement * numSeconds) / SECONDS_IN_YEAR;
-    }
-
-    function getYearsWadUntilIntersectionOfExponentialDecayAndMaxPrice(uint256 p, uint256 yearsSinceDeploymentWad)
-        internal
-        pure
-        returns (uint256)
-    {
+    /// @return yearsUntilIntersectionWad
+    function getMaxIntersection(uint256 p, uint256 yearsSinceDeploymentWad) internal pure returns (uint256) {
         // Calculate time until lastUpdatedPrice exponential decay intersects with max price positive slope line
         // Solve pe^(t*ln(0.5)) = 0.02 + 0.01*(years+t)
         // https://www.wolframalpha.com/input?i=pe%5E%28x*ln%280.5%29%29+%3D+0.02+%2B+0.01y+%2B+0.01x%2C+solve+for+x
@@ -155,6 +137,17 @@ contract PricingHarberger is IPricing {
                 )
             )
         ) - 2 * WAD - yearsSinceDeploymentWad;
+    }
+
+    /// @notice The annual max price integrated over its duration
+    function getIntegratedMaxPrice(uint256 numSeconds) internal pure returns (uint256) {
+        return maxPriceBase * numSeconds / SECONDS_IN_YEAR
+            + (maxPriceIncrement * numSeconds ** 2) / (2 * SECONDS_IN_YEAR ** 2);
+    }
+
+    /// @notice The annual max price at an instantaneous point in time, derivative of getIntegratedMaxPrice
+    function getMaxPrice(uint256 numSeconds) internal pure returns (uint256) {
+        return maxPriceBase + (maxPriceIncrement * numSeconds) / SECONDS_IN_YEAR;
     }
 
     /// @notice The integral of the annual price while it's exponentially decaying over `numSeconds` starting at p0

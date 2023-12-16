@@ -15,6 +15,29 @@ contract PricingHarberger_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Tes
         assertEq(decay, 0.25e18 - 1); // Tiny error tolerance is okay
     }
 
+    function testMaxIntersectionZeroSecondsSinceDeployment() public {
+        uint256 intersectionBasic = pricingHarberger.exposed_getMaxIntersection(0.02 ether, 0e18);
+        assertLt(intersectionBasic, 9e12); // Tiny error tolerance
+
+        uint256 intersectionOne = pricingHarberger.exposed_getMaxIntersection(1 ether, 0e18);
+        assertEq(intersectionOne, 4047534052094804142); // 4.04 years
+
+        uint256 intersectionHundred = pricingHarberger.exposed_getMaxIntersection(100 ether, 0e18);
+        assertEq(intersectionHundred, 9735009655744918055); // 9.7 years
+    }
+
+    function testMaxIntersectionTenYearsSinceDeployment() public {
+        // TODO: Is numerical drift as the yearsSinceDeployment increases an issue?
+        uint256 intersectionBasic = pricingHarberger.exposed_getMaxIntersection(0.12 ether, 10e18);
+        assertLt(intersectionBasic, 9e13);
+
+        uint256 intersectionOne = pricingHarberger.exposed_getMaxIntersection(1 ether, 10e18);
+        assertEq(intersectionOne, 2760261962592581821); // 2.7 years
+
+        uint256 intersectionHundred = pricingHarberger.exposed_getMaxIntersection(100 ether, 10e18);
+        assertEq(intersectionHundred, 8902202613552457583); // 8.7 years
+    }
+
     function testIntegratedDecayPrice() public {
         uint256 spent = pricingHarberger.exposed_getIntegratedDecayPrice(1 ether, 730 days);
         assertEq(spent, 1082021280666722556); // 1.08 ether over 2 years
