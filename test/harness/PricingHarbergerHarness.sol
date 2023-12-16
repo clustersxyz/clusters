@@ -8,6 +8,14 @@ contract PricingHarbergerHarness is PricingHarberger {
 
     /// EXPOSED INTERNAL FUNCTIONS ///
 
+    function exposed_getMaxIntersection(uint256 p, uint256 yearsSinceDeploymentWad) public pure returns (uint256) {
+        return getMaxIntersection(p, yearsSinceDeploymentWad);
+    }
+
+    function exposed_getMinIntersection(uint256 p) public pure returns (uint256) {
+        return getMinIntersection(p);
+    }
+
     function exposed_getIntegratedMaxPrice(uint256 numSeconds) public pure returns (uint256) {
         return getIntegratedMaxPrice(numSeconds);
     }
@@ -24,7 +32,7 @@ contract PricingHarbergerHarness is PricingHarberger {
         return getDecayPrice(p0, numSeconds);
     }
 
-    function exposed_getDecayMultiplier(uint256 numSeconds) public pure returns (int256) {
+    function exposed_getDecayMultiplier(uint256 numSeconds) public pure returns (uint256) {
         return getDecayMultiplier(numSeconds);
     }
 

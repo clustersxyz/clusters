@@ -11,8 +11,38 @@ contract PricingHarberger_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Tes
     }
 
     function testDecayMultiplier() public {
-        int256 decay = pricingHarberger.exposed_getDecayMultiplier(730 days);
-        assertEq(decay, int256(0.25e18 - 1)); // Tiny error tolerance is okay
+        uint256 decay = pricingHarberger.exposed_getDecayMultiplier(730 days);
+        assertEq(decay, 0.25e18 - 1); // Tiny error tolerance is okay
+    }
+
+    function testMaxIntersectionZeroSecondsSinceDeployment() public {
+        uint256 intersectionBasic = pricingHarberger.exposed_getMaxIntersection(0.02 ether, 0e18);
+        assertLt(intersectionBasic, 9e12); // Tiny error tolerance
+
+        uint256 intersectionOne = pricingHarberger.exposed_getMaxIntersection(1 ether, 0e18);
+        assertEq(intersectionOne, 4047534052094804142); // 4.04 years
+
+        uint256 intersectionHundred = pricingHarberger.exposed_getMaxIntersection(100 ether, 0e18);
+        assertEq(intersectionHundred, 9735009655744918055); // 9.7 years
+    }
+
+    function testMaxIntersectionTenYearsSinceDeployment() public {
+        // TODO: Is numerical drift as the yearsSinceDeployment increases an issue?
+        uint256 intersectionBasic = pricingHarberger.exposed_getMaxIntersection(0.12 ether, 10e18);
+        assertLt(intersectionBasic, 9e13);
+
+        uint256 intersectionOne = pricingHarberger.exposed_getMaxIntersection(1 ether, 10e18);
+        assertEq(intersectionOne, 2760261962592581821); // 2.7 years
+
+        uint256 intersectionHundred = pricingHarberger.exposed_getMaxIntersection(100 ether, 10e18);
+        assertEq(intersectionHundred, 8902202613552457583); // 8.7 years
+    }
+
+    function testMinIntersection() public {
+        assertEq(pricingHarberger.exposed_getMinIntersection(0.01 ether), 0e18);
+        assertEq(pricingHarberger.exposed_getMinIntersection(0.02 ether), 1e18);
+        assertEq(pricingHarberger.exposed_getMinIntersection(0.16 ether), 4e18 - 3);
+        assertEq(pricingHarberger.exposed_getMinIntersection(1 ether), 6643856189774724690); // 6 years
     }
 
     function testIntegratedDecayPrice() public {
