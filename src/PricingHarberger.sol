@@ -69,8 +69,7 @@ contract PricingHarberger is IPricing {
                     F.lambertW0Wad(F.rawSMulWad(69.314e18, F.expWad(int256(F.rawMulWad(69.314e18, lastUpdatedPrice)))))
                 )
             ) - 100 * lastUpdatedPrice;
-            uint256 numSecondsUntilMaxPrice =
-                uint256(F.rawMulWad(numYearsUntilMaxPrice, toWadUnsafe(SECONDS_IN_YEAR)) / 1e18);
+            uint256 numSecondsUntilMaxPrice = numYearsUntilMaxPrice * SECONDS_IN_YEAR;
 
             if (secondsSinceUpdate <= numSecondsUntilMaxPrice) {
                 return (getIntegratedMaxPrice(secondsSinceUpdate), getDecayPrice(lastUpdatedPrice, secondsSinceUpdate));
@@ -81,8 +80,7 @@ contract PricingHarberger is IPricing {
                         F.lnWad(0.5e18)
                     )
                 );
-                uint256 numSecondsUntilMinPrice =
-                    F.rawMulWad(numYearsUntilMinPrice, toWadUnsafe(SECONDS_IN_YEAR)) / 1e18;
+                uint256 numSecondsUntilMinPrice = numYearsUntilMinPrice * SECONDS_IN_YEAR;
 
                 if (secondsSinceUpdate <= numSecondsUntilMinPrice) {
                     uint256 integralPart1 = getIntegratedMaxPrice(numSecondsUntilMaxPrice);
