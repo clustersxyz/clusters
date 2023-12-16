@@ -24,7 +24,7 @@ contract PricingHarbergerHarness is PricingHarberger {
         return getDecayPrice(p0, numSeconds);
     }
 
-    function exposed_getDecayMultiplier(uint256 numSeconds) public pure returns (int256) {
+    function exposed_getDecayMultiplier(uint256 numSeconds) public pure returns (uint256) {
         return getDecayMultiplier(numSeconds);
     }
 

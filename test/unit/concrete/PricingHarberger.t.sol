@@ -11,8 +11,8 @@ contract PricingHarberger_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Tes
     }
 
     function testDecayMultiplier() public {
-        int256 decay = pricingHarberger.exposed_getDecayMultiplier(730 days);
-        assertEq(decay, int256(0.25e18 - 1)); // Tiny error tolerance is okay
+        uint256 decay = pricingHarberger.exposed_getDecayMultiplier(730 days);
+        assertEq(decay, 0.25e18 - 1); // Tiny error tolerance is okay
     }
 
     function testIntegratedDecayPrice() public {
