@@ -28,6 +28,7 @@ contract PricingHarberger is IPricing {
     uint256 internal constant SECONDS_IN_YEAR = 365 days;
     uint256 internal constant DENOMINATOR = 10_000;
     uint256 internal constant WAD = 1e18;
+    int256 internal constant sWAD = 1e18;
 
     uint256 public constant minAnnualPrice = 0.01 ether;
     uint256 public constant maxPriceBase = 0.02 ether;
@@ -140,19 +141,19 @@ contract PricingHarberger is IPricing {
     /// @notice The integral of the annual price while it's exponentially decaying over `numSeconds` starting at p0
     function getIntegratedDecayPrice(uint256 p0, uint256 numSeconds) internal pure returns (uint256) {
         return F.rawMulWad(
-            p0, uint256(F.rawSDivWad(int256(getDecayMultiplier(numSeconds)) - int256(toWadUnsafe(1)), F.lnWad(0.5e18)))
+            p0, uint256(F.rawSDivWad(int256(getDecayMultiplier(numSeconds)) - sWAD, F.lnWad(0.5e18)))
         );
     }
 
     /// @notice The annual decayed price at an instantaneous point in time, derivative of getIntegratedDecayPrice
     function getDecayPrice(uint256 p0, uint256 numSeconds) internal pure returns (uint256) {
-        return uint256(F.rawMulWad(p0, getDecayMultiplier(numSeconds)));
+        return F.rawMulWad(p0, getDecayMultiplier(numSeconds));
     }
 
     /// @notice Implements e^(ln(0.5)x) ~= e^(-0.6931x) which cuts the number in half every year for exponential decay
     /// @dev Since this will be <1, returns a wad with 18 decimals
     function getDecayMultiplier(uint256 numSeconds) internal pure returns (uint256) {
-        return uint256(F.expWad(F.lnWad(0.5e18) * int256(numSeconds))) / SECONDS_IN_YEAR;
+        return uint256(F.expWad(F.lnWad(0.5e18) * int256(numSeconds) / int256(SECONDS_IN_YEAR)));
     }
 
     /// @notice Current adjusts quadratically up to bid price, capped at 1 month duration
