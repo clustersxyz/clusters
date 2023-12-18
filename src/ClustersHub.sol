@@ -7,31 +7,28 @@ import {EnumerableSetLib} from "./EnumerableSetLib.sol";
 
 import {NameManagerHub} from "./NameManagerHub.sol";
 
-import {IClusters, IEndpoint} from "./IClusters.sol";
+import {IClusters} from "./interfaces/IClusters.sol";
 
 import {IEndpoint} from "./interfaces/IEndpoint.sol";
 
 import {console2} from "../lib/forge-std/src/Test.sol";
 
-/**
- * OPEN QUESTIONS/TODOS
- * Can you create a cluster without registering a name? No, there needs to be a bounty for adding others to your cluster
- * What does the empty foobar/ resolver point to?
- * If listings are offchain, then how can it hook into the onchain transfer function?
- * The first name added to a cluster should become the canonical name by default, every cluster should always have
- * canonical name
- */
-
 contract ClustersHub is NameManagerHub {
-    using EnumerableSet for EnumerableSet.AddressSet;
-    using EnumerableSet for EnumerableSet.Bytes32Set;
+    using EnumerableSetLib for EnumerableSetLib.Bytes32Set;
 
-    /// @dev Enumerate all addresses in a cluster
-    mapping(uint256 clusterId => EnumerableSet.AddressSet addrs) internal _clusterAddresses;
+    uint256 public nextClusterId = 1;
 
-    constructor(address pricing_, address endpoint_) NameManagerHub(pricing_, endpoint_) {}
+    /// @dev Enumerates all unverified addresses in a cluster
+    mapping(uint256 clusterId => EnumerableSetLib.Bytes32Set addrs) internal _unverifiedAddresses;
 
-    /// USER-FACING FUNCTIONS ///
+    /// @dev Enumerates all verified addresses in a cluster
+    mapping(uint256 clusterId => EnumerableSetLib.Bytes32Set addrs) internal _verifiedAddresses;
+
+    constructor(address pricing_, address endpoint_, uint256 marketOpenTimestamp_)
+        NameManagerHub(pricing_, endpoint_, marketOpenTimestamp_)
+    {}
+
+    /// EXTERNAL FUNCTIONS ///
 
     /// @dev For payable multicall to be secure, we cannot trust msg.value params in other external methods
     /// @dev Must instead do strict protocol invariant checking at the end of methods like Uniswap V2
@@ -39,19 +36,9 @@ contract ClustersHub is NameManagerHub {
         _inMulticall = true;
         results = new bytes[](data.length);
         bool success;
-        bytes4 multicallSig = bytes4(keccak256(bytes("multicall(bytes[])")));
 
         // Iterate through each call
-        for (uint256 i; i < data.length; ++i) {
-            bytes memory currentCall = data[i];
-            // Check selector to block nested multicalls
-            bytes4 signature;
-            assembly {
-                signature := mload(add(currentCall, 32))
-            }
-            if (signature == multicallSig) {
-                revert MulticallFailed();
-            }
+        for (uint256 i = 0; i < data.length; ++i) {
             //slither-disable-next-line calls-loop,delegatecall-loop
             (success, results[i]) = address(this).delegatecall(data[i]);
             if (!success) revert MulticallFailed();
@@ -60,7 +47,7 @@ contract ClustersHub is NameManagerHub {
         _checkInvariant();
 
         bytes memory payload = abi.encodeWithSignature("multicall(bytes[])", results);
-        IEndpoint(endpoint).lzSend(msg.sender, payload, msg.value, bytes(""));
+        IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
         _inMulticall = false;
     }
 
@@ -78,6 +65,10 @@ contract ClustersHub is NameManagerHub {
 
     function getUnverifiedAddresses(uint256 clusterId) external view returns (bytes32[] memory) {
         return _unverifiedAddresses[clusterId].values();
+    }
+
+    function getVerifiedAddresses(uint256 clusterId) external view returns (bytes32[] memory) {
+        return _verifiedAddresses[clusterId].values();
     }
 
     /// ENDPOINT FUNCTIONS ///
@@ -147,9 +138,8 @@ contract ClustersHub is NameManagerHub {
 
     /// INTERNAL FUNCTIONS ///
 
-    function _add(address addr, uint256 clusterId) internal {
-        addressToClusterId[addr] = clusterId;
-        _clusterAddresses[clusterId].add(addr);
+    function _add(bytes32 addr, uint256 clusterId) internal {
+        _unverifiedAddresses[clusterId].add(addr);
         emit Add(clusterId, addr);
     }
 

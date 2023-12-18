@@ -5,7 +5,7 @@ import {EnumerableSetLib} from "./EnumerableSetLib.sol";
 
 import {IPricing} from "./interfaces/IPricing.sol";
 
-import {IClusters, IEndpoint} from "./IClusters.sol";
+import {IClusters} from "./interfaces/IClusters.sol";
 
 import {IEndpoint} from "./interfaces/IEndpoint.sol";
 
@@ -14,13 +14,13 @@ import {console2} from "../lib/forge-std/src/Test.sol";
 /// @notice The bidding, accepting, eth storing component of Clusters. Handles name assignment
 ///         to cluster ids and checks auth of cluster membership before acting on one of its names
 abstract contract NameManagerHub is IClusters {
-    using EnumerableSet for EnumerableSet.Bytes32Set;
+    using EnumerableSetLib for EnumerableSetLib.Bytes32Set;
 
     bool internal _inMulticall;
 
     address public immutable endpoint;
 
-    bool internal _inMulticall;
+    uint256 internal immutable marketOpenTimestamp;
 
     uint256 internal constant BID_TIMELOCK = 30 days;
 
@@ -102,15 +102,20 @@ abstract contract NameManagerHub is IClusters {
     /// @dev Hook used to access cluster's _verifiedAddresses length to confirm cluster is valid before name transfer
     function _hookCheck(uint256 clusterId) internal virtual;
 
+    /// @dev Hook used to check if an address is either unverified or verified
+    function _hookCheck(uint256 clusterId, bytes32 addr) internal virtual;
+
     /// @notice Used to restrict external functions to
     modifier onlyEndpoint(bytes32 msgSender) {
         if (_addressToBytes32(msg.sender) != msgSender && msg.sender != endpoint) revert Unauthorized();
         _;
     }
 
-    constructor(address pricing_, address endpoint_) {
+    constructor(address pricing_, address endpoint_, uint256 marketOpenTimestamp_) {
+        if (marketOpenTimestamp_ < block.timestamp) revert Invalid();
         pricing = IPricing(pricing_);
         endpoint = endpoint_;
+        marketOpenTimestamp = marketOpenTimestamp_;
     }
 
     /// VIEW FUNCTIONS ///
@@ -123,7 +128,7 @@ abstract contract NameManagerHub is IClusters {
 
     /// ECONOMIC FUNCTIONS ///
 
-    /// @notice Buy unregistered name. Must pay at least minimum yearly payment.
+    /// @notice Buy unregistered name. Must pay at least minimum yearly payment
     /// @dev Processing is handled in overload
     function buyName(uint256 msgValue, string memory name) external payable returns (bytes memory) {
         buyName(_addressToBytes32(msg.sender), msgValue, name);
@@ -184,7 +189,7 @@ abstract contract NameManagerHub is IClusters {
         if (nameToClusterId[_name] == 0) revert Unregistered();
         nameBacking[_name] += msgValue;
         totalNameBacking += msgValue;
-        emit FundName(name, msgSender, msgValue);
+        emit FundName(_name, msgSender, msgValue);
 
         _checkInvariant();
 
@@ -201,14 +206,13 @@ abstract contract NameManagerHub is IClusters {
     }
 
     /// @notice transferName() overload used by endpoint, msgSender must be msg.sender or endpoint
-    function transferName(address msgSender, string memory name, uint256 toClusterId)
+    function transferName(bytes32 msgSender, string memory name, uint256 toClusterId)
         public
         payable
         onlyEndpoint(msgSender)
         returns (bytes memory payload)
     {
         _checkNameValid(name);
-        _checkZeroCluster(msgSender);
         _checkNameOwnership(msgSender, name);
         bytes32 _name = _stringToBytes32(name);
         uint256 fromClusterId = addressToClusterId[msgSender];
@@ -278,13 +282,9 @@ abstract contract NameManagerHub is IClusters {
             // Process price data update
             nameBacking[_name] -= spent;
             totalNameBacking -= spent;
-            protocolRevenue += spent;
-            priceIntegral[_name] = IClusters.PriceIntegral({
-                name: _name,
-                lastUpdatedTimestamp: block.timestamp,
-                lastUpdatedPrice: newPrice
-            });
-            emit PokeName(name);
+            protocolAccrual += spent;
+            priceIntegral[_name] =
+                IClusters.PriceIntegral({lastUpdatedTimestamp: block.timestamp, lastUpdatedPrice: newPrice});
         }
         emit PokeName(_name);
 
@@ -312,7 +312,6 @@ abstract contract NameManagerHub is IClusters {
         returns (bytes memory payload)
     {
         _checkNameValid(name);
-        _checkZeroCluster(msgSender);
         if (msgValue == 0) revert NoBid();
         bytes32 _name = _stringToBytes32(name);
         uint256 clusterId = nameToClusterId[_name];
@@ -429,14 +428,13 @@ abstract contract NameManagerHub is IClusters {
     }
 
     /// @notice acceptBid() overload used by endpoint, msgSender must be msg.sender or endpoint
-    function acceptBid(address msgSender, string memory name)
+    function acceptBid(bytes32 msgSender, string memory name)
         public
         payable
         onlyEndpoint(msgSender)
         returns (bytes memory payload)
     {
         _checkNameValid(name);
-        _checkZeroCluster(msgSender);
         _checkNameOwnership(msgSender, name);
         bytes32 _name = _stringToBytes32(name);
         Bid memory bid = bids[_name];
@@ -511,15 +509,17 @@ abstract contract NameManagerHub is IClusters {
     }
 
     /// @notice setWalletName() overload used by endpoint, msgSender must be msg.sender or endpoint
-    function setWalletName(address msgSender, address addr, string memory walletName)
+    function setWalletName(bytes32 msgSender, bytes32 addr, string memory walletName)
         public
         payable
         onlyEndpoint(msgSender)
         returns (bytes memory payload)
     {
+        uint256 clusterId = addressToClusterId[msgSender];
+        if (clusterId == 0) revert NoCluster();
         if (bytes(walletName).length > 32) revert LongName();
+        _hookCheck(clusterId, addr);
         bytes32 _walletName = _stringToBytes32(walletName);
-        if (clusterId != addressToClusterId[addr]) revert Unauthorized();
         if (bytes(walletName).length == 0) {
             _walletName = reverseLookup[addr];
             delete forwardLookup[clusterId][_walletName];
@@ -546,11 +546,7 @@ abstract contract NameManagerHub is IClusters {
 
     /// @dev Purge name-related state variables
     function _unassignName(bytes32 name, uint256 clusterId) internal {
-        nameToClusterId[name] = 0;
-        if (defaultClusterName[clusterId] == name) {
-            delete defaultClusterName[clusterId];
-            emit DefaultClusterName(bytes32(""), clusterId);
-        }
+        delete nameToClusterId[name];
         _clusterNames[clusterId].remove(name);
         // If name is default cluster name for clusterId, reassign to the name at index 0 in _clusterNames
         if (defaultClusterName[clusterId] == name) {

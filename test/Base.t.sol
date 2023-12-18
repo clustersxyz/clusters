@@ -4,14 +4,14 @@ pragma solidity ^0.8.23;
 import "../lib/LayerZero-v2/oapp/test/TestHelper.sol";
 import {Utils} from "./utils/Utils.sol";
 
-import {IPricing} from "../src/interfaces/IPricing.sol";
-import {IEndpoint} from "../src/interfaces/IEndpoint.sol";
-import {IClusters} from "../src/interfaces/IClusters.sol";
+import {IPricing} from "clusters/interfaces/IPricing.sol";
+import {IEndpoint} from "clusters/interfaces/IEndpoint.sol";
+import {IClusters} from "clusters/interfaces/IClusters.sol";
 
-import {PricingFlat} from "../src/PricingFlat.sol";
+import {PricingFlat} from "clusters/PricingFlat.sol";
 import {PricingHarbergerHarness} from "./harness/PricingHarbergerHarness.sol";
-import {Endpoint} from "../src/Endpoint.sol";
-import {Clusters} from "../src/Clusters.sol";
+import {Endpoint} from "clusters/Endpoint.sol";
+import {ClustersHub} from "clusters/ClustersHub.sol";
 
 import {FickleReceiver} from "./mocks/FickleReceiver.sol";
 import {Constants} from "./utils/Constants.sol";

@@ -1,37 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-interface IOApp {
-    function oAppVersion() external view returns (uint64 senderVersion, uint64 receiverVersion);
-    function allowInitializePath(Origin calldata origin) external view returns (bool);
-    function nextNonce(uint32 srcEid, bytes32 sender) external view returns (uint64 nonce);
-    function peers(uint32 eid) external view returns (bytes32 peer);
-
-    function setPeer(uint32 eid, bytes32 peer) external;
-    function setDelegate(address delegate) external;
-}
-
-interface IEndpoint is IOApp {
-    /// STRUCTS ///
-
-    struct Origin {
-        uint32 srcEid; // The source chain's Endpoint ID.
-        bytes32 sender; // The sending OApp address.
-        uint64 nonce; // The message nonce for the pathway.
-    }
-
-    struct MessagingFee {
-        uint256 nativeFee; // Fee amount in native gas token
-        uint256 lzTokenFee; // Fee amount in ZRO token
-    }
-
+interface IEndpoint {
     /// ERRORS ///
 
     error Invalid();
     error TxFailed();
     error RelayEid();
     error UnknownEid();
+    error Unauthorized();
     error Insufficient();
+    error MulticallFailed();
 
     /// EVENTS ///
 
@@ -91,5 +70,5 @@ interface IEndpoint is IOApp {
     /// LAYERZERO ///
 
     function setDstEid(uint32 eid) external;
-    function sendPayload(bytes calldata payload) external payable;
+    function sendPayload(bytes calldata payload) external payable returns (bytes memory result);
 }

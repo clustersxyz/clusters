@@ -1,11 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {Test, console2} from "../lib/forge-std/src/Test.sol";
-import {ClustersHub, NameManagerHub} from "../src/ClustersHub.sol";
-import {PricingHarberger} from "../src/PricingHarberger.sol";
-import {Endpoint} from "../src/Endpoint.sol";
-import {IClusters} from "../src/IClusters.sol";
+import {Base_Test} from "./Base.t.sol";
 
 import {IClusters} from "clusters/interfaces/IClusters.sol";
 

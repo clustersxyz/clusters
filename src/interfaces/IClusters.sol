@@ -30,11 +30,11 @@ interface IClusters {
     event DefaultClusterName(bytes32 indexed name, uint256 indexed clusterId);
     event SetWalletName(bytes32 indexed walletName, bytes32 indexed wallet);
 
-    event BidPlaced(bytes32 indexed name, address indexed bidder, uint256 indexed amount);
-    event BidRefunded(bytes32 indexed name, address indexed bidder, uint256 indexed amount);
-    event BidIncreased(bytes32 indexed name, address indexed bidder, uint256 indexed amount);
-    event BidReduced(bytes32 indexed name, address indexed bidder, uint256 indexed amount);
-    event BidRevoked(bytes32 indexed name, address indexed bidder, uint256 indexed amount);
+    event BidPlaced(bytes32 indexed name, bytes32 indexed bidder, uint256 indexed amount);
+    event BidRefunded(bytes32 indexed name, bytes32 indexed bidder, uint256 indexed amount);
+    event BidIncreased(bytes32 indexed name, bytes32 indexed bidder, uint256 indexed amount);
+    event BidReduced(bytes32 indexed name, bytes32 indexed bidder, uint256 indexed amount);
+    event BidRevoked(bytes32 indexed name, bytes32 indexed bidder, uint256 indexed amount);
 
     /// ERRORS ///
 
