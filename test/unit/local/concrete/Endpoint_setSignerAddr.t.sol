@@ -2,7 +2,7 @@
 pragma solidity ^0.8.23;
 
 import {PricingHarberger_Unit_Shared_Test} from "../shared/SharedPricingHarberger.t.sol";
-import {IClusters} from "../../../src/interfaces/IClusters.sol";
+import {IClusters} from "clusters/interfaces/IClusters.sol";
 
 contract Endpoint_setSignerAddr_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Test {
     function testSetSignerAddr() public {
@@ -18,7 +18,7 @@ contract Endpoint_setSignerAddr_Unit_Concrete_Test is PricingHarberger_Unit_Shar
     function testSetSignerAddr_RevertUnauthorized() public {
         address testAddr = constants.TEST_ADDRESS();
         vm.prank(users.hacker);
-        vm.expectRevert(IClusters.Unauthorized.selector);
+        vm.expectRevert("Ownable: caller is not the owner");
         endpoint.setSignerAddr(testAddr);
     }
 }

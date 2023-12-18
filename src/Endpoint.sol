@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {Ownable} from "../lib/solady/src/auth/Ownable.sol";
-import {IClusters} from "./interfaces/IClusters.sol";
+import {OApp, Origin, MessagingFee} from "../lib/LayerZero-v2/oapp/contracts/oapp/OApp.sol";
 import {IEndpoint} from "./interfaces/IEndpoint.sol";
 import {ECDSA} from "../lib/solady/src/utils/ECDSA.sol";
+import {EnumerableSetLib} from "./EnumerableSetLib.sol";
+import {console2} from "../lib/forge-std/src/Test.sol";
 
 interface IClustersEndpoint {
+    function noBridgeFundsReturn() external payable;
+
     function multicall(bytes[] calldata data) external payable returns (bytes[] memory results);
 
     function buyName(bytes32 msgSender, uint256 msgValue, string memory name) external payable;
@@ -18,18 +21,27 @@ interface IClustersEndpoint {
 
 // TODO: Make this a proxy contract to swap out logic, ownership can be reverted later
 
-contract Endpoint is Ownable, IEndpoint {
+contract Endpoint is OApp, IEndpoint {
+    using EnumerableSetLib for EnumerableSetLib.Bytes32Set;
+
     bytes4 internal constant _FULFILLORDERSIG =
         bytes4(keccak256("fulfillOrder(uint256,uint256,uint256,string,bytes,address)"));
     bytes4 internal constant _INVALIDATEORDERSIG = bytes4(keccak256("invalidateOrder(uint256)"));
     bytes4 internal constant _MULTICALL = bytes4(keccak256("multicall(bytes[])"));
 
+    uint32 public dstEid;
     address public clusters;
     address public signer;
-    mapping(bytes32 addr => uint256 nonce) public nonces;
+    mapping(bytes32 addr => uint256 nonce) public userNonces;
 
-    constructor(address owner_, address signer_) {
-        _initializeOwner(owner_);
+    EnumerableSetLib.Bytes32Set internal _dstEids;
+
+    modifier onlyClusters() {
+        if (msg.sender != clusters) revert Unauthorized();
+        _;
+    }
+
+    constructor(address owner_, address signer_, address lzEndpoint) OApp(lzEndpoint, owner_) {
         signer = signer_;
         emit SignerAddr(signer_);
     }
@@ -66,7 +78,7 @@ contract Endpoint is Ownable, IEndpoint {
         string memory name
     ) public view returns (bytes32) {
         bytes32 callerBytes = _addressToBytes32(msg.sender);
-        if (nonces[callerBytes] > nonce) return bytes32("");
+        if (userNonces[callerBytes] > nonce) return bytes32("");
         if (block.timestamp > expirationTimestamp) return bytes32("");
         return keccak256(abi.encodePacked(nonce, expirationTimestamp, ethAmount, bidder, _stringToBytes32(name)));
     }
@@ -85,7 +97,7 @@ contract Endpoint is Ownable, IEndpoint {
         address originator
     ) public view returns (bool) {
         if (sig.length == 0) return false;
-        if (nonces[_addressToBytes32(originator)] > nonce) return false;
+        if (userNonces[_addressToBytes32(originator)] > nonce) return false;
         if (block.timestamp > expirationTimestamp) return false;
         return _verify(getOrderHash(nonce, expirationTimestamp, ethAmount, bidder, name), sig, originator);
     }
@@ -119,15 +131,15 @@ contract Endpoint is Ownable, IEndpoint {
         {
             bytes32 originatorBytes = _addressToBytes32(originator);
             IClustersEndpoint(clusters).acceptBid{value: 0}(originatorBytes, name);
-            nonces[originatorBytes] = ++nonce;
+            userNonces[originatorBytes] = ++nonce;
             emit Nonce(originatorBytes, nonce);
         }
     }
 
     function invalidateOrder(uint256 nonce) external payable {
         bytes32 callerBytes = _addressToBytes32(msg.sender);
-        if (nonces[callerBytes] >= nonce) revert Invalid();
-        nonces[callerBytes] = nonce;
+        if (userNonces[callerBytes] >= nonce) revert Invalid();
+        userNonces[callerBytes] = nonce;
         emit Nonce(callerBytes, nonce);
     }
 
@@ -141,5 +153,71 @@ contract Endpoint is Ownable, IEndpoint {
     function setClustersAddr(address clusters_) external onlyOwner {
         clusters = clusters_;
         emit ClustersAddr(clusters_);
+    }
+
+    /// LAYERZERO FUNCTIONS ///
+
+    function setDstEid(uint32 eid) external onlyOwner {
+        if (!_dstEids.contains(bytes32(uint256(eid)))) revert UnknownEid();
+        dstEid = eid;
+    }
+
+    function setPeer(uint32 eid, bytes32 peer) public override onlyOwner {
+        if (peer == bytes32(0)) {
+            if (eid == dstEid) revert RelayEid();
+            if (_dstEids.contains(bytes32(uint256(eid)))) {
+                _dstEids.remove(bytes32(uint256(eid)));
+            }
+        } else {
+            if (!_dstEids.contains(bytes32(uint256(eid)))) {
+                _dstEids.add(bytes32(uint256(eid)));
+            }
+        }
+        super.setPeer(eid, peer);
+    }
+
+    function sendPayload(bytes calldata payload) external payable onlyClusters returns (bytes memory result) {
+        // TODO: Figure out how to assign these
+        bytes memory options;
+        MessagingFee memory fee;
+        address refundAddress;
+        result = _lzSend(payload, options, fee, refundAddress);
+        if (result.length == 0) {
+            IClustersEndpoint(clusters).noBridgeFundsReturn{value: msg.value}();
+        }
+    }
+
+    function _lzSend(bytes memory message, bytes memory options, MessagingFee memory fee, address refundAddress)
+        internal
+        returns (bytes memory)
+    {
+        // Short-circuit if dstEid isn't set for local-only functionality
+        if (dstEid == 0) return bytes("");
+        // All endpoints only have one of two send paths: ETH -> Relay, Any -> ETH
+        return abi.encode(_lzSend(dstEid, message, options, fee, refundAddress));
+    }
+
+    function _lzReceive(
+        Origin calldata origin,
+        bytes32 guid,
+        bytes calldata payload,
+        address executor,
+        bytes calldata extraData
+    ) internal override {
+        // Only the relay chain will receive from Ethereum Mainnet, so if it does, relay to all other chains
+        if (origin.srcEid == 30101) _relayMessage(payload);
+        (bool success,) = clusters.call{value: msg.value}(payload);
+        if (!success) revert TxFailed();
+    }
+
+    function _relayMessage(bytes calldata payload) internal {
+        bytes32[] memory dstEids = _dstEids.values();
+        for (uint256 i; i < dstEids.length; ++i) {
+            // TODO: Figure out how to assign these
+            bytes memory options;
+            MessagingFee memory fee;
+            address refundAddress;
+            _lzSend(uint32(uint256(dstEids[i])), payload, options, fee, refundAddress);
+        }
     }
 }

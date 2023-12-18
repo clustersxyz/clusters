@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import "../lib/forge-std/src/Test.sol";
-import {EnumerableSetLib} from "../src/EnumerableSetLib.sol";
-import {LibSort} from "../lib/solady/src/utils/LibSort.sol";
-import {LibPRNG} from "../lib/solady/src/utils/LibPRNG.sol";
+import "forge-std/Test.sol";
+import {EnumerableSetLib} from "clusters/EnumerableSetLib.sol";
+import {LibSort} from "solady/utils/LibSort.sol";
+import {LibPRNG} from "solady/utils/LibPRNG.sol";
 
 contract EnumerableSetLibTest is Test {
     using EnumerableSetLib for *;

@@ -1,24 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {Test, console2} from "forge-std/Test.sol";
+import "../lib/LayerZero-v2/oapp/test/TestHelper.sol";
 import {Utils} from "./utils/Utils.sol";
 
-import {IPricing} from "../src/interfaces/IPricing.sol";
-import {IEndpoint} from "../src/interfaces/IEndpoint.sol";
-import {IClusters} from "../src/interfaces/IClusters.sol";
+import {IPricing} from "clusters/interfaces/IPricing.sol";
+import {IEndpoint} from "clusters/interfaces/IEndpoint.sol";
+import {IClusters} from "clusters/interfaces/IClusters.sol";
 
-import {PricingFlat} from "../src/PricingFlat.sol";
+import {PricingFlat} from "clusters/PricingFlat.sol";
 import {PricingHarbergerHarness} from "./harness/PricingHarbergerHarness.sol";
-import {Endpoint} from "../src/Endpoint.sol";
-import {Clusters} from "../src/Clusters.sol";
+import {Endpoint} from "clusters/Endpoint.sol";
+import {ClustersHub} from "clusters/ClustersHub.sol";
 
 import {FickleReceiver} from "./mocks/FickleReceiver.sol";
 import {Constants} from "./utils/Constants.sol";
 import {Users} from "./utils/Types.sol";
 import {EnumerableSet} from "../lib/openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
+import {console2} from "forge-std/Test.sol";
 
-abstract contract Base_Test is Test, Utils {
+abstract contract Base_Test is TestHelper, Utils {
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
     /// VARIABLES ///
@@ -59,21 +60,23 @@ abstract contract Base_Test is Test, Utils {
 
     /// SETUP ///
 
-    function setUp() public virtual {
+    function setUp() public virtual override {
+        super.setUp();
         constants = new Constants();
+        uint256 fundingAmount = constants.USERS_FUNDING_AMOUNT();
         fickleReceiver = new FickleReceiver();
-        vm.deal(address(fickleReceiver), constants.USERS_FUNDING_AMOUNT());
+        vm.deal(address(fickleReceiver), fundingAmount);
 
         users = Users({
             signerPrivKey: 0,
             signer: payable(address(0)),
             adminEndpoint: createUser("Endpoint Admin"),
-            alicePrimary: createAndFundUser("Alice (Primary)", constants.USERS_FUNDING_AMOUNT()),
-            aliceSecondary: createAndFundUser("Alice (Secondary)", constants.USERS_FUNDING_AMOUNT()),
-            bobPrimary: createAndFundUser("Bob (Primary)", constants.USERS_FUNDING_AMOUNT()),
-            bobSecondary: createAndFundUser("Bob (Secondary)", constants.USERS_FUNDING_AMOUNT()),
-            bidder: createAndFundUser("Bidder", constants.USERS_FUNDING_AMOUNT()),
-            hacker: createAndFundUser("Malicious User", constants.USERS_FUNDING_AMOUNT())
+            alicePrimary: createAndFundUser("Alice (Primary)", fundingAmount),
+            aliceSecondary: createAndFundUser("Alice (Secondary)", fundingAmount),
+            bobPrimary: createAndFundUser("Bob (Primary)", fundingAmount),
+            bobSecondary: createAndFundUser("Bob (Secondary)", fundingAmount),
+            bidder: createAndFundUser("Bidder", fundingAmount),
+            hacker: createAndFundUser("Malicious User", fundingAmount)
         });
         (users.signerPrivKey, users.signer) = createUserWithPrivKey("Signer");
 
@@ -82,22 +85,28 @@ abstract contract Base_Test is Test, Utils {
 
     /// DEPLOY ///
 
-    function deployLocalFlat() internal {
+    function deployLocalFlat(address lzEndpoint) internal {
         pricingFlat = new PricingFlat();
         minPrice = pricingFlat.minAnnualPrice();
-        endpoint = new Endpoint(users.adminEndpoint, users.signer);
-        clusters = new Clusters(address(pricingFlat), address(endpoint), constants.MARKET_OPEN_TIMESTAMP());
+        endpoint = new Endpoint(users.adminEndpoint, users.signer, lzEndpoint);
+        clusters = new ClustersHub(address(pricingFlat), address(endpoint), constants.MARKET_OPEN_TIMESTAMP());
         vm.prank(users.adminEndpoint);
         endpoint.setClustersAddr(address(clusters));
     }
 
-    function deployLocalHarberger() internal {
+    function deployLocalHarberger(address lzEndpoint) internal {
         pricingHarberger = new PricingHarbergerHarness(block.timestamp);
         minPrice = pricingHarberger.minAnnualPrice();
-        endpoint = new Endpoint(users.adminEndpoint, users.signer);
-        clusters = new Clusters(address(pricingHarberger), address(endpoint), constants.MARKET_OPEN_TIMESTAMP());
+        endpoint = new Endpoint(users.adminEndpoint, users.signer, lzEndpoint);
+        clusters = new ClustersHub(address(pricingHarberger), address(endpoint), constants.MARKET_OPEN_TIMESTAMP());
         vm.prank(users.adminEndpoint);
         endpoint.setClustersAddr(address(clusters));
+    }
+
+    /// LAYERZERO ///
+
+    function setUpLZEndpoints(uint8 num) internal {
+        setUpEndpoints(num, LibraryType.UltraLightNode);
     }
 
     /// ASSERT HELPERS ///

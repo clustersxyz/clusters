@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {FixedPointMathLib as F} from "../lib/solady/src/utils/FixedPointMathLib.sol";
+import {FixedPointMathLib as F} from "solady/utils/FixedPointMathLib.sol";
 
-import {IPricing} from "./interfaces/IPricing.sol";
+import {IPricing} from "clusters/interfaces/IPricing.sol";
 
 import {console2} from "forge-std/console2.sol";
 
