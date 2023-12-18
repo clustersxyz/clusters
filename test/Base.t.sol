@@ -63,19 +63,20 @@ abstract contract Base_Test is TestHelper, Utils {
     function setUp() public virtual override {
         super.setUp();
         constants = new Constants();
+        uint256 fundingAmount = constants.USERS_FUNDING_AMOUNT();
         fickleReceiver = new FickleReceiver();
-        vm.deal(address(fickleReceiver), constants.USERS_FUNDING_AMOUNT());
+        vm.deal(address(fickleReceiver), fundingAmount);
 
         users = Users({
             signerPrivKey: 0,
             signer: payable(address(0)),
             adminEndpoint: createUser("Endpoint Admin"),
-            alicePrimary: createAndFundUser("Alice (Primary)", constants.USERS_FUNDING_AMOUNT()),
-            aliceSecondary: createAndFundUser("Alice (Secondary)", constants.USERS_FUNDING_AMOUNT()),
-            bobPrimary: createAndFundUser("Bob (Primary)", constants.USERS_FUNDING_AMOUNT()),
-            bobSecondary: createAndFundUser("Bob (Secondary)", constants.USERS_FUNDING_AMOUNT()),
-            bidder: createAndFundUser("Bidder", constants.USERS_FUNDING_AMOUNT()),
-            hacker: createAndFundUser("Malicious User", constants.USERS_FUNDING_AMOUNT())
+            alicePrimary: createAndFundUser("Alice (Primary)", fundingAmount),
+            aliceSecondary: createAndFundUser("Alice (Secondary)", fundingAmount),
+            bobPrimary: createAndFundUser("Bob (Primary)", fundingAmount),
+            bobSecondary: createAndFundUser("Bob (Secondary)", fundingAmount),
+            bidder: createAndFundUser("Bidder", fundingAmount),
+            hacker: createAndFundUser("Malicious User", fundingAmount)
         });
         (users.signerPrivKey, users.signer) = createUserWithPrivKey("Signer");
 
