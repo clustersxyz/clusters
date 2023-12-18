@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {PricingHarberger} from "../../src/PricingHarberger.sol";
+import {PricingHarberger} from "clusters/PricingHarberger.sol";
 
 contract PricingHarbergerHarness is PricingHarberger {
     constructor(uint256 _protocolDeployTimestamp) PricingHarberger(_protocolDeployTimestamp) {}

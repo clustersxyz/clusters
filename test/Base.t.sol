@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {Test, console2} from "forge-std/Test.sol";
+import "../lib/LayerZero-v2/oapp/test/TestHelper.sol";
 import {Utils} from "./utils/Utils.sol";
 
 import {IPricing} from "../src/interfaces/IPricing.sol";
@@ -17,14 +17,12 @@ import {FickleReceiver} from "./mocks/FickleReceiver.sol";
 import {Constants} from "./utils/Constants.sol";
 import {Users} from "./utils/Types.sol";
 import {EnumerableSet} from "../lib/openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
+import {console2} from "forge-std/Test.sol";
 
-abstract contract Base_Test is Test, Utils {
+abstract contract Base_Test is TestHelper, Utils {
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
     /// VARIABLES ///
-
-    // TODO: UPDATE LAYERZERO ENDPOINT HANDLING
-    address internal constant LAYERZERO = address(uint160(uint256(keccak256(abi.encodePacked("LAYERZERO")))));
 
     Users internal users;
     uint256 internal minPrice;
@@ -62,7 +60,8 @@ abstract contract Base_Test is Test, Utils {
 
     /// SETUP ///
 
-    function setUp() public virtual {
+    function setUp() public virtual override {
+        super.setUp();
         constants = new Constants();
         uint256 fundingAmount = constants.USERS_FUNDING_AMOUNT();
         fickleReceiver = new FickleReceiver();
@@ -86,22 +85,28 @@ abstract contract Base_Test is Test, Utils {
 
     /// DEPLOY ///
 
-    function deployLocalFlat() internal {
+    function deployLocalFlat(address lzEndpoint) internal {
         pricingFlat = new PricingFlat();
         minPrice = pricingFlat.minAnnualPrice();
-        endpoint = new Endpoint(users.adminEndpoint, users.signer, LAYERZERO);
+        endpoint = new Endpoint(users.adminEndpoint, users.signer, lzEndpoint);
         clusters = new ClustersHub(address(pricingFlat), address(endpoint), constants.MARKET_OPEN_TIMESTAMP());
         vm.prank(users.adminEndpoint);
         endpoint.setClustersAddr(address(clusters));
     }
 
-    function deployLocalHarberger() internal {
+    function deployLocalHarberger(address lzEndpoint) internal {
         pricingHarberger = new PricingHarbergerHarness(block.timestamp);
         minPrice = pricingHarberger.minAnnualPrice();
-        endpoint = new Endpoint(users.adminEndpoint, users.signer, LAYERZERO);
+        endpoint = new Endpoint(users.adminEndpoint, users.signer, lzEndpoint);
         clusters = new ClustersHub(address(pricingHarberger), address(endpoint), constants.MARKET_OPEN_TIMESTAMP());
         vm.prank(users.adminEndpoint);
         endpoint.setClustersAddr(address(clusters));
+    }
+
+    /// LAYERZERO ///
+
+    function setUpLZEndpoints(uint8 num) internal {
+        setUpEndpoints(num, LibraryType.UltraLightNode);
     }
 
     /// ASSERT HELPERS ///
