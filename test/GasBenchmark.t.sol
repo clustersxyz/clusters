@@ -7,24 +7,13 @@ import {PricingHarberger} from "../src/PricingHarberger.sol";
 import {Endpoint} from "../src/Endpoint.sol";
 import {IClusters} from "../src/IClusters.sol";
 
-contract GasBenchmarkTest is Test {
-    address constant LZENDPOINT = address(uint160(uint256(keccak256(abi.encode("lzEndpoint")))));
+import {IClusters} from "clusters/interfaces/IClusters.sol";
 
-    PricingHarberger public pricing;
-    Endpoint public endpoint;
-    ClustersHub public clusters;
-    uint256 public minPrice;
-
-    function setUp() public {
-        pricing = new PricingHarberger();
-        endpoint = new Endpoint(LZENDPOINT);
-        clusters = new ClustersHub(address(pricing), address(endpoint));
-        minPrice = pricing.minAnnualPrice();
-        vm.deal(address(this), 1 ether);
-    }
-
-    function _bytesToAddress(bytes32 _fuzzedBytes) internal pure returns (address) {
-        return address(uint160(uint256(keccak256(abi.encode(_fuzzedBytes)))));
+contract GasBenchmarkTest is Base_Test {
+    function setUp() public virtual override {
+        Base_Test.setUp();
+        setUpLZEndpoints(1);
+        deployLocalHarberger(endpoints[1]);
     }
 
     function testBenchmark() public {

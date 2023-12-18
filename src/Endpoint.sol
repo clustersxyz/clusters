@@ -8,6 +8,8 @@ import {EnumerableSetLib} from "./EnumerableSetLib.sol";
 import {console2} from "../lib/forge-std/src/Test.sol";
 
 interface IClustersEndpoint {
+    function noBridgeFundsReturn() external payable;
+
     function multicall(bytes[] calldata data) external payable returns (bytes[] memory results);
 
     function buyName(bytes32 msgSender, uint256 msgValue, string memory name) external payable;
@@ -192,16 +194,20 @@ contract Endpoint is OApp, IEndpoint {
         bytes memory options;
         MessagingFee memory fee;
         address refundAddress;
-        _lzSend(payload, options, fee, refundAddress);
+        result = _lzSend(payload, options, fee, refundAddress);
+        if (result.length == 0) {
+            IClustersEndpoint(clusters).noBridgeFundsReturn{value: msg.value}();
+        }
     }
 
     function _lzSend(bytes memory message, bytes memory options, MessagingFee memory fee, address refundAddress)
         internal
         returns (MessagingReceipt memory receipt)
     {
+        // Short-circuit if dstEid isn't set for local-only functionality
+        if (dstEid == 0) return bytes("");
         // All endpoints only have one of two send paths: ETH -> Relay, Any -> ETH
-        if (peers[_dstEid] == bytes32(0)) return;
-        _lzSend(dstEid, message, options, fee, refundAddress);
+        return abi.encode(_lzSend(dstEid, message, options, fee, refundAddress));
     }
 
     function _lzReceive(

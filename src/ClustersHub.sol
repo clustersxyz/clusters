@@ -141,6 +141,10 @@ contract ClustersHub is NameManagerHub {
         else IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
     }
 
+    function noBridgeFundsReturn() external payable {
+        if (msg.sender != endpoint) revert Unauthorized();
+    }
+
     /// INTERNAL FUNCTIONS ///
 
     function _add(address addr, uint256 clusterId) internal {
