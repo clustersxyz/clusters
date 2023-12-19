@@ -75,14 +75,14 @@ contract ClustersSpoke is NameManagerSpoke {
                     _transferName(names[i], currentClusterId, clusterId);
                 }
             }
-            _remove(msgSender);
+            _remove(msgSender, currentClusterId);
         }
         _verify(msgSender, clusterId);
         return bytes("");
     }
 
     function remove(bytes32 msgSender, bytes32 addr) public payable onlyEndpoint returns (bytes memory) {
-        _remove(addr);
+        _remove(addr, addressToClusterId[msgSender]);
         return bytes("");
     }
 
@@ -100,14 +100,16 @@ contract ClustersSpoke is NameManagerSpoke {
         emit Verify(clusterId, addr);
     }
 
-    function _remove(bytes32 addr) internal {
-        uint256 clusterId = addressToClusterId[addr];
-        delete addressToClusterId[addr];
-        _verifiedAddresses[clusterId].remove(addr);
-        bytes32 walletName = reverseLookup[addr];
-        if (walletName != bytes32("")) {
-            delete forwardLookup[clusterId][walletName];
-            delete reverseLookup[addr];
+    function _remove(bytes32 addr, uint256 clusterId) internal {
+        _unverifiedAddresses[clusterId].remove(addr);
+        if (addressToClusterId[addr] == clusterId) {
+            delete addressToClusterId[addr];
+            _verifiedAddresses[clusterId].remove(addr);
+            bytes32 walletName = reverseLookup[addr];
+            if (walletName != bytes32("")) {
+                delete forwardLookup[clusterId][walletName];
+                delete reverseLookup[addr];
+            }
         }
         emit Remove(clusterId, addr);
     }
@@ -121,7 +123,7 @@ contract ClustersSpoke is NameManagerSpoke {
     function _hookDelete(uint256 clusterId) internal override {
         bytes32[] memory addresses = _verifiedAddresses[clusterId].values();
         for (uint256 i; i < addresses.length; ++i) {
-            _remove(addresses[i]);
+            _remove(addresses[i], clusterId);
         }
         emit Delete(clusterId);
     }

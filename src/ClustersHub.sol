@@ -109,7 +109,7 @@ contract ClustersHub is NameManagerHub {
                     _transferName(names[i], currentClusterId, clusterId);
                 }
             }
-            _remove(msgSender);
+            _remove(msgSender, currentClusterId);
         }
         _verify(msgSender, clusterId);
 
@@ -126,10 +126,11 @@ contract ClustersHub is NameManagerHub {
     {
         uint256 clusterId = addressToClusterId[msgSender];
         if (clusterId == 0) revert NoCluster();
-        if (clusterId != addressToClusterId[addr]) revert Unauthorized();
         // If the cluster has valid names, prevent removing final address, regardless of what is supplied for addr
-        if (_clusterNames[clusterId].length() > 0 && _verifiedAddresses[clusterId].length() == 1) revert Invalid();
-        _remove(addr);
+        if (_verifiedAddresses[clusterId].contains(addr)) {
+            if (_clusterNames[clusterId].length() > 0 && _verifiedAddresses[clusterId].length() == 1) revert Invalid();
+        }
+        _remove(addr, clusterId);
 
         payload = abi.encodeWithSignature("remove(bytes32,bytes32)", msgSender, addr);
         if (_inMulticall) return payload;
@@ -150,14 +151,16 @@ contract ClustersHub is NameManagerHub {
         emit Verify(clusterId, addr);
     }
 
-    function _remove(bytes32 addr) internal {
-        uint256 clusterId = addressToClusterId[addr];
-        delete addressToClusterId[addr];
-        _verifiedAddresses[clusterId].remove(addr);
-        bytes32 walletName = reverseLookup[addr];
-        if (walletName != bytes32("")) {
-            delete forwardLookup[clusterId][walletName];
-            delete reverseLookup[addr];
+    function _remove(bytes32 addr, uint256 clusterId) internal {
+        _unverifiedAddresses[clusterId].remove(addr);
+        if (addressToClusterId[addr] == clusterId) {
+            delete addressToClusterId[addr];
+            _verifiedAddresses[clusterId].remove(addr);
+            bytes32 walletName = reverseLookup[addr];
+            if (walletName != bytes32("")) {
+                delete forwardLookup[clusterId][walletName];
+                delete reverseLookup[addr];
+            }
         }
         emit Remove(clusterId, addr);
     }
@@ -171,7 +174,7 @@ contract ClustersHub is NameManagerHub {
     function _hookDelete(uint256 clusterId) internal override {
         bytes32[] memory addresses = _verifiedAddresses[clusterId].values();
         for (uint256 i; i < addresses.length; ++i) {
-            _remove(addresses[i]);
+            _remove(addresses[i], clusterId);
         }
         emit Delete(clusterId);
     }
