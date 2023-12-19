@@ -2,7 +2,7 @@
 pragma solidity ^0.8.23;
 
 import {PricingHarberger_Unit_Shared_Test} from "../shared/SharedPricingHarberger.t.sol";
-import {IClusters} from "clusters/interfaces/IClusters.sol";
+import {IClustersHub} from "clusters/interfaces/IClustersHub.sol";
 
 contract Clusters_acceptBid_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Test {
     function setUp() public virtual override {
@@ -46,22 +46,22 @@ contract Clusters_acceptBid_Unit_Concrete_Test is PricingHarberger_Unit_Shared_T
         string memory testName = constants.TEST_NAME();
         vm.startPrank(users.hacker);
 
-        vm.expectRevert(IClusters.EmptyName.selector);
+        vm.expectRevert(IClustersHub.EmptyName.selector);
         clusters.acceptBid("");
-        vm.expectRevert(IClusters.LongName.selector);
+        vm.expectRevert(IClustersHub.LongName.selector);
         clusters.acceptBid("Privacy is necessary for an open society in the electronic age.");
 
-        vm.expectRevert(IClusters.NoCluster.selector);
+        vm.expectRevert(IClustersHub.NoCluster.selector);
         clusters.acceptBid(testName);
         vm.stopPrank();
 
         vm.startPrank(users.bobPrimary);
-        vm.expectRevert(IClusters.Unauthorized.selector);
+        vm.expectRevert(IClustersHub.Unauthorized.selector);
         clusters.acceptBid(testName);
-        vm.expectRevert(IClusters.Unauthorized.selector);
+        vm.expectRevert(IClustersHub.Unauthorized.selector);
         clusters.acceptBid(_addressToBytes32(users.alicePrimary), testName);
 
-        vm.expectRevert(IClusters.NoBid.selector);
+        vm.expectRevert(IClustersHub.NoBid.selector);
         clusters.acceptBid("zodomo");
         vm.stopPrank();
 
@@ -73,7 +73,7 @@ contract Clusters_acceptBid_Unit_Concrete_Test is PricingHarberger_Unit_Shared_T
         clusters.bidName{value: minPrice * 3}(minPrice * 3, "FOOBAR");
 
         data = abi.encodeWithSignature("acceptBid(string)", "FOOBAR");
-        vm.expectRevert(IClusters.NativeTokenTransferFailed.selector);
+        vm.expectRevert(IClustersHub.NativeTokenTransferFailed.selector);
         fickleReceiver.execute(address(clusters), 0, data);
     }
 }

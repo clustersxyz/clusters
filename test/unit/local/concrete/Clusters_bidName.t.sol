@@ -2,7 +2,7 @@
 pragma solidity ^0.8.23;
 
 import {PricingHarberger_Unit_Shared_Test} from "../shared/SharedPricingHarberger.t.sol";
-import {IClusters} from "clusters/interfaces/IClusters.sol";
+import {IClustersHub} from "clusters/interfaces/IClustersHub.sol";
 
 contract Clusters_bidName_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Test {
     function setUp() public virtual override {
@@ -81,28 +81,28 @@ contract Clusters_bidName_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Tes
     function testBidName_Reverts() public {
         string memory testName = constants.TEST_NAME();
         vm.startPrank(users.alicePrimary);
-        vm.expectRevert(IClusters.EmptyName.selector);
+        vm.expectRevert(IClustersHub.EmptyName.selector);
         clusters.bidName{value: minPrice}(minPrice, "");
-        vm.expectRevert(IClusters.LongName.selector);
+        vm.expectRevert(IClustersHub.LongName.selector);
         clusters.bidName{value: minPrice}(minPrice, "Privacy is necessary for an open society in the electronic age.");
 
-        vm.expectRevert(IClusters.NoBid.selector);
+        vm.expectRevert(IClustersHub.NoBid.selector);
         clusters.bidName{value: 0}(0, "zodomo");
-        vm.expectRevert(IClusters.SelfBid.selector);
+        vm.expectRevert(IClustersHub.SelfBid.selector);
         clusters.bidName{value: minPrice}(minPrice, testName);
 
-        vm.expectRevert(IClusters.Unregistered.selector);
+        vm.expectRevert(IClustersHub.Unregistered.selector);
         clusters.bidName{value: minPrice}(minPrice, "FOOBAR");
-        vm.expectRevert(IClusters.Insufficient.selector);
+        vm.expectRevert(IClustersHub.Insufficient.selector);
         clusters.bidName{value: minPrice - 1}(minPrice - 1, "zodomo");
 
-        vm.expectRevert(IClusters.BadInvariant.selector);
+        vm.expectRevert(IClustersHub.BadInvariant.selector);
         clusters.bidName{value: minPrice}(minPrice + 1, "zodomo");
         clusters.bidName{value: minPrice * 2}(minPrice * 2, "zodomo");
         vm.stopPrank();
 
         vm.prank(users.bidder);
-        vm.expectRevert(IClusters.Insufficient.selector);
+        vm.expectRevert(IClustersHub.Insufficient.selector);
         clusters.bidName{value: minPrice}(minPrice, "zodomo");
     }
 }

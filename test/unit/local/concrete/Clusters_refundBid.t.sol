@@ -2,7 +2,7 @@
 pragma solidity ^0.8.23;
 
 import {PricingHarberger_Unit_Shared_Test} from "../shared/SharedPricingHarberger.t.sol";
-import {IClusters} from "clusters/interfaces/IClusters.sol";
+import {IClustersHub} from "clusters/interfaces/IClustersHub.sol";
 
 contract Clusters_refundBid_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Test {
     function setUp() public virtual override {
@@ -56,14 +56,14 @@ contract Clusters_refundBid_Unit_Concrete_Test is PricingHarberger_Unit_Shared_T
         fickleReceiver.toggle();
         vm.startPrank(users.alicePrimary);
         clusters.transferName(constants.TEST_NAME(), 0);
-        vm.expectRevert(IClusters.NoBid.selector);
+        vm.expectRevert(IClustersHub.NoBid.selector);
         clusters.refundBid();
-        vm.expectRevert(IClusters.Unauthorized.selector);
+        vm.expectRevert(IClustersHub.Unauthorized.selector);
         clusters.refundBid(_addressToBytes32(address(fickleReceiver)));
         vm.stopPrank();
 
         bytes memory data = abi.encodeWithSignature("refundBid()");
-        vm.expectRevert(IClusters.NativeTokenTransferFailed.selector);
+        vm.expectRevert(IClustersHub.NativeTokenTransferFailed.selector);
         fickleReceiver.execute(address(clusters), 0, data);
     }
 }

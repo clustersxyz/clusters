@@ -2,7 +2,7 @@
 pragma solidity ^0.8.23;
 
 import {PricingHarberger_Unit_Shared_Test} from "../shared/SharedPricingHarberger.t.sol";
-import {IClusters} from "clusters/interfaces/IClusters.sol";
+import {IClustersHub} from "clusters/interfaces/IClustersHub.sol";
 
 contract Clusters_multicall_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Test {
     function setUp() public virtual override {
@@ -14,7 +14,7 @@ contract Clusters_multicall_Unit_Concrete_Test is PricingHarberger_Unit_Shared_T
         bytes[] memory data = new bytes[](1);
         data[0] = abi.encodeWithSignature("verify(uint256)", 1);
         vm.prank(users.alicePrimary);
-        vm.expectRevert(IClusters.MulticallFailed.selector);
+        vm.expectRevert(IClustersHub.MulticallFailed.selector);
         clusters.multicall(data);
     }
 }

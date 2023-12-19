@@ -2,7 +2,7 @@
 pragma solidity ^0.8.23;
 
 import {PricingHarberger_Unit_Shared_Test} from "../shared/SharedPricingHarberger.t.sol";
-import {IClusters} from "clusters/interfaces/IClusters.sol";
+import {IClustersHub} from "clusters/interfaces/IClustersHub.sol";
 
 contract Clusters_pokeName_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Test {
     function setUp() public virtual override {
@@ -55,12 +55,12 @@ contract Clusters_pokeName_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Te
 
     function testPokeName_Reverts() public {
         vm.startPrank(users.alicePrimary);
-        vm.expectRevert(IClusters.EmptyName.selector);
+        vm.expectRevert(IClustersHub.EmptyName.selector);
         clusters.pokeName("");
-        vm.expectRevert(IClusters.LongName.selector);
+        vm.expectRevert(IClustersHub.LongName.selector);
         clusters.pokeName("Privacy is necessary for an open society in the electronic age.");
 
-        vm.expectRevert(IClusters.Unregistered.selector);
+        vm.expectRevert(IClustersHub.Unregistered.selector);
         clusters.pokeName("FOOBAR");
         vm.stopPrank();
     }

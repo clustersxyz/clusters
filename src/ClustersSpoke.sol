@@ -3,18 +3,20 @@ pragma solidity ^0.8.23;
 
 // Follow https://docs.soliditylang.org/en/latest/style-guide.html for style
 
-import {EnumerableSetLib} from "clusters/EnumerableSetLib.sol";
+import {EnumerableSetLib} from "./EnumerableSetLib.sol";
 
 import {NameManagerSpoke} from "./NameManagerSpoke.sol";
 
-import {IClusters} from "clusters/interfaces/IClusters.sol";
+import {IClustersHub} from "./interfaces/IClustersHub.sol";
 
-import {IEndpoint} from "clusters/interfaces/IEndpoint.sol";
+import {IEndpoint} from "./interfaces/IEndpoint.sol";
 
 import {console2} from "forge-std/Test.sol";
 
 contract ClustersSpoke is NameManagerSpoke {
     using EnumerableSetLib for EnumerableSetLib.Bytes32Set;
+
+    uint256 public nextClusterId = 1;
 
     /// @dev Enumerates all unverified addresses in a cluster
     mapping(uint256 clusterId => EnumerableSetLib.Bytes32Set addrs) internal _unverifiedAddresses;
@@ -23,11 +25,12 @@ contract ClustersSpoke is NameManagerSpoke {
     mapping(uint256 clusterId => EnumerableSetLib.Bytes32Set addrs) internal _verifiedAddresses;
 
     constructor(address pricing_, address endpoint_, uint256 marketOpenTimestamp_)
-        NameManagerHub(pricing_, endpoint_, marketOpenTimestamp_)
+        NameManagerSpoke(pricing_, endpoint_, marketOpenTimestamp_)
     {}
 
     /// USER-FACING FUNCTIONS ///
 
+    // TODO: Determine if Endpoint will use this or remove it
     function multicall(bytes[] calldata data) external payable returns (bytes[] memory results) {
         if (msg.sender != endpoint) _inMulticall = true;
         results = new bytes[](data.length);
@@ -47,28 +50,6 @@ contract ClustersSpoke is NameManagerSpoke {
         }
     }
 
-    function add(bytes32 addr) public payable returns (bytes memory payload) {
-        payload = abi.encodeWithSignature("add(bytes32,bytes32)", _addressToBytes32(msg.sender), addr);
-        if (_inMulticall) return payload;
-        else return IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
-    }
-
-    function verify(uint256 clusterId)
-        public
-        payable
-        returns (bytes memory payload)
-    {
-        payload = abi.encodeWithSignature("verify(bytes32,uint256)", _addressToBytes32(msg.sender), clusterId);
-        if (_inMulticall) return payload;
-        else return IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
-    }
-
-    function remove(bytes32 addr) public payable returns (bytes memory payload) {
-        payload = abi.encodeWithSignature("remove(bytes32,bytes32)", _addressToBytes32(msg.sender), addr);
-        if (_inMulticall) return payload;
-        else return IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
-    }
-
     function getUnverifiedAddresses(uint256 clusterId) external view returns (bytes32[] memory) {
         return _unverifiedAddresses[clusterId].values();
     }
@@ -84,12 +65,7 @@ contract ClustersSpoke is NameManagerSpoke {
         return bytes("");
     }
 
-    function verify(bytes32 msgSender, uint256 clusterId)
-        public
-        payable
-        onlyEndpoint
-        returns (bytes memory payload)
-    {
+    function verify(bytes32 msgSender, uint256 clusterId) public payable onlyEndpoint returns (bytes memory payload) {
         uint256 currentClusterId = addressToClusterId[msgSender];
         if (currentClusterId != 0) {
             // If msgSender is the last address in their cluster, take all of their names with them
@@ -105,7 +81,7 @@ contract ClustersSpoke is NameManagerSpoke {
         return bytes("");
     }
 
-    function remove(address msgSender, address addr) public payable onlyEndpoint returns (bytes memory) {
+    function remove(bytes32 msgSender, bytes32 addr) public payable onlyEndpoint returns (bytes memory) {
         _remove(addr);
         return bytes("");
     }

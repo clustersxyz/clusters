@@ -6,7 +6,7 @@ import {Utils} from "./utils/Utils.sol";
 
 import {IPricing} from "clusters/interfaces/IPricing.sol";
 import {IEndpoint} from "clusters/interfaces/IEndpoint.sol";
-import {IClusters} from "clusters/interfaces/IClusters.sol";
+import {IClustersHub} from "clusters/interfaces/IClustersHub.sol";
 
 import {PricingFlat} from "clusters/PricingFlat.sol";
 import {PricingHarbergerHarness} from "./harness/PricingHarbergerHarness.sol";
@@ -34,7 +34,7 @@ abstract contract Base_Test is TestHelper, Utils {
     PricingFlat internal pricingFlat;
     PricingHarbergerHarness internal pricingHarberger;
     IEndpoint internal endpoint;
-    IClusters internal clusters;
+    IClustersHub internal clusters;
     FickleReceiver internal fickleReceiver;
 
     /// USER HELPERS ///

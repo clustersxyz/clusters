@@ -7,7 +7,7 @@ import {ECDSA} from "solady/utils/ECDSA.sol";
 import {EnumerableSetLib} from "./EnumerableSetLib.sol";
 import {console2} from "forge-std/Test.sol";
 
-interface IClustersEndpoint {
+interface IClustersHubEndpoint {
     function noBridgeFundsReturn() external payable;
 
     function multicall(bytes[] calldata data) external payable returns (bytes[] memory results);
@@ -113,7 +113,7 @@ contract Endpoint is OApp, IEndpoint {
     // and pay ClustersHub.sol accordingly per call
     function multicall(bytes[] calldata data, bytes calldata sig) external payable returns (bytes[] memory results) {
         if (!verifyMulticall(data, sig)) revert ECDSA.InvalidSignature();
-        results = IClustersEndpoint(clusters).multicall{value: msg.value}(data);
+        results = IClustersHubEndpoint(clusters).multicall{value: msg.value}(data);
     }
 
     function fulfillOrder(
@@ -126,14 +126,14 @@ contract Endpoint is OApp, IEndpoint {
         address originator
     ) external payable {
         bool isValid = verifyOrder(nonce, expirationTimestamp, msgValue, authorized, name, sig, originator);
-        (uint256 bidAmount,,) = IClustersEndpoint(clusters).bids(_stringToBytes32(name));
+        (uint256 bidAmount,,) = IClustersHubEndpoint(clusters).bids(_stringToBytes32(name));
 
         if (msg.value < msgValue || msgValue <= bidAmount) revert Insufficient();
         if (!isValid) revert Invalid();
-        IClustersEndpoint(clusters).bidName{value: msg.value}(_addressToBytes32(msg.sender), msg.value, name);
+        IClustersHubEndpoint(clusters).bidName{value: msg.value}(_addressToBytes32(msg.sender), msg.value, name);
         {
             bytes32 originatorBytes = _addressToBytes32(originator);
-            IClustersEndpoint(clusters).acceptBid{value: 0}(originatorBytes, name);
+            IClustersHubEndpoint(clusters).acceptBid{value: 0}(originatorBytes, name);
             userNonces[originatorBytes] = ++nonce;
             emit Nonce(originatorBytes, nonce);
         }
@@ -182,7 +182,7 @@ contract Endpoint is OApp, IEndpoint {
     function sendPayload(bytes calldata payload) external payable onlyClusters returns (bytes memory result) {
         // Short-circuit if dstEid isn't set for local-only functionality
         if (dstEid == 0) {
-            IClustersEndpoint(clusters).noBridgeFundsReturn{value: msg.value}();
+            IClustersHubEndpoint(clusters).noBridgeFundsReturn{value: msg.value}();
             return bytes("");
         }
         // TODO: Figure out how to assign these

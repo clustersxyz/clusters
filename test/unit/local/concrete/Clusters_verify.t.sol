@@ -2,7 +2,7 @@
 pragma solidity ^0.8.23;
 
 import {PricingHarberger_Unit_Shared_Test} from "../shared/SharedPricingHarberger.t.sol";
-import {IClusters} from "clusters/interfaces/IClusters.sol";
+import {IClustersHub} from "clusters/interfaces/IClustersHub.sol";
 
 contract Clusters_verify_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Test {
     function setUp() public virtual override {
@@ -67,9 +67,9 @@ contract Clusters_verify_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Test
 
     function testVerify_Reverts() public {
         vm.startPrank(users.hacker);
-        vm.expectRevert(IClusters.Unauthorized.selector);
+        vm.expectRevert(IClustersHub.Unauthorized.selector);
         clusters.verify(_addressToBytes32(users.alicePrimary), 1);
-        vm.expectRevert(IClusters.Unauthorized.selector);
+        vm.expectRevert(IClustersHub.Unauthorized.selector);
         clusters.verify(1);
         vm.stopPrank();
     }

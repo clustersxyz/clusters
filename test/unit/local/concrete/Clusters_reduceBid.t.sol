@@ -2,7 +2,7 @@
 pragma solidity ^0.8.23;
 
 import {PricingHarberger_Unit_Shared_Test} from "../shared/SharedPricingHarberger.t.sol";
-import {IClusters} from "clusters/interfaces/IClusters.sol";
+import {IClustersHub} from "clusters/interfaces/IClustersHub.sol";
 
 contract Clusters_reduceBid_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Test {
     function setUp() public virtual override {
@@ -88,23 +88,23 @@ contract Clusters_reduceBid_Unit_Concrete_Test is PricingHarberger_Unit_Shared_T
         string memory testName = constants.TEST_NAME();
         vm.startPrank(users.bobPrimary);
 
-        vm.expectRevert(IClusters.EmptyName.selector);
+        vm.expectRevert(IClustersHub.EmptyName.selector);
         clusters.reduceBid("", minPrice);
-        vm.expectRevert(IClusters.LongName.selector);
+        vm.expectRevert(IClustersHub.LongName.selector);
         clusters.reduceBid("Privacy is necessary for an open society in the electronic age.", minPrice);
 
-        vm.expectRevert(IClusters.NoBid.selector);
+        vm.expectRevert(IClustersHub.NoBid.selector);
         clusters.reduceBid("zodomo", minPrice);
-        vm.expectRevert(IClusters.Insufficient.selector);
+        vm.expectRevert(IClustersHub.Insufficient.selector);
         clusters.reduceBid(testName, minPrice + 1);
 
         vm.warp(constants.MARKET_OPEN_TIMESTAMP() + 2 days);
-        vm.expectRevert(IClusters.Timelock.selector);
+        vm.expectRevert(IClustersHub.Timelock.selector);
         clusters.reduceBid(testName, minPrice);
         vm.stopPrank();
 
         vm.prank(users.hacker);
-        vm.expectRevert(IClusters.Unauthorized.selector);
+        vm.expectRevert(IClustersHub.Unauthorized.selector);
         clusters.reduceBid(testName, minPrice);
 
         bytes memory data = abi.encodeWithSignature("bidName(uint256,string)", minPrice * 3, testName);
@@ -112,7 +112,7 @@ contract Clusters_reduceBid_Unit_Concrete_Test is PricingHarberger_Unit_Shared_T
         fickleReceiver.toggle();
         vm.warp(constants.MARKET_OPEN_TIMESTAMP() + 35 days);
         data = abi.encodeWithSignature("reduceBid(string,uint256)", testName, minPrice);
-        vm.expectRevert(IClusters.NativeTokenTransferFailed.selector);
+        vm.expectRevert(IClustersHub.NativeTokenTransferFailed.selector);
         fickleReceiver.execute(address(clusters), 0, data);
         vm.stopPrank();
     }

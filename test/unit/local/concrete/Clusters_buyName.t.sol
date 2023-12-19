@@ -2,7 +2,7 @@
 pragma solidity ^0.8.23;
 
 import {PricingHarberger_Unit_Shared_Test} from "../shared/SharedPricingHarberger.t.sol";
-import {IClusters} from "clusters/interfaces/IClusters.sol";
+import {IClustersHub} from "clusters/interfaces/IClustersHub.sol";
 
 contract Clusters_buyName_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Test {
     function testBuyName() public {
@@ -44,25 +44,25 @@ contract Clusters_buyName_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Tes
     function testBuyName_Reverts() public {
         string memory testName = constants.TEST_NAME();
         vm.startPrank(users.alicePrimary);
-        vm.expectRevert(IClusters.Unauthorized.selector);
+        vm.expectRevert(IClustersHub.Unauthorized.selector);
         clusters.buyName{value: minPrice}(minPrice, testName);
-        vm.expectRevert(IClusters.Unauthorized.selector);
+        vm.expectRevert(IClustersHub.Unauthorized.selector);
         clusters.buyName{value: minPrice}(_addressToBytes32(users.bobPrimary), minPrice, testName);
 
         vm.warp(constants.MARKET_OPEN_TIMESTAMP() + 1 days);
 
-        vm.expectRevert(IClusters.EmptyName.selector);
+        vm.expectRevert(IClustersHub.EmptyName.selector);
         clusters.buyName{value: minPrice}(minPrice, "");
-        vm.expectRevert(IClusters.LongName.selector);
+        vm.expectRevert(IClustersHub.LongName.selector);
         clusters.buyName{value: minPrice}(minPrice, "Privacy is necessary for an open society in the electronic age.");
 
-        vm.expectRevert(IClusters.Insufficient.selector);
+        vm.expectRevert(IClustersHub.Insufficient.selector);
         clusters.buyName{value: minPrice - 1}(minPrice - 1, testName);
-        vm.expectRevert(IClusters.BadInvariant.selector);
+        vm.expectRevert(IClustersHub.BadInvariant.selector);
         clusters.buyName{value: minPrice}(minPrice + 1, testName);
 
         clusters.buyName{value: minPrice}(minPrice, testName);
-        vm.expectRevert(IClusters.Registered.selector);
+        vm.expectRevert(IClustersHub.Registered.selector);
         clusters.buyName{value: minPrice}(minPrice, testName);
         vm.stopPrank();
     }

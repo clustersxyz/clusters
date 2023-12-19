@@ -5,7 +5,7 @@ import {EnumerableSetLib} from "./EnumerableSetLib.sol";
 
 import {IPricing} from "./interfaces/IPricing.sol";
 
-import {IClusters} from "./interfaces/IClusters.sol";
+import {IClustersHub} from "./interfaces/IClustersHub.sol";
 
 import {IEndpoint} from "./interfaces/IEndpoint.sol";
 
@@ -13,7 +13,7 @@ import {console2} from "forge-std/Test.sol";
 
 /// @notice The bidding, accepting, eth storing component of Clusters. Handles name assignment
 ///         to cluster ids and checks auth of cluster membership before acting on one of its names
-abstract contract NameManagerHub is IClusters {
+abstract contract NameManagerHub is IClustersHub {
     using EnumerableSetLib for EnumerableSetLib.Bytes32Set;
 
     bool internal _inMulticall;
@@ -45,13 +45,13 @@ abstract contract NameManagerHub is IClusters {
     mapping(bytes32 addr => bytes32 walletName) public reverseLookup;
 
     /// @notice Data required for proper harberger tax calculation when pokeName() is called
-    mapping(bytes32 name => IClusters.PriceIntegral integral) public priceIntegral;
+    mapping(bytes32 name => IClustersHub.PriceIntegral integral) public priceIntegral;
 
     /// @notice The amount of money backing each name registration
     mapping(bytes32 name => uint256 amount) public nameBacking;
 
     /// @notice Bid info storage, all bidIds are incremental and are not sorted by name
-    mapping(bytes32 name => IClusters.Bid bidData) public bids;
+    mapping(bytes32 name => IClustersHub.Bid bidData) public bids;
 
     /// @notice Failed bid refunds are pooled so we don't have to revert when the highest bid is outbid
     mapping(bytes32 bidder => uint256 refund) public bidRefunds;
@@ -154,8 +154,10 @@ abstract contract NameManagerHub is IClusters {
         // Process price accounting updates
         nameBacking[_name] += msgValue;
         totalNameBacking += msgValue;
-        priceIntegral[_name] =
-            IClusters.PriceIntegral({lastUpdatedTimestamp: block.timestamp, lastUpdatedPrice: pricing.minAnnualPrice()});
+        priceIntegral[_name] = IClustersHub.PriceIntegral({
+            lastUpdatedTimestamp: block.timestamp,
+            lastUpdatedPrice: pricing.minAnnualPrice()
+        });
         _assignName(_name, clusterId);
         if (defaultClusterName[clusterId] == bytes32("")) {
             defaultClusterName[clusterId] = _name;
@@ -256,7 +258,7 @@ abstract contract NameManagerHub is IClusters {
         _checkNameValid(name);
         bytes32 _name = _stringToBytes32(name);
         if (nameToClusterId[_name] == 0) revert Unregistered();
-        IClusters.PriceIntegral memory integral = priceIntegral[_name];
+        IClustersHub.PriceIntegral memory integral = priceIntegral[_name];
         (uint256 spent, uint256 newPrice) =
             pricing.getIntegratedPrice(integral.lastUpdatedPrice, block.timestamp - integral.lastUpdatedTimestamp);
         // If out of backing (expired), transfer to highest sufficient bidder or delete registration
@@ -284,7 +286,7 @@ abstract contract NameManagerHub is IClusters {
             totalNameBacking -= spent;
             protocolAccrual += spent;
             priceIntegral[_name] =
-                IClusters.PriceIntegral({lastUpdatedTimestamp: block.timestamp, lastUpdatedPrice: newPrice});
+                IClustersHub.PriceIntegral({lastUpdatedTimestamp: block.timestamp, lastUpdatedPrice: newPrice});
         }
         emit PokeName(_name);
 
@@ -336,7 +338,7 @@ abstract contract NameManagerHub is IClusters {
         // Process new highest bid
         else {
             // Overwrite previous bid
-            bids[_name] = IClusters.Bid(msgValue, block.timestamp, msgSender);
+            bids[_name] = IClustersHub.Bid(msgValue, block.timestamp, msgSender);
             totalBidBacking += msgValue;
             emit BidPlaced(_name, msgSender, msgValue);
             // Process bid refund if there is one. Store balance for recipient if transfer fails instead of reverting.

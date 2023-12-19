@@ -3,7 +3,7 @@ pragma solidity ^0.8.23;
 
 import {Base_Test} from "./Base.t.sol";
 
-import {IClusters} from "clusters/interfaces/IClusters.sol";
+import {IClustersHub} from "clusters/interfaces/IClustersHub.sol";
 
 contract GasBenchmarkTest is Base_Test {
     function setUp() public virtual override {

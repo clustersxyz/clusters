@@ -7,7 +7,7 @@ import {EnumerableSetLib} from "./EnumerableSetLib.sol";
 
 import {NameManagerHub} from "./NameManagerHub.sol";
 
-import {IClusters} from "./interfaces/IClusters.sol";
+import {IClustersHub} from "./interfaces/IClustersHub.sol";
 
 import {IEndpoint} from "./interfaces/IEndpoint.sol";
 

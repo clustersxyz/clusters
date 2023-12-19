@@ -2,7 +2,7 @@
 pragma solidity ^0.8.23;
 
 import {PricingHarberger_Unit_Shared_Test} from "../shared/SharedPricingHarberger.t.sol";
-import {IClusters} from "clusters/interfaces/IClusters.sol";
+import {IClustersHub} from "clusters/interfaces/IClustersHub.sol";
 
 contract Clusters_setDefaultClusterName_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Test {
     function setUp() public virtual override {
@@ -25,19 +25,19 @@ contract Clusters_setDefaultClusterName_Unit_Concrete_Test is PricingHarberger_U
 
     function testSetDefaultClusterName_Reverts() public {
         vm.startPrank(users.hacker);
-        vm.expectRevert(IClusters.EmptyName.selector);
+        vm.expectRevert(IClustersHub.EmptyName.selector);
         clusters.setDefaultClusterName("");
-        vm.expectRevert(IClusters.LongName.selector);
+        vm.expectRevert(IClustersHub.LongName.selector);
         clusters.setDefaultClusterName("Privacy is necessary for an open society in the electronic age.");
 
-        vm.expectRevert(IClusters.Unauthorized.selector);
+        vm.expectRevert(IClustersHub.Unauthorized.selector);
         clusters.setDefaultClusterName(_addressToBytes32(users.alicePrimary), "zodomo");
-        vm.expectRevert(IClusters.NoCluster.selector);
+        vm.expectRevert(IClustersHub.NoCluster.selector);
         clusters.setDefaultClusterName("zodomo");
         vm.stopPrank();
 
         vm.prank(users.bobPrimary);
-        vm.expectRevert(IClusters.Unauthorized.selector);
+        vm.expectRevert(IClustersHub.Unauthorized.selector);
         clusters.setDefaultClusterName("zodomo");
     }
 }
