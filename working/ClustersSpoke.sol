@@ -3,20 +3,18 @@ pragma solidity ^0.8.23;
 
 // Follow https://docs.soliditylang.org/en/latest/style-guide.html for style
 
-import {EnumerableSetLib} from "./EnumerableSetLib.sol";
+import {EnumerableSetLib} from "clusters/EnumerableSetLib.sol";
 
-import {NameManagerHub} from "./NameManagerHub.sol";
+import {NameManagerSpoke} from "./NameManagerSpoke.sol";
 
-import {IClusters} from "./interfaces/IClusters.sol";
+import {IClusters} from "clusters/interfaces/IClusters.sol";
 
-import {IEndpoint} from "./interfaces/IEndpoint.sol";
+import {IEndpoint} from "clusters/interfaces/IEndpoint.sol";
 
 import {console2} from "forge-std/Test.sol";
 
-contract ClustersHub is NameManagerHub {
-    using EnumerableSetLib for EnumerableSetLib.Bytes32Set;
-
-    uint256 public nextClusterId = 1;
+contract ClustersSpoke is NameManagerSpoke {
+    using EnumerableSet for EnumerableSet.Bytes32Set;
 
     /// @dev Enumerates all unverified addresses in a cluster
     mapping(uint256 clusterId => EnumerableSetLib.Bytes32Set addrs) internal _unverifiedAddresses;
@@ -28,12 +26,10 @@ contract ClustersHub is NameManagerHub {
         NameManagerHub(pricing_, endpoint_, marketOpenTimestamp_)
     {}
 
-    /// EXTERNAL FUNCTIONS ///
+    /// USER-FACING FUNCTIONS ///
 
-    /// @dev For payable multicall to be secure, we cannot trust msg.value params in other external methods
-    /// @dev Must instead do strict protocol invariant checking at the end of methods like Uniswap V2
     function multicall(bytes[] calldata data) external payable returns (bytes[] memory results) {
-        _inMulticall = true;
+        if (msg.sender != endpoint) _inMulticall = true;
         results = new bytes[](data.length);
         bool success;
 
@@ -44,23 +40,48 @@ contract ClustersHub is NameManagerHub {
             if (!success) revert MulticallFailed();
         }
 
-        _checkInvariant();
-
-        bytes memory payload = abi.encodeWithSignature("multicall(bytes[])", results);
-        IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
-        _inMulticall = false;
+        if (msg.sender != endpoint) {
+            bytes memory payload = abi.encodeWithSignature("multicall(bytes[])", results);
+            IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
+            _inMulticall = false;
+        }
     }
 
-    function add(bytes32 addr) external payable returns (bytes memory payload) {
-        return add(_addressToBytes32(msg.sender), addr);
+    function add(bytes32 addr) public payable returns (bytes memory payload) {
+        bytes32 msgSender = _addressToBytes32(msg.sender);
+        uint256 clusterId = addressToClusterId[msgSender];
+        if (clusterId == 0) revert NoCluster();
+        if (_verifiedAddresses[clusterId].contains(addr)) revert Registered();
+
+        payload = abi.encodeWithSignature("add(bytes32,bytes32)", msgSender, addr);
+        if (_inMulticall) return payload;
+        else IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
     }
 
-    function verify(uint256 clusterId) external payable returns (bytes memory payload) {
-        return verify(_addressToBytes32(msg.sender), clusterId);
+    function verify(uint256 clusterId)
+        public
+        payable
+        returns (bytes memory payload)
+    {
+        bytes32 msgSender = _addressToBytes32(msg.sender);
+        if (!_unverifiedAddresses[clusterId].contains(msgSender)) revert Unauthorized();
+
+        payload = abi.encodeWithSignature("verify(bytes32,uint256)", msgSender, clusterId);
+        if (_inMulticall) return payload;
+        else IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
     }
 
-    function remove(bytes32 addr) external payable returns (bytes memory payload) {
-        return remove(_addressToBytes32(msg.sender), addr);
+    function remove(bytes32 addr) public payable returns (bytes memory payload) {
+        bytes32 msgSender = _addressToBytes32(msg.sender);
+        uint256 clusterId = addressToClusterId[msgSender];
+        if (clusterId == 0) revert NoCluster();
+        if (clusterId != addressToClusterId[addr]) revert Unauthorized();
+        // If the cluster has valid names, prevent removing final address, regardless of what is supplied for addr
+        if (_clusterNames[clusterId].length() > 0 && _verifiedAddresses[clusterId].length() == 1) revert Invalid();
+
+        payload = abi.encodeWithSignature("remove(bytes32,bytes32)", msgSender, addr);
+        if (_inMulticall) return payload;
+        else IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
     }
 
     function getUnverifiedAddresses(uint256 clusterId) external view returns (bytes32[] memory) {
@@ -73,29 +94,17 @@ contract ClustersHub is NameManagerHub {
 
     /// ENDPOINT FUNCTIONS ///
 
-    function add(bytes32 msgSender, bytes32 addr)
-        public
-        payable
-        onlyEndpoint(msgSender)
-        returns (bytes memory payload)
-    {
-        uint256 clusterId = addressToClusterId[msgSender];
-        if (clusterId == 0) revert NoCluster();
-        if (_verifiedAddresses[clusterId].contains(addr)) revert Registered();
-        _add(addr, clusterId);
-
-        payload = abi.encodeWithSignature("add(bytes32,bytes32)", msgSender, addr);
-        if (_inMulticall) return payload;
-        else IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
+    function add(bytes32 msgSender, bytes32 addr) public payable onlyEndpoint returns (bytes memory) {
+        _add(addr, addressToClusterId[msgSender]);
+        return bytes("");
     }
 
     function verify(bytes32 msgSender, uint256 clusterId)
         public
         payable
-        onlyEndpoint(msgSender)
+        onlyEndpoint
         returns (bytes memory payload)
     {
-        if (!_unverifiedAddresses[clusterId].contains(msgSender)) revert Unauthorized();
         uint256 currentClusterId = addressToClusterId[msgSender];
         if (currentClusterId != 0) {
             // If msgSender is the last address in their cluster, take all of their names with them
@@ -108,32 +117,12 @@ contract ClustersHub is NameManagerHub {
             _remove(msgSender);
         }
         _verify(msgSender, clusterId);
-
-        payload = abi.encodeWithSignature("verify(bytes32,uint256)", msgSender, clusterId);
-        if (_inMulticall) return payload;
-        else IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
+        return bytes("");
     }
 
-    function remove(bytes32 msgSender, bytes32 addr)
-        public
-        payable
-        onlyEndpoint(msgSender)
-        returns (bytes memory payload)
-    {
-        uint256 clusterId = addressToClusterId[msgSender];
-        if (clusterId == 0) revert NoCluster();
-        if (clusterId != addressToClusterId[addr]) revert Unauthorized();
-        // If the cluster has valid names, prevent removing final address, regardless of what is supplied for addr
-        if (_clusterNames[clusterId].length() > 0 && _verifiedAddresses[clusterId].length() == 1) revert Invalid();
+    function remove(address msgSender, address addr) public payable onlyEndpoint returns (bytes memory) {
         _remove(addr);
-
-        payload = abi.encodeWithSignature("remove(bytes32,bytes32)", msgSender, addr);
-        if (_inMulticall) return payload;
-        else IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
-    }
-
-    function noBridgeFundsReturn() external payable {
-        if (msg.sender != endpoint) revert Unauthorized();
+        return bytes("");
     }
 
     /// INTERNAL FUNCTIONS ///
