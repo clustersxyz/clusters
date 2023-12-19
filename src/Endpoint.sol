@@ -108,6 +108,9 @@ contract Endpoint is OApp, IEndpoint {
 
     /// PERMISSIONED FUNCTIONS ///
 
+    // WARN: I'm pretty sure this won't work. ClustersHub.sol's multicall() forwards back to the Endpoint. It doesn't
+    // expect to be called by Endpoint. Either make an endpoint version of multicall() or parse all calls for msgValue
+    // and pay ClustersHub.sol accordingly per call
     function multicall(bytes[] calldata data, bytes calldata sig) external payable returns (bytes[] memory results) {
         if (!verifyMulticall(data, sig)) revert ECDSA.InvalidSignature();
         results = IClustersEndpoint(clusters).multicall{value: msg.value}(data);
@@ -177,24 +180,50 @@ contract Endpoint is OApp, IEndpoint {
     }
 
     function sendPayload(bytes calldata payload) external payable onlyClusters returns (bytes memory result) {
+        // Short-circuit if dstEid isn't set for local-only functionality
+        if (dstEid == 0) {
+            IClustersEndpoint(clusters).noBridgeFundsReturn{value: msg.value}();
+            return bytes("");
+        }
         // TODO: Figure out how to assign these
         bytes memory options;
         MessagingFee memory fee;
         address refundAddress;
-        result = _lzSend(payload, options, fee, refundAddress);
-        if (result.length == 0) {
-            IClustersEndpoint(clusters).noBridgeFundsReturn{value: msg.value}();
-        }
+        result = abi.encode(_lzSend(dstEid, payload, options, fee, refundAddress));
     }
 
-    function _lzSend(bytes memory message, bytes memory options, MessagingFee memory fee, address refundAddress)
-        internal
+    function lzSend(bytes memory data, bytes memory options, MessagingFee memory fee, address refundAddress)
+        external
+        payable
         returns (bytes memory)
     {
-        // Short-circuit if dstEid isn't set for local-only functionality
-        if (dstEid == 0) return bytes("");
+        bytes32 msgSender;
+        assembly {
+            msgSender := mload(add(data, 36)) // Add 32 to skip the first 32 bytes (function selector + bytes array
+                // length)
+        }
+        if (msgSender != _addressToBytes32(msg.sender)) revert Unauthorized();
         // All endpoints only have one of two send paths: ETH -> Relay, Any -> ETH
-        return abi.encode(_lzSend(dstEid, message, options, fee, refundAddress));
+        return abi.encode(_lzSend(dstEid, data, options, fee, refundAddress));
+    }
+
+    function lzSendMulticall(bytes[] memory data, bytes memory options, MessagingFee memory fee, address refundAddress)
+        external
+        payable
+        returns (bytes memory)
+    {
+        for (uint256 i; i < data.length; ++i) {
+            bytes32 msgSender;
+            bytes memory currentCall = data[i];
+            assembly {
+                msgSender := mload(add(currentCall, 36)) // Add 32 to skip the first 32 bytes (function selector + bytes
+                    // array length)
+            }
+            if (msgSender != _addressToBytes32(msg.sender)) revert Unauthorized();
+        }
+        bytes memory payload = abi.encodeWithSignature("multicall(bytes[])", data);
+        // All endpoints only have one of two send paths: ETH -> Relay, Any -> ETH
+        return abi.encode(_lzSend(dstEid, payload, options, fee, refundAddress));
     }
 
     function _lzReceive(

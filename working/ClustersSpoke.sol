@@ -48,14 +48,9 @@ contract ClustersSpoke is NameManagerSpoke {
     }
 
     function add(bytes32 addr) public payable returns (bytes memory payload) {
-        bytes32 msgSender = _addressToBytes32(msg.sender);
-        uint256 clusterId = addressToClusterId[msgSender];
-        if (clusterId == 0) revert NoCluster();
-        if (_verifiedAddresses[clusterId].contains(addr)) revert Registered();
-
-        payload = abi.encodeWithSignature("add(bytes32,bytes32)", msgSender, addr);
+        payload = abi.encodeWithSignature("add(bytes32,bytes32)", _addressToBytes32(msg.sender), addr);
         if (_inMulticall) return payload;
-        else IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
+        else return IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
     }
 
     function verify(uint256 clusterId)
@@ -63,25 +58,15 @@ contract ClustersSpoke is NameManagerSpoke {
         payable
         returns (bytes memory payload)
     {
-        bytes32 msgSender = _addressToBytes32(msg.sender);
-        if (!_unverifiedAddresses[clusterId].contains(msgSender)) revert Unauthorized();
-
-        payload = abi.encodeWithSignature("verify(bytes32,uint256)", msgSender, clusterId);
+        payload = abi.encodeWithSignature("verify(bytes32,uint256)", _addressToBytes32(msg.sender), clusterId);
         if (_inMulticall) return payload;
-        else IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
+        else return IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
     }
 
     function remove(bytes32 addr) public payable returns (bytes memory payload) {
-        bytes32 msgSender = _addressToBytes32(msg.sender);
-        uint256 clusterId = addressToClusterId[msgSender];
-        if (clusterId == 0) revert NoCluster();
-        if (clusterId != addressToClusterId[addr]) revert Unauthorized();
-        // If the cluster has valid names, prevent removing final address, regardless of what is supplied for addr
-        if (_clusterNames[clusterId].length() > 0 && _verifiedAddresses[clusterId].length() == 1) revert Invalid();
-
-        payload = abi.encodeWithSignature("remove(bytes32,bytes32)", msgSender, addr);
+        payload = abi.encodeWithSignature("remove(bytes32,bytes32)", _addressToBytes32(msg.sender), addr);
         if (_inMulticall) return payload;
-        else IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
+        else return IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
     }
 
     function getUnverifiedAddresses(uint256 clusterId) external view returns (bytes32[] memory) {

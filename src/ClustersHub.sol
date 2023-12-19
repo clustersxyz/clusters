@@ -71,6 +71,10 @@ contract ClustersHub is NameManagerHub {
         return _verifiedAddresses[clusterId].values();
     }
 
+    function noBridgeFundsReturn() external payable {
+        if (msg.sender != endpoint) revert Unauthorized();
+    }
+
     /// ENDPOINT FUNCTIONS ///
 
     function add(bytes32 msgSender, bytes32 addr)
@@ -130,10 +134,6 @@ contract ClustersHub is NameManagerHub {
         payload = abi.encodeWithSignature("remove(bytes32,bytes32)", msgSender, addr);
         if (_inMulticall) return payload;
         else IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
-    }
-
-    function noBridgeFundsReturn() external payable {
-        if (msg.sender != endpoint) revert Unauthorized();
     }
 
     /// INTERNAL FUNCTIONS ///
