@@ -3,9 +3,9 @@ pragma solidity ^0.8.23;
 
 import {OApp, Origin, MessagingFee} from "../lib/LayerZero-v2/oapp/contracts/oapp/OApp.sol";
 import {IEndpoint} from "./interfaces/IEndpoint.sol";
-import {ECDSA} from "../lib/solady/src/utils/ECDSA.sol";
+import {ECDSA} from "solady/utils/ECDSA.sol";
 import {EnumerableSetLib} from "./EnumerableSetLib.sol";
-import {console2} from "../lib/forge-std/src/Test.sol";
+import {console2} from "forge-std/Test.sol";
 
 interface IClustersEndpoint {
     function noBridgeFundsReturn() external payable;

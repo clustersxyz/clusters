@@ -14,7 +14,7 @@ import {IEndpoint} from "clusters/interfaces/IEndpoint.sol";
 import {console2} from "forge-std/Test.sol";
 
 contract ClustersSpoke is NameManagerSpoke {
-    using EnumerableSet for EnumerableSet.Bytes32Set;
+    using EnumerableSetLib for EnumerableSetLib.Bytes32Set;
 
     /// @dev Enumerates all unverified addresses in a cluster
     mapping(uint256 clusterId => EnumerableSetLib.Bytes32Set addrs) internal _unverifiedAddresses;
@@ -40,7 +40,7 @@ contract ClustersSpoke is NameManagerSpoke {
             if (!success) revert MulticallFailed();
         }
 
-        if (msg.sender != endpoint) {
+        if (_inMulticall) {
             bytes memory payload = abi.encodeWithSignature("multicall(bytes[])", results);
             IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
             _inMulticall = false;
