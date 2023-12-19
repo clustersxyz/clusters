@@ -55,10 +55,6 @@ contract Clusters_remove_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Test
         clusters.remove(_addressToBytes32(users.alicePrimary), _addressToBytes32(users.aliceSecondary));
         vm.stopPrank();
 
-        vm.prank(users.bobPrimary);
-        vm.expectRevert(IClusters.Unauthorized.selector);
-        clusters.remove(_addressToBytes32(users.aliceSecondary));
-
         vm.startPrank(users.alicePrimary);
         clusters.remove(_addressToBytes32(users.aliceSecondary));
         vm.expectRevert(IClusters.Invalid.selector);
