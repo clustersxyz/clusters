@@ -11,3 +11,4 @@ solidity-bytes-utils/=lib/LayerZero-v2/oapp/node_modules/solidity-bytes-utils/
 @openzeppelin/contracts-upgradeable/=lib/LayerZero-v2/oapp/node_modules/@openzeppelin/contracts-upgradeable/
 @layerzerolabs/lz-evm-protocol-v2/=lib/LayerZero-v2/oapp/node_modules/@layerzerolabs/lz-evm-protocol-v2/
 @layerzerolabs/lz-evm-messagelib-v2/=lib/LayerZero-v2/oapp/node_modules/@layerzerolabs/lz-evm-messagelib-v2/
+layerzero-oapp/=lib/LayerZero-v2/oapp/

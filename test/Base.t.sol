@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import "../lib/LayerZero-v2/oapp/test/TestHelper.sol";
+import "layerzero-oapp/test/TestHelper.sol";
 import {Utils} from "./utils/Utils.sol";
 
 import {IPricing} from "clusters/interfaces/IPricing.sol";
@@ -16,7 +16,7 @@ import {ClustersHub} from "clusters/ClustersHub.sol";
 import {FickleReceiver} from "./mocks/FickleReceiver.sol";
 import {Constants} from "./utils/Constants.sol";
 import {Users} from "./utils/Types.sol";
-import {EnumerableSet} from "../lib/openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
+import {EnumerableSet} from "openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import {console2} from "forge-std/Test.sol";
 
 abstract contract Base_Test is TestHelper, Utils {
@@ -101,6 +101,9 @@ abstract contract Base_Test is TestHelper, Utils {
         }
         vm.startPrank(users.endpointAdmin);
         wireOApps(endpointGroup.values());
+        for (uint8 i = 1; i < endpointGroup.length(); ++i) {
+            Endpoint(endpointGroup.at(i)).setDstEid(1);
+        }
         vm.stopPrank();
     }
 
@@ -115,6 +118,9 @@ abstract contract Base_Test is TestHelper, Utils {
         }
         vm.startPrank(users.endpointAdmin);
         wireOApps(endpointGroup.values());
+        for (uint8 i = 1; i < endpointGroup.length(); ++i) {
+            Endpoint(endpointGroup.at(i)).setDstEid(1);
+        }
         vm.stopPrank();
     }
 

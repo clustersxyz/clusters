@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {OApp, Origin, MessagingFee} from "../lib/LayerZero-v2/oapp/contracts/oapp/OApp.sol";
+import {OApp, Origin, MessagingFee} from "layerzero-oapp/contracts/oapp/OApp.sol";
 import {IEndpoint} from "./interfaces/IEndpoint.sol";
 import {ECDSA} from "solady/utils/ECDSA.sol";
 import {EnumerableSetLib} from "./EnumerableSetLib.sol";
@@ -176,6 +176,18 @@ contract Endpoint is OApp, IEndpoint {
         super.setPeer(eid, peer);
     }
 
+    function quote(uint32 dstEid_, bytes memory message, bytes memory options, bool payInLzToken) public view returns (uint256 nativeFee, uint256 lzTokenFee) {
+        MessagingFee memory msgQuote = _quote(dstEid_, message, options, payInLzToken);
+        nativeFee = msgQuote.nativeFee;
+        lzTokenFee = msgQuote.lzTokenFee;
+    }
+
+    function _validateQuote(uint32 dstEid_, bytes memory message, bytes memory options) internal {
+        // TODO: Determine if we should force check fee param by retrieving onchain quote or just validate msg.value at least covers the specified fee.
+        (uint256 nativeFee, ) = quote(dstEid_, message, options, false);
+        if (msg.value < nativeFee) revert Insufficient();
+    }
+
     function sendPayload(bytes calldata payload) external payable onlyClusters returns (bytes memory result) {
         // Short-circuit if dstEid isn't set for local-only functionality
         if (dstEid == 0) {
@@ -186,10 +198,11 @@ contract Endpoint is OApp, IEndpoint {
         bytes memory options;
         MessagingFee memory fee;
         address refundAddress;
+        _validateQuote(dstEid, payload, options);
         result = abi.encode(_lzSend(dstEid, payload, options, fee, refundAddress));*/
     }
 
-    function lzSend(bytes memory data, bytes memory options, MessagingFee memory fee, address refundAddress)
+    function lzSend(bytes memory data, bytes memory options, uint256 nativeFee, address refundAddress)
         external
         payable
         returns (bytes memory)
@@ -201,10 +214,13 @@ contract Endpoint is OApp, IEndpoint {
         }
         if (msgSender != _addressToBytes32(msg.sender)) revert Unauthorized();
         // All endpoints only have one of two send paths: ETH -> Relay, Any -> ETH
-        return abi.encode(_lzSend(dstEid, data, options, fee, refundAddress));
+        uint32 dstEid_ = dstEid;
+        _validateQuote(dstEid_, data, options);
+        MessagingFee memory fee = MessagingFee({nativeFee: nativeFee, lzTokenFee: 0});
+        return abi.encode(_lzSend(dstEid_, data, options, fee, refundAddress));
     }
 
-    function lzSendMulticall(bytes[] memory data, bytes memory options, MessagingFee memory fee, address refundAddress)
+    function lzSendMulticall(bytes[] memory data, bytes memory options, uint256 nativeFee, address refundAddress)
         external
         payable
         returns (bytes memory)
@@ -219,6 +235,8 @@ contract Endpoint is OApp, IEndpoint {
             if (msgSender != _addressToBytes32(msg.sender)) revert Unauthorized();
         }
         bytes memory payload = abi.encodeWithSignature("multicall(bytes[])", data);
+        _validateQuote(dstEid, payload, options);
+        MessagingFee memory fee = MessagingFee({nativeFee: nativeFee, lzTokenFee: 0});
         // All endpoints only have one of two send paths: ETH -> Relay, Any -> ETH
         return abi.encode(_lzSend(dstEid, payload, options, fee, refundAddress));
     }

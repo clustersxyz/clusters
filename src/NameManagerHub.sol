@@ -165,11 +165,12 @@ abstract contract NameManagerHub is IClustersHub {
         }
         emit BuyName(_name, clusterId, msgValue);
 
-        _checkInvariant();
-
         payload = abi.encodeWithSignature("buyName(bytes32,uint256,string)", msgSender, msgValue, name);
         if (_inMulticall) return payload;
-        else IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
+        else {
+            IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
+            _checkInvariant();
+        }
     }
 
     /// @notice Fund an existing and specific name, callable by anyone
@@ -193,11 +194,12 @@ abstract contract NameManagerHub is IClustersHub {
         totalNameBacking += msgValue;
         emit FundName(_name, msgSender, msgValue);
 
-        _checkInvariant();
-
         payload = abi.encodeWithSignature("fundName(bytes32,uint256,string)", msgSender, msgValue, name);
         if (_inMulticall) return payload;
-        else IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
+        else {
+            IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
+            _checkInvariant();
+        }
     }
 
     /// @notice Move name from one cluster to another without payment
@@ -355,11 +357,12 @@ abstract contract NameManagerHub is IClustersHub {
         // Update name status and transfer to highest bidder if expired
         pokeName(name);
 
-        _checkInvariant();
-
         payload = abi.encodeWithSignature("bidName(bytes32,uint256,string)", msgSender, msgValue, name);
         if (_inMulticall) return payload;
-        else IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
+        else {
+            IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
+            _checkInvariant();
+        }
     }
 
     /// @notice Reduce bid and refund difference. Revoke if amount is the total bid or is the max uint256 value.
