@@ -24,11 +24,6 @@ interface IClustersHubEndpoint {
 contract Endpoint is OApp, IEndpoint {
     using EnumerableSetLib for EnumerableSetLib.Bytes32Set;
 
-    bytes4 internal constant _FULFILLORDERSIG =
-        bytes4(keccak256("fulfillOrder(uint256,uint256,uint256,string,bytes,address)"));
-    bytes4 internal constant _INVALIDATEORDERSIG = bytes4(keccak256("invalidateOrder(uint256)"));
-    bytes4 internal constant _MULTICALL = bytes4(keccak256("multicall(bytes[])"));
-
     uint32 public dstEid;
     address public clusters;
     address public signer;
@@ -61,11 +56,6 @@ contract Endpoint is OApp, IEndpoint {
 
     /// ECDSA HELPERS ///
 
-    /// @dev Confirms if signature was for Ethereum signed message hash
-    function _verify(bytes32 messageHash, bytes calldata sig, address signer_) internal view returns (bool) {
-        return ECDSA.recoverCalldata(getEthSignedMessageHash(messageHash), sig) == signer_;
-    }
-
     function getMulticallHash(bytes[] calldata data) public pure returns (bytes32) {
         return keccak256(abi.encode(data));
     }
@@ -85,6 +75,11 @@ contract Endpoint is OApp, IEndpoint {
 
     function getEthSignedMessageHash(bytes32 messageHash) public pure returns (bytes32) {
         return ECDSA.toEthSignedMessageHash(messageHash);
+    }
+
+    /// @dev Confirms if signature was for Ethereum signed message hash
+    function _verify(bytes32 messageHash, bytes calldata sig, address signer_) internal view returns (bool) {
+        return ECDSA.recoverCalldata(getEthSignedMessageHash(messageHash), sig) == signer_;
     }
 
     function verifyOrder(
@@ -185,11 +180,11 @@ contract Endpoint is OApp, IEndpoint {
             IClustersHubEndpoint(clusters).noBridgeFundsReturn{value: msg.value}();
             return bytes("");
         }
-        // TODO: Figure out how to assign these
+        /*// TODO: Figure out how to assign these
         bytes memory options;
         MessagingFee memory fee;
         address refundAddress;
-        result = abi.encode(_lzSend(dstEid, payload, options, fee, refundAddress));
+        result = abi.encode(_lzSend(dstEid, payload, options, fee, refundAddress));*/
     }
 
     function lzSend(bytes memory data, bytes memory options, MessagingFee memory fee, address refundAddress)
@@ -233,12 +228,13 @@ contract Endpoint is OApp, IEndpoint {
         address executor,
         bytes calldata extraData
     ) internal override {
-        // Only the relay chain will receive from Ethereum Mainnet, so if it does, relay to all other chains
-        if (origin.srcEid == 30101) _relayMessage(payload);
+        /*// Only the relay chain will receive from Ethereum Mainnet, so if it does, relay to all other chains
+        if (origin.srcEid == 30101) _relayMessage(payload);*/
         (bool success,) = clusters.call{value: msg.value}(payload);
         if (!success) revert TxFailed();
     }
 
+    /*
     function _relayMessage(bytes calldata payload) internal {
         bytes32[] memory dstEids = _dstEids.values();
         for (uint256 i; i < dstEids.length; ++i) {
@@ -248,5 +244,5 @@ contract Endpoint is OApp, IEndpoint {
             address refundAddress;
             _lzSend(uint32(uint256(dstEids[i])), payload, options, fee, refundAddress);
         }
-    }
+    }*/
 }
