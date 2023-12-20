@@ -21,6 +21,7 @@ import {console2} from "forge-std/Test.sol";
 
 abstract contract Base_Test is TestHelper, Utils {
     using EnumerableSet for EnumerableSet.Bytes32Set;
+    using EnumerableSet for EnumerableSet.AddressSet;
 
     /// VARIABLES ///
 
@@ -36,6 +37,9 @@ abstract contract Base_Test is TestHelper, Utils {
     IEndpoint internal endpoint;
     IClustersHub internal clusters;
     FickleReceiver internal fickleReceiver;
+
+    EnumerableSet.AddressSet internal clustersGroup;
+    EnumerableSet.AddressSet internal endpointGroup;
 
     /// USER HELPERS ///
 
@@ -70,7 +74,7 @@ abstract contract Base_Test is TestHelper, Utils {
         users = Users({
             signerPrivKey: 0,
             signer: payable(address(0)),
-            adminEndpoint: createUser("Endpoint Admin"),
+            endpointAdmin: createUser("Endpoint Admin"),
             alicePrimary: createAndFundUser("Alice (Primary)", fundingAmount),
             aliceSecondary: createAndFundUser("Alice (Secondary)", fundingAmount),
             bobPrimary: createAndFundUser("Bob (Primary)", fundingAmount),
@@ -81,32 +85,83 @@ abstract contract Base_Test is TestHelper, Utils {
         (users.signerPrivKey, users.signer) = createUserWithPrivKey("Signer");
 
         vm.warp(constants.START_TIME());
+
+        pricingFlat = new PricingFlat();
+        pricingHarberger = new PricingHarbergerHarness(block.timestamp);
+    }
+
+    function configureFlatEnvironment(uint8 instances) internal {
+        setUpEndpoints(instances, LibraryType.UltraLightNode);
+        for (uint8 i; i < instances; ++i) {
+            if (i == 0) {
+                deployHubFlat(endpoints[1]);
+            } else {
+                deploySpokeFlat(endpoints[i + 1]);
+            }
+        }
+        vm.startPrank(users.endpointAdmin);
+        wireOApps(endpointGroup.values());
+        vm.stopPrank();
+    }
+
+    function configureHarbergerEnvironment(uint8 instances) internal {
+        setUpEndpoints(instances, LibraryType.UltraLightNode);
+        for (uint8 i; i < instances; ++i) {
+            if (i == 0) {
+                deployHubHarberger(endpoints[1]);
+            } else {
+                deploySpokeHarberger(endpoints[i + 1]);
+            }
+        }
+        vm.startPrank(users.endpointAdmin);
+        wireOApps(endpointGroup.values());
+        vm.stopPrank();
     }
 
     /// DEPLOY ///
 
-    function deployLocalFlat(address lzEndpoint) internal {
-        pricingFlat = new PricingFlat();
+    function deployHubFlat(address lzEndpoint) internal returns (address clustersAddr, address endpointAddr) {
         minPrice = pricingFlat.minAnnualPrice();
-        endpoint = new Endpoint(users.adminEndpoint, users.signer, lzEndpoint);
+        endpoint = new Endpoint(users.endpointAdmin, users.signer, lzEndpoint);
         clusters = new ClustersHub(address(pricingFlat), address(endpoint), constants.MARKET_OPEN_TIMESTAMP());
-        vm.prank(users.adminEndpoint);
+        vm.prank(users.endpointAdmin);
         endpoint.setClustersAddr(address(clusters));
+        clustersGroup.add(address(clusters));
+        endpointGroup.add(address(endpoint));
+        return (address(clusters), address(endpoint));
     }
 
-    function deployLocalHarberger(address lzEndpoint) internal {
-        pricingHarberger = new PricingHarbergerHarness(block.timestamp);
+    function deploySpokeFlat(address lzEndpoint) internal returns (address clustersAddr, address endpointAddr) {
+        minPrice = pricingFlat.minAnnualPrice();
+        endpoint = new Endpoint(users.endpointAdmin, users.signer, lzEndpoint);
+        //clusters = new ClustersHub(address(pricingFlat), address(endpoint), constants.MARKET_OPEN_TIMESTAMP());
+        //vm.prank(users.endpointAdmin);
+        //endpoint.setClustersAddr(address(clusters));
+        clustersGroup.add(address(0));
+        endpointGroup.add(address(endpoint));
+        return (address(0), address(endpoint));
+    }
+
+    function deployHubHarberger(address lzEndpoint) internal returns (address clustersAddr, address endpointAddr) {
         minPrice = pricingHarberger.minAnnualPrice();
-        endpoint = new Endpoint(users.adminEndpoint, users.signer, lzEndpoint);
+        endpoint = new Endpoint(users.endpointAdmin, users.signer, lzEndpoint);
         clusters = new ClustersHub(address(pricingHarberger), address(endpoint), constants.MARKET_OPEN_TIMESTAMP());
-        vm.prank(users.adminEndpoint);
+        vm.prank(users.endpointAdmin);
         endpoint.setClustersAddr(address(clusters));
+        clustersGroup.add(address(clusters));
+        endpointGroup.add(address(endpoint));
+        return (address(clusters), address(endpoint));
     }
 
-    /// LAYERZERO ///
-
-    function setUpLZEndpoints(uint8 num) internal {
-        setUpEndpoints(num, LibraryType.UltraLightNode);
+    function deploySpokeHarberger(address lzEndpoint) internal returns (address clustersAddr, address endpointAddr) {
+        minPrice = pricingHarberger.minAnnualPrice();
+        endpoint = new Endpoint(users.endpointAdmin, users.signer, lzEndpoint);
+        //clusters = new ClustersHub(address(pricingHarberger), address(endpoint), constants.MARKET_OPEN_TIMESTAMP());
+        //vm.prank(users.endpointAdmin);
+        //endpoint.setClustersAddr(address(clusters));
+        clustersGroup.add(address(0));
+        endpointGroup.add(address(endpoint));
+        return (address(0), address(endpoint));
     }
 
     /// ASSERT HELPERS ///

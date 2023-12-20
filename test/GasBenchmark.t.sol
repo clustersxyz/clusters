@@ -8,8 +8,7 @@ import {IClustersHub} from "clusters/interfaces/IClustersHub.sol";
 contract GasBenchmarkTest is Base_Test {
     function setUp() public virtual override {
         Base_Test.setUp();
-        setUpLZEndpoints(1);
-        deployLocalHarberger(endpoints[1]);
+        configureHarbergerEnvironment(1);
     }
 
     function testBenchmark() public {

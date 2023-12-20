@@ -6,7 +6,6 @@ import {Base_Test} from "../../../Base.t.sol";
 abstract contract PricingFlat_Unit_Shared_Test is Base_Test {
     function setUp() public virtual override {
         Base_Test.setUp();
-        setUpLZEndpoints(1);
-        deployLocalFlat(endpoints[1]);
+        configureHarbergerEnvironment(1);
     }
 }

@@ -9,7 +9,7 @@ contract Endpoint_setSignerAddr_Unit_Concrete_Test is PricingHarberger_Unit_Shar
         address testAddr = constants.TEST_ADDRESS();
         assertEndpointVars(address(clusters), users.signer);
 
-        vm.prank(users.adminEndpoint);
+        vm.prank(users.endpointAdmin);
         endpoint.setSignerAddr(testAddr);
 
         assertEndpointVars(address(clusters), testAddr);
