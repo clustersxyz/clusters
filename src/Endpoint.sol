@@ -105,7 +105,9 @@ contract Endpoint is OApp, IEndpoint {
 
     // WARN: I'm pretty sure this won't work. ClustersHub.sol's multicall() forwards back to the Endpoint. It doesn't
     // expect to be called by Endpoint. Either make an endpoint version of multicall() or parse all calls for msgValue
-    // and pay ClustersHub.sol accordingly per call
+    // and pay ClustersHub.sol accordingly per call.
+    // The reason this doesn't currently fail in tests is because there aren't crosschain tests at the time of writing.
+    // In a solo-chain configuration, bridge execution simply returns as no peers are configured.
     function multicall(bytes[] calldata data, bytes calldata sig) external payable returns (bytes[] memory results) {
         if (!verifyMulticall(data, sig)) revert ECDSA.InvalidSignature();
         results = IClustersHubEndpoint(clusters).multicall{value: msg.value}(data);
@@ -221,13 +223,10 @@ contract Endpoint is OApp, IEndpoint {
         return abi.encode(_lzSend(dstEid, payload, options, fee, refundAddress));
     }
 
-    function _lzReceive(
-        Origin calldata origin,
-        bytes32 guid,
-        bytes calldata payload,
-        address executor,
-        bytes calldata extraData
-    ) internal override {
+    function _lzReceive(Origin calldata origin, bytes32, bytes calldata payload, address, bytes calldata)
+        internal
+        override
+    {
         /*// Only the relay chain will receive from Ethereum Mainnet, so if it does, relay to all other chains
         if (origin.srcEid == 30101) _relayMessage(payload);*/
         (bool success,) = clusters.call{value: msg.value}(payload);
