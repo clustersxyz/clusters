@@ -17,11 +17,13 @@ import {FickleReceiver} from "./mocks/FickleReceiver.sol";
 import {Constants} from "./utils/Constants.sol";
 import {Users} from "./utils/Types.sol";
 import {EnumerableSet} from "openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import {LibString} from "solady/utils/LibString.sol";
 import {console2} from "forge-std/Test.sol";
 
 abstract contract Base_Test is TestHelper, Utils {
     using EnumerableSet for EnumerableSet.Bytes32Set;
     using EnumerableSet for EnumerableSet.AddressSet;
+    using LibString for uint256;
 
     /// VARIABLES ///
 
@@ -94,14 +96,16 @@ abstract contract Base_Test is TestHelper, Utils {
         setUpEndpoints(instances, LibraryType.UltraLightNode);
         for (uint8 i; i < instances; ++i) {
             if (i == 0) {
+                vm.label(endpoints[1], LibString.concat("L0 Endpoint EID-", uint256(1).toString()));
                 deployHubFlat(endpoints[1]);
             } else {
+                vm.label(endpoints[1 + 1], LibString.concat("L0 Endpoint EID-", uint256(i + 1).toString()));
                 deploySpokeFlat(endpoints[i + 1]);
             }
         }
         vm.startPrank(users.endpointAdmin);
         wireOApps(endpointGroup.values());
-        for (uint8 i = 1; i < endpointGroup.length(); ++i) {
+        for (uint8 i = 1; i < instances; ++i) {
             Endpoint(endpointGroup.at(i)).setDstEid(1);
         }
         vm.stopPrank();
@@ -111,14 +115,16 @@ abstract contract Base_Test is TestHelper, Utils {
         setUpEndpoints(instances, LibraryType.UltraLightNode);
         for (uint8 i; i < instances; ++i) {
             if (i == 0) {
+                vm.label(endpoints[1], LibString.concat("L0 Endpoint EID-", uint256(1).toString()));
                 deployHubHarberger(endpoints[1]);
             } else {
+                vm.label(endpoints[1 + 1], LibString.concat("L0 Endpoint EID-", uint256(i + 1).toString()));
                 deploySpokeHarberger(endpoints[i + 1]);
             }
         }
         vm.startPrank(users.endpointAdmin);
         wireOApps(endpointGroup.values());
-        for (uint8 i = 1; i < endpointGroup.length(); ++i) {
+        for (uint8 i = 1; i < instances; ++i) {
             Endpoint(endpointGroup.at(i)).setDstEid(1);
         }
         vm.stopPrank();
@@ -130,6 +136,8 @@ abstract contract Base_Test is TestHelper, Utils {
         minPrice = pricingFlat.minAnnualPrice();
         endpoint = new Endpoint(users.endpointAdmin, users.signer, lzEndpoint);
         clusters = new ClustersHub(address(pricingFlat), address(endpoint), constants.MARKET_OPEN_TIMESTAMP());
+        vm.label(address(clusters), "Clusters Hub EID-1");
+        vm.label(address(endpoint), "Endpoint Hub EID-1");
         vm.prank(users.endpointAdmin);
         endpoint.setClustersAddr(address(clusters));
         clustersGroup.add(address(clusters));
@@ -145,6 +153,7 @@ abstract contract Base_Test is TestHelper, Utils {
         //endpoint.setClustersAddr(address(clusters));
         clustersGroup.add(address(0));
         endpointGroup.add(address(endpoint));
+        vm.label(address(endpoint), LibString.concat("Endpoint Spoke EID-", endpointGroup.length().toString()));
         return (address(0), address(endpoint));
     }
 
@@ -152,6 +161,8 @@ abstract contract Base_Test is TestHelper, Utils {
         minPrice = pricingHarberger.minAnnualPrice();
         endpoint = new Endpoint(users.endpointAdmin, users.signer, lzEndpoint);
         clusters = new ClustersHub(address(pricingHarberger), address(endpoint), constants.MARKET_OPEN_TIMESTAMP());
+        vm.label(address(clusters), "Clusters Hub EID-1");
+        vm.label(address(endpoint), "Endpoint Hub EID-1");
         vm.prank(users.endpointAdmin);
         endpoint.setClustersAddr(address(clusters));
         clustersGroup.add(address(clusters));
@@ -167,6 +178,7 @@ abstract contract Base_Test is TestHelper, Utils {
         //endpoint.setClustersAddr(address(clusters));
         clustersGroup.add(address(0));
         endpointGroup.add(address(endpoint));
+        vm.label(address(endpoint), LibString.concat("Endpoint Spoke EID-", endpointGroup.length().toString()));
         return (address(0), address(endpoint));
     }
 

@@ -166,8 +166,9 @@ abstract contract NameManagerHub is IClustersHub {
         emit BuyName(_name, clusterId, msgValue);
 
         payload = abi.encodeWithSignature("buyName(bytes32,uint256,string)", msgSender, msgValue, name);
-        if (_inMulticall) return payload;
-        else {
+        if (_inMulticall) {
+            return payload;
+        } else {
             IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
             _checkInvariant();
         }
@@ -195,8 +196,9 @@ abstract contract NameManagerHub is IClustersHub {
         emit FundName(_name, msgSender, msgValue);
 
         payload = abi.encodeWithSignature("fundName(bytes32,uint256,string)", msgSender, msgValue, name);
-        if (_inMulticall) return payload;
-        else {
+        if (_inMulticall) {
+            return payload;
+        } else {
             IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
             _checkInvariant();
         }
@@ -358,8 +360,9 @@ abstract contract NameManagerHub is IClustersHub {
         pokeName(name);
 
         payload = abi.encodeWithSignature("bidName(bytes32,uint256,string)", msgSender, msgValue, name);
-        if (_inMulticall) return payload;
-        else {
+        if (_inMulticall) {
+            return payload;
+        } else {
             IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
             _checkInvariant();
         }

@@ -176,15 +176,20 @@ contract Endpoint is OApp, IEndpoint {
         super.setPeer(eid, peer);
     }
 
-    function quote(uint32 dstEid_, bytes memory message, bytes memory options, bool payInLzToken) public view returns (uint256 nativeFee, uint256 lzTokenFee) {
+    function quote(uint32 dstEid_, bytes memory message, bytes memory options, bool payInLzToken)
+        public
+        view
+        returns (uint256 nativeFee, uint256 lzTokenFee)
+    {
         MessagingFee memory msgQuote = _quote(dstEid_, message, options, payInLzToken);
         nativeFee = msgQuote.nativeFee;
         lzTokenFee = msgQuote.lzTokenFee;
     }
 
     function _validateQuote(uint32 dstEid_, bytes memory message, bytes memory options) internal {
-        // TODO: Determine if we should force check fee param by retrieving onchain quote or just validate msg.value at least covers the specified fee.
-        (uint256 nativeFee, ) = quote(dstEid_, message, options, false);
+        // TODO: Determine if we should force check fee param by retrieving onchain quote or just validate msg.value at
+        // least covers the specified fee.
+        (uint256 nativeFee,) = quote(dstEid_, message, options, false);
         if (msg.value < nativeFee) revert Insufficient();
     }
 
