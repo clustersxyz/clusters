@@ -1,0 +1,60 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.13;
+
+import {Script, console2} from "forge-std/Script.sol";
+
+import {PricingHarberger} from "../src/PricingHarberger.sol";
+import {Endpoint} from "../src/Endpoint.sol";
+import {ClustersHub} from "../src/ClustersHub.sol";
+
+contract ClustersScript is Script {
+    address internal constant SIGNER = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
+    address internal constant LZ_END_GOERLI = 0x464570adA09869d8741132183721B4f0769a0287;
+    address internal constant LZ_END_SEPOLIA = 0x464570adA09869d8741132183721B4f0769a0287;
+    uint32 internal constant LZ_EID_GOERLI = 40121;
+    uint32 internal constant LZ_EID_SEPOLIA = 40161;
+
+    string internal GOERLI_RPC_URL = vm.envString("GOERLI_RPC_URL");
+    string internal SEPOLIA_RPC_URL = vm.envString("SEPOLIA_RPC_URL");
+    uint256 internal goerliFork;
+    uint256 internal sepoliaFork;
+
+    function addressToBytes32(address addr) internal pure returns (bytes32) {
+        return bytes32(uint256(uint160(addr)));
+    }
+
+    function setUp() public {
+        goerliFork = vm.createFork(GOERLI_RPC_URL);
+        sepoliaFork = vm.createFork(SEPOLIA_RPC_URL);
+    }
+
+    function run() public {
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        address deployer = vm.addr(deployerPrivateKey);
+
+        vm.selectFork(goerliFork);
+        vm.startBroadcast(deployerPrivateKey);
+        PricingHarberger goerliPricing = new PricingHarberger(block.timestamp);
+        Endpoint goerliEndpoint = new Endpoint(deployer, SIGNER, LZ_END_GOERLI);
+        ClustersHub goerliClusters =
+            new ClustersHub(address(goerliPricing), address(goerliEndpoint), block.timestamp + 10 minutes);
+        goerliEndpoint.setClustersAddr(address(goerliClusters));
+        vm.stopBroadcast();
+
+        vm.selectFork(sepoliaFork);
+        vm.startBroadcast(deployerPrivateKey);
+        //PricingHarberger sepoliaPricing = new PricingHarberger(block.timestamp);
+        Endpoint sepoliaEndpoint = new Endpoint(deployer, SIGNER, LZ_END_SEPOLIA);
+        //ClustersHub sepoliaClusters = new ClustersHub(address(sepoliaPricing), address(sepoliaEndpoint),
+        // block.timestamp);
+        //sepoliaEndpoint.setClustersAddr(address(sepoliaClusters));
+        sepoliaEndpoint.setPeer(LZ_EID_GOERLI, addressToBytes32(address(goerliEndpoint)));
+        sepoliaEndpoint.setDstEid(LZ_EID_GOERLI);
+        vm.stopBroadcast();
+
+        vm.selectFork(goerliFork);
+        vm.startBroadcast(deployerPrivateKey);
+        goerliEndpoint.setPeer(LZ_EID_SEPOLIA, addressToBytes32(address(sepoliaEndpoint)));
+        vm.stopBroadcast();
+    }
+}
