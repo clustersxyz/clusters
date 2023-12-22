@@ -24,6 +24,10 @@ interface IClustersHubEndpoint {
 contract Endpoint is OApp, IEndpoint {
     using EnumerableSetLib for EnumerableSetLib.Bytes32Set;
 
+    bytes4 internal constant POKE_NAME_SELECTOR = bytes4(keccak256("pokeName(string)"));
+    bytes4 internal constant REDUCE_BID_SELECTOR = bytes4(keccak256("reduceBid(bytes32,string,uint256)"));
+    bytes4 internal constant ACCEPT_BID_SELECTOR = bytes4(keccak256("acceptBid(bytes32,string)"));
+
     uint32 public dstEid;
     address public clusters;
     address public signer;
@@ -103,11 +107,6 @@ contract Endpoint is OApp, IEndpoint {
 
     /// PERMISSIONED FUNCTIONS ///
 
-    // WARN: I'm pretty sure this won't work. ClustersHub.sol's multicall() forwards back to the Endpoint. It doesn't
-    // expect to be called by Endpoint. Either make an endpoint version of multicall() or parse all calls for msgValue
-    // and pay ClustersHub.sol accordingly per call.
-    // The reason this doesn't currently fail in tests is because there aren't crosschain tests at the time of writing.
-    // In a solo-chain configuration, bridge execution simply returns as no peers are configured.
     function multicall(bytes[] calldata data, bytes calldata sig) external payable returns (bytes[] memory results) {
         if (!verifyMulticall(data, sig)) revert ECDSA.InvalidSignature();
         results = IClustersHubEndpoint(clusters).multicall{value: msg.value}(data);
@@ -212,12 +211,21 @@ contract Endpoint is OApp, IEndpoint {
         payable
         returns (bytes memory)
     {
-        bytes32 msgSender;
+        bytes4 selector;
         assembly {
-            msgSender := mload(add(data, 36)) // Add 32 to skip the first 32 bytes (function selector + bytes array
-                // length)
+            selector := mload(add(data, 32))
         }
-        if (msgSender != _addressToBytes32(msg.sender)) revert Unauthorized();
+        if (selector == REDUCE_BID_SELECTOR || selector == ACCEPT_BID_SELECTOR) {
+            revert Invalid();
+        } else if (selector != POKE_NAME_SELECTOR) {
+            bytes32 msgSender;
+            assembly {
+                msgSender := mload(add(data, 36)) // Add 32 to skip the first 32 bytes (function selector + bytes array
+                    // length)
+            }
+            if (msgSender != _addressToBytes32(msg.sender)) revert Unauthorized();
+        }
+
         // All endpoints only have one of two send paths: ETH -> Relay, Any -> ETH
         uint32 dstEid_ = dstEid;
         _validateQuote(dstEid_, data, options);
@@ -231,13 +239,22 @@ contract Endpoint is OApp, IEndpoint {
         returns (bytes memory)
     {
         for (uint256 i; i < data.length; ++i) {
-            bytes32 msgSender;
-            bytes memory currentCall = data[i];
+            bytes4 selector;
             assembly {
-                msgSender := mload(add(currentCall, 36)) // Add 32 to skip the first 32 bytes (function selector + bytes
-                    // array length)
+                selector := mload(add(data, 32))
             }
-            if (msgSender != _addressToBytes32(msg.sender)) revert Unauthorized();
+            if (selector == REDUCE_BID_SELECTOR || selector == ACCEPT_BID_SELECTOR) {
+                revert Invalid();
+            } else if (selector != POKE_NAME_SELECTOR) {
+                bytes32 msgSender;
+                bytes memory currentCall = data[i];
+                assembly {
+                    msgSender := mload(add(currentCall, 36)) // Add 32 to skip the first 32 bytes (function selector +
+                        // bytes
+                        // array length)
+                }
+                if (msgSender != _addressToBytes32(msg.sender)) revert Unauthorized();
+            }
         }
         bytes memory payload = abi.encodeWithSignature("multicall(bytes[])", data);
         _validateQuote(dstEid, payload, options);

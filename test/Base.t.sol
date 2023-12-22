@@ -198,6 +198,23 @@ abstract contract Base_Test is TestHelper, Utils {
         assertEq(totalBal, protocolAccrual + totalNameBacking + totalBidBacking, "clusters balance invariant error");
     }
 
+    function assertBalances(
+        uint32 eid,
+        uint256 totalBal,
+        uint256 protocolAccrual,
+        uint256 totalNameBacking,
+        uint256 totalBidBacking
+    ) internal {
+        assertFalse(eid < 1, "EID cannot be 0");
+        address eidClusters = clustersGroup.at(eid - 1);
+        assertEq(address(endpointGroup.at(eid - 1)).balance, 0, "endpoint has balance");
+        assertEq(address(eidClusters).balance, totalBal, "clusters total balance error");
+        assertEq(ClustersHub(eidClusters).protocolAccrual(), protocolAccrual, "clusters protocol accrual error");
+        assertEq(ClustersHub(eidClusters).totalNameBacking(), totalNameBacking, "clusters total name backing error");
+        assertEq(ClustersHub(eidClusters).totalBidBacking(), totalBidBacking, "clusters total bid backing error");
+        assertEq(totalBal, protocolAccrual + totalNameBacking + totalBidBacking, "clusters balance invariant error");
+    }
+
     function assertUnverifiedAddresses(uint256 clusterId, uint256 count, bytes32[] memory containsAddrs) internal {
         bytes32[] memory unverified = clusters.getUnverifiedAddresses(clusterId);
         if (unverified.length > 0) {
@@ -211,6 +228,31 @@ abstract contract Base_Test is TestHelper, Utils {
                 values[clusterId].contains(containsAddrs[i]), true, "clusterId does not contain unverified address"
             );
             assertEq(0, clusters.addressToClusterId(containsAddrs[i]), "address incorrectly assigned to clusterId");
+        }
+    }
+
+    function assertUnverifiedAddresses(uint32 eid, uint256 clusterId, uint256 count, bytes32[] memory containsAddrs)
+        internal
+    {
+        assertFalse(eid < 1, "EID cannot be 0");
+        address eidClusters = clustersGroup.at(eid - 1);
+
+        bytes32[] memory unverified = ClustersHub(eidClusters).getUnverifiedAddresses(clusterId);
+        if (unverified.length > 0) {
+            for (uint256 i; i < unverified.length; ++i) {
+                values[clusterId].add(unverified[i]);
+            }
+        }
+        assertEq(unverified.length, count, "unverified addresses array length error");
+        for (uint256 i; i < containsAddrs.length; ++i) {
+            assertEq(
+                values[clusterId].contains(containsAddrs[i]), true, "clusterId does not contain unverified address"
+            );
+            assertEq(
+                0,
+                ClustersHub(eidClusters).addressToClusterId(containsAddrs[i]),
+                "address incorrectly assigned to clusterId"
+            );
         }
     }
 
@@ -228,6 +270,29 @@ abstract contract Base_Test is TestHelper, Utils {
         }
     }
 
+    function assertVerifiedAddresses(uint32 eid, uint256 clusterId, uint256 count, bytes32[] memory containsAddrs)
+        internal
+    {
+        assertFalse(eid < 1, "EID cannot be 0");
+        address eidClusters = clustersGroup.at(eid - 1);
+
+        bytes32[] memory verified = ClustersHub(eidClusters).getVerifiedAddresses(clusterId);
+        if (verified.length > 0) {
+            for (uint256 i; i < verified.length; ++i) {
+                values[clusterId].add(verified[i]);
+            }
+        }
+        assertEq(verified.length, count, "verified addresses array length error");
+        for (uint256 i; i < containsAddrs.length; ++i) {
+            assertEq(values[clusterId].contains(containsAddrs[i]), true, "clusterId does not contain verified address");
+            assertEq(
+                clusterId,
+                ClustersHub(eidClusters).addressToClusterId(containsAddrs[i]),
+                "address not assigned to clusterId"
+            );
+        }
+    }
+
     function assertClusterNames(uint256 clusterId, uint256 count, bytes32[] memory containsNames) internal {
         bytes32[] memory names = clusters.getClusterNamesBytes32(clusterId);
         if (names.length > 0) {
@@ -242,17 +307,81 @@ abstract contract Base_Test is TestHelper, Utils {
         }
     }
 
+    function assertClusterNames(uint32 eid, uint256 clusterId, uint256 count, bytes32[] memory containsNames)
+        internal
+    {
+        assertFalse(eid < 1, "EID cannot be 0");
+        address eidClusters = clustersGroup.at(eid - 1);
+
+        bytes32[] memory names = ClustersHub(eidClusters).getClusterNamesBytes32(clusterId);
+        if (names.length > 0) {
+            for (uint256 i; i < names.length; ++i) {
+                values[clusterId].add(names[i]);
+            }
+        }
+        assertEq(names.length, count, "cluster names array length error");
+        for (uint256 i; i < containsNames.length; ++i) {
+            assertEq(values[clusterId].contains(containsNames[i]), true, "clusterId does not contain name");
+            assertEq(
+                clusterId, ClustersHub(eidClusters).nameToClusterId(containsNames[i]), "name not assigned to clusterId"
+            );
+        }
+    }
+
     function assertWalletName(uint256 clusterId, bytes32 addr, string memory name) internal {
         assertEq(addr, clusters.forwardLookup(clusterId, _stringToBytes32(name)), "forwardLookup error");
         assertEq(_stringToBytes32(name), clusters.reverseLookup(addr));
+    }
+
+    function assertWalletName(uint32 eid, uint256 clusterId, bytes32 addr, string memory name) internal {
+        assertFalse(eid < 1, "EID cannot be 0");
+        address eidClusters = clustersGroup.at(eid - 1);
+
+        assertEq(addr, ClustersHub(eidClusters).forwardLookup(clusterId, _stringToBytes32(name)), "forwardLookup error");
+        assertEq(_stringToBytes32(name), ClustersHub(eidClusters).reverseLookup(addr));
     }
 
     function assertNameBacking(string memory name, uint256 nameBacking) internal {
         assertEq(nameBacking, clusters.nameBacking(_stringToBytes32(name)), "name backing incorrect");
     }
 
+    function assertNameBacking(uint32 eid, string memory name, uint256 nameBacking) internal {
+        assertFalse(eid < 1, "EID cannot be 0");
+        address eidClusters = clustersGroup.at(eid - 1);
+
+        assertEq(nameBacking, ClustersHub(eidClusters).nameBacking(_stringToBytes32(name)), "name backing incorrect");
+    }
+
+    function assertBid(string memory name, uint256 ethAmount, uint256 createdTimestamp, bytes32 bidder) internal {
+        (uint256 _ethAmount, uint256 _createdTimestamp, bytes32 _bidder) = clusters.bids(_stringToBytes32(name));
+        assertEq(ethAmount, _ethAmount, "bid ethAmount error");
+        assertEq(createdTimestamp, _createdTimestamp, "bid createdTimestamp error");
+        assertEq(bidder, _bidder, "bid bidder error");
+    }
+
+    function assertBid(uint32 eid, string memory name, uint256 ethAmount, uint256 createdTimestamp, bytes32 bidder)
+        internal
+    {
+        assertFalse(eid < 1, "EID cannot be 0");
+        address eidClusters = clustersGroup.at(eid - 1);
+
+        (uint256 _ethAmount, uint256 _createdTimestamp, bytes32 _bidder) =
+            ClustersHub(eidClusters).bids(_stringToBytes32(name));
+        assertEq(ethAmount, _ethAmount, "bid ethAmount error");
+        assertEq(createdTimestamp, _createdTimestamp, "bid createdTimestamp error");
+        assertEq(bidder, _bidder, "bid bidder error");
+    }
+
     function assertEndpointVars(address clusters_, address signer) internal {
         assertEq(clusters_, endpoint.clusters(), "endpoint clusters address error");
         assertEq(signer, endpoint.signer(), "endpoint signer address error");
+    }
+
+    function assertEndpointVars(uint32 eid, address clusters_, address signer) internal {
+        assertFalse(eid < 1, "EID cannot be 0");
+        address eidEndpoint = endpointGroup.at(eid - 1);
+
+        assertEq(clusters_, Endpoint(eidEndpoint).clusters(), "endpoint clusters address error");
+        assertEq(signer, Endpoint(eidEndpoint).signer(), "endpoint signer address error");
     }
 }
