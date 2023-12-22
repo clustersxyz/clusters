@@ -21,6 +21,7 @@ interface IEndpoint {
 
     /// STORAGE ///
 
+    function dstEid() external view returns (uint32);
     function clusters() external view returns (address);
     function signer() external view returns (address);
     function userNonces(bytes32 addr) external view returns (uint256);
