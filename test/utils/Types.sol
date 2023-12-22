@@ -7,7 +7,7 @@ struct Users {
     // Frontend's signer
     address payable signer;
     // Default admin for Endpoint.sol
-    address payable adminEndpoint;
+    address payable endpointAdmin;
     // Alice's primary address
     address payable alicePrimary;
     // Alice's secondary address

@@ -3,12 +3,12 @@ pragma solidity ^0.8.23;
 
 import {Base_Test} from "./Base.t.sol";
 
-import {IClusters} from "../src/interfaces/IClusters.sol";
+import {IClustersHub} from "clusters/interfaces/IClustersHub.sol";
 
 contract GasBenchmarkTest is Base_Test {
     function setUp() public virtual override {
         Base_Test.setUp();
-        deployLocalHarberger();
+        configureHarbergerEnvironment(1);
     }
 
     function testBenchmark() public {

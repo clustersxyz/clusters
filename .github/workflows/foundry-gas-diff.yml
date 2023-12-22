@@ -25,6 +25,16 @@ jobs:
         uses: onbjerg/foundry-toolchain@v1
         with:
           version: nightly
+      
+      - name: Install dependencies
+        run: forge install
+      
+      - name: Yarn Install and Build
+        run: |
+          cd lib/LayerZero-v2
+          yarn
+          yarn build
+          cd ../..
 
       # Add any step generating a gas report to a temporary file named gasreport.ansi. For example:
       - name: Run tests

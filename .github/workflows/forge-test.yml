@@ -18,6 +18,12 @@ jobs:
 
       - name: Install dependencies
         run: forge install
+      
+      - name: Yarn Install and Build
+        run: |
+          cd lib/LayerZero-v2
+          yarn
+          yarn build
 
       - name: Check formatting
         run: forge fmt --check

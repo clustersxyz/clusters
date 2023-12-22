@@ -2,11 +2,20 @@
 pragma solidity ^0.8.23;
 
 interface IEndpoint {
+    /// ERRORS ///
+
     error Invalid();
+    error TxFailed();
+    error RelayEid();
+    error UnknownEid();
+    error Unauthorized();
     error Insufficient();
     error MulticallFailed();
 
+    /// EVENTS ///
+
     event Nonce(bytes32 indexed addr, uint256 indexed nonce);
+    event SoftAbort();
     event SignerAddr(address indexed addr);
     event ClustersAddr(address indexed addr);
 
@@ -14,7 +23,7 @@ interface IEndpoint {
 
     function clusters() external view returns (address);
     function signer() external view returns (address);
-    function nonces(bytes32 addr) external view returns (uint256);
+    function userNonces(bytes32 addr) external view returns (uint256);
 
     /// ECDSA HELPERS ///
 
@@ -57,4 +66,20 @@ interface IEndpoint {
 
     function setSignerAddr(address signer_) external;
     function setClustersAddr(address clusters_) external;
+
+    /// LAYERZERO ///
+
+    function setDstEid(uint32 eid) external;
+    function quote(uint32 dstEid, bytes memory message, bytes memory options, bool payInLzToken)
+        external
+        returns (uint256 nativeFee, uint256 lzTokenFee);
+    function sendPayload(bytes calldata payload) external payable returns (bytes memory result);
+    function lzSend(bytes memory data, bytes memory options, uint256 nativeFee, address refundAddress)
+        external
+        payable
+        returns (bytes memory);
+    function lzSendMulticall(bytes[] memory data, bytes memory options, uint256 nativeFee, address refundAddress)
+        external
+        payable
+        returns (bytes memory);
 }
