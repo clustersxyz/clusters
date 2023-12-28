@@ -80,6 +80,9 @@ interface IClustersHub {
     function getVerifiedAddresses(uint256 clusterId) external view returns (bytes32[] memory addresses);
     function getClusterNamesBytes32(uint256 clusterId) external view returns (bytes32[] memory names);
 
+    function gasAirdrop(bytes32 msgSender, uint256 msgValue) external payable;
+    function noBridgeFundsReturn() external payable;
+
     /// EXTERNAL FUNCTIONS ///
 
     function multicall(bytes[] calldata data) external payable returns (bytes[] memory results);

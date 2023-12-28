@@ -177,7 +177,7 @@ contract Endpoint is OApp, Constants, IEndpoint {
     function _deriveLzParams(bytes memory message)
         internal
         view
-        returns (uint128 totalGas, uint128 totalValue, uint128 airdrop, bytes32 msgSender)
+        returns (uint256 totalGas, uint256 totalValue, uint256 airdrop, bytes32 msgSender)
     {
         // Retrieve function selector first
         bytes4 selector;
@@ -194,7 +194,7 @@ contract Endpoint is OApp, Constants, IEndpoint {
             }
             // Incrementally tally return params for all multicall calls
             for (uint256 i; i < data.length;) {
-                (uint128 iGas, uint128 iValue, uint128 iAirdrop, bytes32 iMsgSender) = _deriveLzParams(data[i]);
+                (uint256 iGas, uint256 iValue, uint256 iAirdrop, bytes32 iMsgSender) = _deriveLzParams(data[i]);
                 // Check msgSender data to make sure the same sender is used across all calls
                 if (iMsgSender != bytes32("")) {
                     if (msgSender == bytes32("")) msgSender = iMsgSender;
@@ -215,10 +215,16 @@ contract Endpoint is OApp, Constants, IEndpoint {
                     msgSender := mload(add(message, 36))
                 }
             }
-            // Retrieve msgValue param
+            // Retrieve totalValue param
             if (selector == BUY_NAME_SELECTOR || selector == FUND_NAME_SELECTOR || selector == BID_NAME_SELECTOR) {
                 assembly {
                     totalValue := mload(add(message, 68))
+                }
+            }
+            // Retrieve airdrop param
+            if (selector == GAS_AIRDROP_SELECTOR) {
+                assembly {
+                    airdrop := mload(add(message, 68))
                 }
             }
             // Determine gas and value totals via function selector
@@ -248,6 +254,8 @@ contract Endpoint is OApp, Constants, IEndpoint {
                 return (10_000 gwei, totalValue, airdrop, msgSender);
             } else if (selector == SET_WALLET_NAME_SELECTOR) {
                 return (60_000 gwei, totalValue, airdrop, msgSender);
+            } else if (selector == GAS_AIRDROP_SELECTOR) {
+                return (10_000 gwei, totalValue, airdrop, msgSender);
             } else {
                 revert Invalid();
             }
@@ -259,9 +267,14 @@ contract Endpoint is OApp, Constants, IEndpoint {
         view
         returns (uint256 nativeFee, uint256 lzTokenFee, bytes memory options)
     {
-        (uint128 totalGas, uint128 totalValue, uint128 airdrop, bytes32 msgSender) = _deriveLzParams(message);
-        options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(totalGas, totalValue);
-        if (airdrop > 0) options.addExecutorNativeDropOption(airdrop, msgSender);
+        (uint256 totalGas, uint256 totalValue, uint256 airdrop, bytes32 msgSender) = _deriveLzParams(message);
+        options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(uint128(totalGas), uint128(totalValue));
+        if (airdrop > 0) {
+            console2.log(airdrop);
+            console2.logBytes(options);
+            options.addExecutorNativeDropOption(uint128(airdrop), msgSender);
+            console2.logBytes(options);
+        }
 
         MessagingFee memory msgQuote = _quote(dstEid_, message, options, payInLzToken);
         nativeFee = msgQuote.nativeFee;

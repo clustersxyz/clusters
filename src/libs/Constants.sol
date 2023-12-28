@@ -17,4 +17,5 @@ contract Constants {
     bytes4 internal constant SET_DEFAULT_CLUSTER_NAME_SELECTOR =
         bytes4(keccak256("setDefaultClusterName(bytes32,string)"));
     bytes4 internal constant SET_WALLET_NAME_SELECTOR = bytes4(keccak256("setWalletName(bytes32,bytes32,string)"));
+    bytes4 internal constant GAS_AIRDROP_SELECTOR = bytes4(keccak256("gasAirdrop(bytes32,uint256)"));
 }

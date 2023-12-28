@@ -71,6 +71,9 @@ contract ClustersHub is NameManagerHub {
         return _verifiedAddresses[clusterId].values();
     }
 
+    // Specifically used in calldata enumeration by Endpoint.sol only
+    function gasAirdrop(bytes32, /*msgSender*/ uint256 /*msgValue*/ ) external payable {}
+
     function noBridgeFundsReturn() external payable {
         if (msg.sender != endpoint) revert Unauthorized();
     }

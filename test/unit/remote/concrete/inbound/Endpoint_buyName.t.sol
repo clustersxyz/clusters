@@ -2,11 +2,8 @@
 pragma solidity ^0.8.23;
 
 import {Inbound_Harberger_Shared_Test, console2} from "../../shared/SharedInboundHarbergerTest.t.sol";
-import {OptionsBuilder} from "layerzero-oapp/contracts/oapp/libs/OptionsBuilder.sol";
 
 contract Inbound_Endpoint_buyName_Unit_Concrete_Test is Inbound_Harberger_Shared_Test {
-    using OptionsBuilder for bytes;
-
     function testBuyName() public {
         vm.startPrank(users.alicePrimary);
         bytes memory data = abi.encodeWithSignature(

@@ -2,11 +2,8 @@
 pragma solidity ^0.8.23;
 
 import {Inbound_Harberger_Shared_Test} from "../../shared/SharedInboundHarbergerTest.t.sol";
-import {OptionsBuilder} from "layerzero-oapp/contracts/oapp/libs/OptionsBuilder.sol";
 
 contract Inbound_Endpoint_setDefaultClusterName_Unit_Concrete_Test is Inbound_Harberger_Shared_Test {
-    using OptionsBuilder for bytes;
-
     function setUp() public virtual override {
         Inbound_Harberger_Shared_Test.setUp();
         vm.warp(constants.MARKET_OPEN_TIMESTAMP() + 1 days);
