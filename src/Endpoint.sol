@@ -270,10 +270,7 @@ contract Endpoint is OApp, Constants, IEndpoint {
         (uint256 totalGas, uint256 totalValue, uint256 airdrop, bytes32 msgSender) = _deriveLzParams(message);
         options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(uint128(totalGas), uint128(totalValue));
         if (airdrop > 0) {
-            console2.log(airdrop);
-            console2.logBytes(options);
-            options.addExecutorNativeDropOption(uint128(airdrop), msgSender);
-            console2.logBytes(options);
+            options = OptionsBuilder.addExecutorNativeDropOption(options, uint128(airdrop), msgSender);
         }
 
         MessagingFee memory msgQuote = _quote(dstEid_, message, options, payInLzToken);
