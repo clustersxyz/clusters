@@ -20,9 +20,7 @@ contract Inbound_Endpoint_bidName_Unit_Concrete_Test is Inbound_Harberger_Shared
         bytes memory data = abi.encodeWithSignature(
             "bidName(bytes32,uint256,string)", _addressToBytes32(users.bobPrimary), minPrice * 2, constants.TEST_NAME()
         );
-        bytes memory options =
-            OptionsBuilder.newOptions().addExecutorLzReceiveOption(250_000 gwei, uint128(minPrice * 2));
-        (uint256 nativeFee,) = remoteEndpoint.quote(1, data, options, false);
+        (uint256 nativeFee,, bytes memory options) = remoteEndpoint.quote(1, data, false);
         remoteEndpoint.lzSend{value: nativeFee}(data, options, nativeFee, payable(msg.sender));
         verifyPackets(1, address(localEndpoint));
         vm.stopPrank();
