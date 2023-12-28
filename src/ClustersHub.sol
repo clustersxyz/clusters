@@ -3,7 +3,7 @@ pragma solidity ^0.8.23;
 
 // Follow https://docs.soliditylang.org/en/latest/style-guide.html for style
 
-import {EnumerableSetLib} from "./EnumerableSetLib.sol";
+import {EnumerableSetLib} from "./libs/EnumerableSetLib.sol";
 
 import {NameManagerHub} from "./NameManagerHub.sol";
 

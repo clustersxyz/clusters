@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {EnumerableSetLib} from "./EnumerableSetLib.sol";
+import {EnumerableSetLib} from "./libs/EnumerableSetLib.sol";
 
 import {IPricing} from "./interfaces/IPricing.sol";
 

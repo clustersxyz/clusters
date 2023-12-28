@@ -2,9 +2,11 @@
 pragma solidity ^0.8.23;
 
 import {OApp, Origin, MessagingFee} from "layerzero-oapp/contracts/oapp/OApp.sol";
+import {Constants} from "./libs/Constants.sol";
 import {IEndpoint} from "./interfaces/IEndpoint.sol";
 import {ECDSA} from "solady/utils/ECDSA.sol";
-import {EnumerableSetLib} from "./EnumerableSetLib.sol";
+import {EnumerableSetLib} from "./libs/EnumerableSetLib.sol";
+import {OptionsBuilder} from "layerzero-oapp/contracts/oapp/libs/OptionsBuilder.sol";
 import {console2} from "forge-std/Test.sol";
 
 interface IClustersHubEndpoint {
@@ -21,12 +23,9 @@ interface IClustersHubEndpoint {
 
 // TODO: Make this a proxy contract to swap out logic, ownership can be reverted later
 
-contract Endpoint is OApp, IEndpoint {
+contract Endpoint is OApp, Constants, IEndpoint {
     using EnumerableSetLib for EnumerableSetLib.Bytes32Set;
-
-    bytes4 internal constant POKE_NAME_SELECTOR = bytes4(keccak256("pokeName(string)"));
-    bytes4 internal constant REDUCE_BID_SELECTOR = bytes4(keccak256("reduceBid(bytes32,string,uint256)"));
-    bytes4 internal constant ACCEPT_BID_SELECTOR = bytes4(keccak256("acceptBid(bytes32,string)"));
+    using OptionsBuilder for bytes;
 
     uint32 public dstEid;
     address public clusters;
@@ -175,21 +174,98 @@ contract Endpoint is OApp, IEndpoint {
         super.setPeer(eid, peer);
     }
 
-    function quote(uint32 dstEid_, bytes memory message, bytes memory options, bool payInLzToken)
+    function _deriveLzParams(bytes memory message)
+        internal
+        view
+        returns (uint128 totalGas, uint128 totalValue, uint128 airdrop, bytes32 msgSender)
+    {
+        // Retrieve function selector first
+        bytes4 selector;
+        assembly {
+            selector := mload(add(message, 32))
+        }
+        // Handle multicall() calldata specifically in a recursive manner
+        if (selector == MULTICALL_SELECTOR) {
+            // Retrieve multicall() array param data
+            bytes[] memory data;
+            assembly {
+                let slicedData := add(message, 36)
+                data := mload(slicedData)
+            }
+            // Incrementally tally return params for all multicall calls
+            for (uint256 i; i < data.length;) {
+                (uint128 iGas, uint128 iValue, uint128 iAirdrop, bytes32 iMsgSender) = _deriveLzParams(data[i]);
+                // Check msgSender data to make sure the same sender is used across all calls
+                if (iMsgSender != bytes32("")) {
+                    if (msgSender == bytes32("")) msgSender = iMsgSender;
+                    else if (msgSender != iMsgSender) revert Unauthorized();
+                }
+                unchecked {
+                    totalGas += iGas;
+                    totalValue += iValue;
+                    airdrop += iAirdrop;
+                    ++i;
+                }
+            }
+        } else {
+            // Parse data out of all other calls
+            // Retrieve msgSender param
+            if (selector != POKE_NAME_SELECTOR) {
+                assembly {
+                    msgSender := mload(add(message, 36))
+                }
+            }
+            // Retrieve msgValue param
+            if (selector == BUY_NAME_SELECTOR || selector == FUND_NAME_SELECTOR || selector == BID_NAME_SELECTOR) {
+                assembly {
+                    totalValue := mload(add(message, 68))
+                }
+            }
+            // Determine gas and value totals via function selector
+            if (selector == ADD_SELECTOR) {
+                return (40_000 gwei, totalValue, airdrop, msgSender);
+            } else if (selector == VERIFY_SELECTOR) {
+                return (45_000 gwei, totalValue, airdrop, msgSender);
+            } else if (selector == REMOVE_SELECTOR) {
+                return (15_000 gwei, totalValue, airdrop, msgSender);
+            } else if (selector == BUY_NAME_SELECTOR) {
+                return (250_000 gwei, totalValue, airdrop, msgSender);
+            } else if (selector == FUND_NAME_SELECTOR) {
+                return (25_000 gwei, totalValue, airdrop, msgSender);
+            } else if (selector == TRANSFER_NAME_SELECTOR) {
+                return (60_000 gwei, totalValue, airdrop, msgSender);
+            } else if (selector == POKE_NAME_SELECTOR) {
+                return (35_000 gwei, totalValue, airdrop, msgSender);
+            } else if (selector == BID_NAME_SELECTOR) {
+                return (140_000 gwei, totalValue, airdrop, msgSender);
+            } else if (selector == REDUCE_BID_SELECTOR) {
+                return (30_000 gwei, totalValue, airdrop, msgSender);
+            } else if (selector == ACCEPT_BID_SELECTOR) {
+                return (95_000 gwei, totalValue, airdrop, msgSender);
+            } else if (selector == REFUND_BID_SELECTOR) {
+                return (50_000 gwei, totalValue, airdrop, msgSender);
+            } else if (selector == SET_DEFAULT_CLUSTER_NAME_SELECTOR) {
+                return (10_000 gwei, totalValue, airdrop, msgSender);
+            } else if (selector == SET_WALLET_NAME_SELECTOR) {
+                return (60_000 gwei, totalValue, airdrop, msgSender);
+            } else {
+                revert Invalid();
+            }
+        }
+    }
+
+    function quote(uint32 dstEid_, bytes memory message, bool payInLzToken)
         public
         view
-        returns (uint256 nativeFee, uint256 lzTokenFee)
+        returns (uint256 nativeFee, uint256 lzTokenFee, bytes memory options)
     {
+        (uint128 totalGas, uint128 totalValue, uint128 airdrop, bytes32 msgSender) = _deriveLzParams(message);
+        options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(totalGas, totalValue);
+        if (airdrop > 0) options.addExecutorNativeDropOption(airdrop, msgSender);
+
         MessagingFee memory msgQuote = _quote(dstEid_, message, options, payInLzToken);
         nativeFee = msgQuote.nativeFee;
         lzTokenFee = msgQuote.lzTokenFee;
-    }
-
-    function _validateQuote(uint32 dstEid_, bytes memory message, bytes memory options) internal {
-        // TODO: Determine if we should force check fee param by retrieving onchain quote or just validate msg.value at
-        // least covers the specified fee.
-        (uint256 nativeFee,) = quote(dstEid_, message, options, false);
-        if (msg.value < nativeFee) revert Insufficient();
     }
 
     function sendPayload(bytes calldata payload) external payable onlyClusters returns (bytes memory result) {
@@ -227,10 +303,8 @@ contract Endpoint is OApp, IEndpoint {
         }
 
         // All endpoints only have one of two send paths: ETH -> Relay, Any -> ETH
-        uint32 dstEid_ = dstEid;
-        _validateQuote(dstEid_, data, options);
         MessagingFee memory fee = MessagingFee({nativeFee: nativeFee, lzTokenFee: 0});
-        return abi.encode(_lzSend(dstEid_, data, options, fee, refundAddress));
+        return abi.encode(_lzSend(dstEid, data, options, fee, refundAddress));
     }
 
     function lzSendMulticall(bytes[] memory data, bytes memory options, uint256 nativeFee, address refundAddress)
@@ -239,25 +313,23 @@ contract Endpoint is OApp, IEndpoint {
         returns (bytes memory)
     {
         for (uint256 i; i < data.length; ++i) {
+            bytes memory currentCall = data[i];
             bytes4 selector;
             assembly {
-                selector := mload(add(data, 32))
+                selector := mload(add(currentCall, 32))
             }
             if (selector == REDUCE_BID_SELECTOR || selector == ACCEPT_BID_SELECTOR) {
                 revert Invalid();
             } else if (selector != POKE_NAME_SELECTOR) {
                 bytes32 msgSender;
-                bytes memory currentCall = data[i];
                 assembly {
                     msgSender := mload(add(currentCall, 36)) // Add 32 to skip the first 32 bytes (function selector +
-                        // bytes
-                        // array length)
+                        // bytes array length)
                 }
                 if (msgSender != _addressToBytes32(msg.sender)) revert Unauthorized();
             }
         }
         bytes memory payload = abi.encodeWithSignature("multicall(bytes[])", data);
-        _validateQuote(dstEid, payload, options);
         MessagingFee memory fee = MessagingFee({nativeFee: nativeFee, lzTokenFee: 0});
         // All endpoints only have one of two send paths: ETH -> Relay, Any -> ETH
         return abi.encode(_lzSend(dstEid, payload, options, fee, refundAddress));

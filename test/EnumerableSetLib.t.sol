@@ -2,7 +2,7 @@
 pragma solidity ^0.8.23;
 
 import "forge-std/Test.sol";
-import {EnumerableSetLib} from "clusters/EnumerableSetLib.sol";
+import {EnumerableSetLib} from "clusters/libs/EnumerableSetLib.sol";
 import {LibSort} from "solady/utils/LibSort.sol";
 import {LibPRNG} from "solady/utils/LibPRNG.sol";
 
