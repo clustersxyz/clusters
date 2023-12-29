@@ -28,6 +28,7 @@ contract Endpoint is OApp, IEndpoint {
     bytes4 internal constant POKE_NAME_SELECTOR = bytes4(keccak256("pokeName(string)"));
     bytes4 internal constant REDUCE_BID_SELECTOR = bytes4(keccak256("reduceBid(bytes32,string,uint256)"));
     bytes4 internal constant ACCEPT_BID_SELECTOR = bytes4(keccak256("acceptBid(bytes32,string)"));
+    bytes4 internal constant REFUND_SELECTOR = bytes4(keccak256("refund(bytes32,bytes32,uint32,bytes)"));
 
     uint32 public dstEid;
     address public clusters;
@@ -263,7 +264,7 @@ contract Endpoint is OApp, IEndpoint {
         returns (bytes memory)
     {
         bytes4 selector = _getFuncSelector(data);
-        if (selector == REDUCE_BID_SELECTOR || selector == ACCEPT_BID_SELECTOR) {
+        if (selector == REDUCE_BID_SELECTOR || selector == ACCEPT_BID_SELECTOR || selector == REFUND_SELECTOR) {
             revert Invalid();
         } else if (selector != POKE_NAME_SELECTOR) {
             if (!_validateMsgSender(_addressToBytes32(msg.sender), data)) revert Unauthorized();
@@ -281,7 +282,7 @@ contract Endpoint is OApp, IEndpoint {
     {
         for (uint256 i; i < data.length; ++i) {
             bytes4 selector = _getFuncSelector(data[i]);
-            if (selector == REDUCE_BID_SELECTOR || selector == ACCEPT_BID_SELECTOR) {
+            if (selector == REDUCE_BID_SELECTOR || selector == ACCEPT_BID_SELECTOR || selector == REFUND_SELECTOR) {
                 revert Invalid();
             } else if (selector != POKE_NAME_SELECTOR) {
                 if (!_validateMsgSender(_addressToBytes32(msg.sender), data[i])) revert Unauthorized();
@@ -297,13 +298,21 @@ contract Endpoint is OApp, IEndpoint {
         internal
         override
     {
+        // Short-circuit for refund handling logic only
+        bytes4 selector = _getFuncSelector(payload);
+        if (selector == REFUND_SELECTOR) {
+            (bytes32 msgSender, bytes32 recipient, uint32 dstEid_, bytes memory options) =
+                abi.decode(payload[4:], (bytes32, bytes32, uint32, bytes));
+            _refund(msgSender, recipient, dstEid_, options);
+            return;
+        }
+
+        // Attempt to process ClustersHub call
         try this.selfClustersCall{value: msg.value}(payload) {
             /*// Only the relay chain will receive from Ethereum Mainnet, so if it does, relay to all other chains
             if (origin.srcEid == 30101) _relayMessage(payload);*/
         } catch {
             bytes32 msgSender;
-            bytes4 selector = _getFuncSelector(payload);
-
             if (selector == POKE_NAME_SELECTOR) {
                 return;
             } else if (selector == MULTICALL_SELECTOR) {
@@ -337,7 +346,7 @@ contract Endpoint is OApp, IEndpoint {
     }*/
 
     // Internal handling for refunding value cached from failed bridged calls to Clusters
-    function _refund(bytes32 msgSender, bytes32 recipient, uint32 dstEid_, bytes memory options) internal {
+    function _refund(bytes32 msgSender, bytes32 recipient, uint32 dstEid_, bytes memory localOptions, bytes memory remoteOptions) internal {
         // If no refund, abort and store msg.value if necessary
         uint256 amount = failedTxRefunds[msgSender];
         if (amount == 0) {
@@ -353,7 +362,7 @@ contract Endpoint is OApp, IEndpoint {
         } else {
             // Otherwise, prepare to process refund to remote chain
             // Validate whether msgSender is entitled to/can afford bridging what has been requested
-            (uint256 nativeFee,) = quote(dstEid_, bytes(""), options, false);
+            (uint256 nativeFee,) = quote(dstEid_, bytes(""), localOptions, false);
             if (nativeFee > amount + msg.value) {
                 // If refund cannot be processed, cache payment sent to issue refund
                 _increaseRefundBalance(msgSender, msg.value);
@@ -363,13 +372,17 @@ contract Endpoint is OApp, IEndpoint {
             MessagingFee memory fee = MessagingFee({nativeFee: uint128(nativeFee), lzTokenFee: 0});
             // If msgSender is the caller, just process bridge action and refund overpayment to them directly
             if (msgSender == _addressToBytes32(msg.sender)) {
-                _lzSend(dstEid_, bytes(""), options, fee, payable(msg.sender));
-                _setRefundBalance(msgSender, amount - nativeFee - msg.value);
+                if (block.chainid == 1) {
+                    _lzSend(dstEid, bytes(""), localOptions, fee, payable(msg.sender));
+                } else {
+                    bytes memory data = abi.encodeWithSelector(REMOTE_SELECTOR, msgSender, recipient, dstEid_, remoteOptions);
+                    _lzSend(dstEid, data, localOptions, fee, payable(msg.sender));
+                }
             } else {
                 // The only caller that can reach this branch is endpoint, so process remote refund.
                 // If payment and balance are sufficient, attempt to send refund to destination chain
                 uint256 balance = address(this).balance - nativeFee;
-                try this.selfLzSend{value: nativeFee}(dstEid_, bytes(""), options, fee, payable(address(this))) {
+                try this.selfLzSend{value: nativeFee}(dstEid_, bytes(""), localOptions, fee, payable(address(this))) {
                     // Detect overpayment and appropriately adjust balance
                     uint256 overage = address(this).balance - balance;
                     uint256 remainder = amount + overage - (nativeFee - msg.value);
@@ -382,15 +395,15 @@ contract Endpoint is OApp, IEndpoint {
         }
     }
 
-    function refund(bytes32 recipient, uint32 dstEid_, bytes memory options) external payable {
-        _refund(_addressToBytes32(msg.sender), recipient, dstEid_, options);
+    function refund(bytes32 recipient, uint32 dstEid_, bytes memory localOptions, bytes memory remoteOptions) external payable {
+        _refund(_addressToBytes32(msg.sender), recipient, dstEid_, localOptions, remoteOptions);
     }
 
     function refund() external {
-        _refund(_addressToBytes32(msg.sender), _addressToBytes32(msg.sender), 0, bytes(""));
+        _refund(_addressToBytes32(msg.sender), _addressToBytes32(msg.sender), 0, bytes(""), bytes(""));
     }
 
     function refund(address recipient) external {
-        _refund(_addressToBytes32(msg.sender), _addressToBytes32(recipient), 0, bytes(""));
+        _refund(_addressToBytes32(msg.sender), _addressToBytes32(recipient), 0, bytes(""), bytes(""));
     }
 }

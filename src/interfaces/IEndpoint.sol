@@ -88,7 +88,7 @@ interface IEndpoint {
         payable
         returns (bytes memory);
 
-    function refund(bytes32 recipient, uint32 dstEid_, bytes memory options) external payable;
+    function refund(bytes32 recipient, uint32 dstEid_, bytes memory localOptions, bytes memory remoteOptions) external payable;
     function refund() external;
     function refund(address recipient) external;
 }
