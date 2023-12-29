@@ -18,7 +18,8 @@ interface IEndpoint {
     event SoftAbort();
     event SignerAddr(address indexed addr);
     event ClustersAddr(address indexed addr);
-    event MessageFailed(uint32 indexed srcEid, uint64 indexed nonce, bytes32 indexed msgSender, uint256 msgValue);
+    event MessageFailed(uint32 indexed srcEid, uint64 indexed nonce, bytes32 indexed msgSender);
+    event RefundBalance(bytes32 indexed addr, uint128 indexed amount);
 
     /// STORAGE ///
 

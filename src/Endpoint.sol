@@ -87,6 +87,19 @@ contract Endpoint is OApp, IEndpoint {
         else return false;
     }
 
+    /// @dev Increment refund balance
+    function _increaseRefundBalance(bytes32 msgSender, uint256 amount) internal {
+        uint256 refundBal = failedTxRefunds[msgSender] + amount;
+        failedTxRefunds[msgSender] = refundBal;
+        emit RefundBalance(msgSender, uint128(refundBal));
+    }
+
+    /// @dev Set exact refund balance
+    function _setRefundBalance(bytes32 msgSender, uint256 amount) internal {
+        failedTxRefunds[msgSender] = amount;
+        emit RefundBalance(msgSender, uint128(amount));
+    }
+
     /// ECDSA HELPERS ///
 
     function getMulticallHash(bytes[] calldata data) public pure returns (bytes32) {
@@ -227,6 +240,23 @@ contract Endpoint is OApp, IEndpoint {
         result = abi.encode(_lzSend(dstEid, payload, options, fee, refundAddress));*/
     }
 
+    function selfClustersCall(bytes memory data) public payable {
+        if (msg.sender != address(this)) revert Unauthorized();
+        (bool success,) = clusters.call{value: msg.value}(data);
+        if (!success) revert TxFailed();
+    }
+
+    function selfLzSend(
+        uint32 dstEid_,
+        bytes memory data,
+        bytes memory options,
+        MessagingFee memory fee,
+        address refundAddress
+    ) public payable {
+        if (msg.sender != address(this)) revert Unauthorized();
+        _lzSend(dstEid_, data, options, fee, refundAddress);
+    }
+
     function lzSend(bytes memory data, bytes memory options, address refundAddress)
         external
         payable
@@ -267,8 +297,10 @@ contract Endpoint is OApp, IEndpoint {
         internal
         override
     {
-        (bool success,) = clusters.call{value: msg.value}(payload);
-        if (!success) {
+        try this.selfClustersCall{value: msg.value}(payload) {
+            /*// Only the relay chain will receive from Ethereum Mainnet, so if it does, relay to all other chains
+            if (origin.srcEid == 30101) _relayMessage(payload);*/
+        } catch {
             bytes32 msgSender;
             bytes4 selector = _getFuncSelector(payload);
 
@@ -287,10 +319,8 @@ contract Endpoint is OApp, IEndpoint {
             }
 
             failedTxRefunds[msgSender] += msg.value;
-            emit MessageFailed(origin.srcEid, origin.nonce, msgSender, msg.value);
-        } else {
-            /*// Only the relay chain will receive from Ethereum Mainnet, so if it does, relay to all other chains
-            if (origin.srcEid == 30101) _relayMessage(payload);*/
+            emit MessageFailed(origin.srcEid, origin.nonce, msgSender);
+            emit RefundBalance(msgSender, uint128(msg.value));
         }
     }
 
@@ -306,20 +336,48 @@ contract Endpoint is OApp, IEndpoint {
         }
     }*/
 
+    // Internal handling for refunding value cached from failed bridged calls to Clusters
     function _refund(bytes32 msgSender, bytes32 recipient, uint32 dstEid_, bytes memory options) internal {
+        // If no refund, abort and store msg.value if necessary
         uint256 amount = failedTxRefunds[msgSender];
-        if (amount == 0) return;
-        delete failedTxRefunds[msgSender];
+        if (amount == 0) {
+            if (msg.value == 0) return;
+            else _setRefundBalance(msgSender, msg.value);
+        }
 
+        // If no DstEid is provided, process local refund
         if (dstEid_ == 0) {
+            delete failedTxRefunds[msgSender];
             (bool success,) = payable(_bytes32ToAddress(recipient)).call{value: amount}("");
             if (!success) revert TxFailed();
         } else {
-            MessagingFee memory fee = MessagingFee({nativeFee: msg.value, lzTokenFee: 0});
+            // Otherwise, prepare to process refund to remote chain
+            // Validate whether msgSender is entitled to/can afford bridging what has been requested
+            (uint256 nativeFee,) = quote(dstEid_, bytes(""), options, false);
+            if (nativeFee > amount + msg.value) {
+                // If refund cannot be processed, cache payment sent to issue refund
+                _increaseRefundBalance(msgSender, msg.value);
+                return;
+            }
+
+            MessagingFee memory fee = MessagingFee({nativeFee: uint128(nativeFee), lzTokenFee: 0});
+            // If msgSender is the caller, just process bridge action and refund overpayment to them directly
             if (msgSender == _addressToBytes32(msg.sender)) {
                 _lzSend(dstEid_, bytes(""), options, fee, payable(msg.sender));
+                _setRefundBalance(msgSender, amount - nativeFee - msg.value);
             } else {
-                // Implement try/catch for remote payment
+                // The only caller that can reach this branch is endpoint, so process remote refund.
+                // If payment and balance are sufficient, attempt to send refund to destination chain
+                uint256 balance = address(this).balance - nativeFee;
+                try this.selfLzSend{value: nativeFee}(dstEid_, bytes(""), options, fee, payable(address(this))) {
+                    // Detect overpayment and appropriately adjust balance
+                    uint256 overage = address(this).balance - balance;
+                    uint256 remainder = amount + overage - (nativeFee - msg.value);
+                    _setRefundBalance(msgSender, remainder);
+                } catch {
+                    // If the attempt to bridge the refund fails, cache payment to process it
+                    _increaseRefundBalance(msgSender, msg.value);
+                }
             }
         }
     }
