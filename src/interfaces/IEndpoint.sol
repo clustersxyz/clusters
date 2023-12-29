@@ -76,6 +76,7 @@ interface IEndpoint {
     function quote(uint32 dstEid, bytes memory message, bytes memory options, bool payInLzToken)
         external
         returns (uint256 nativeFee, uint256 lzTokenFee);
+
     function sendPayload(bytes calldata payload) external payable returns (bytes memory result);
     function lzSend(bytes memory data, bytes memory options, uint256 nativeFee, address refundAddress)
         external
@@ -85,4 +86,6 @@ interface IEndpoint {
         external
         payable
         returns (bytes memory);
+
+    function localRefund(address recipient) external;
 }

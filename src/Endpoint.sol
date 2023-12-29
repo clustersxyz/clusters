@@ -60,6 +60,11 @@ contract Endpoint is OApp, IEndpoint {
         return bytes32(smallBytes);
     }
 
+    /// @dev Returns address representation of bytes32
+    function _bytes32ToAddress(bytes32 addr) internal pure returns (address) {
+        return address(uint160(uint256(addr)));
+    }
+
     /// @dev Returns bytes4 function selector
     function _getFuncSelector(bytes memory data) internal pure returns (bytes4 selector) {
         assembly {
@@ -209,13 +214,6 @@ contract Endpoint is OApp, IEndpoint {
         lzTokenFee = msgQuote.lzTokenFee;
     }
 
-    function _validateQuote(uint32 dstEid_, bytes memory message, bytes memory options) internal {
-        // TODO: Determine if we should force check fee param by retrieving onchain quote or just validate msg.value at
-        // least covers the specified fee.
-        (uint256 nativeFee,) = quote(dstEid_, message, options, false);
-        if (msg.value < nativeFee) revert Insufficient();
-    }
-
     function sendPayload(bytes calldata payload) external payable onlyClusters returns (bytes memory result) {
         // Short-circuit if dstEid isn't set for local-only functionality
         if (dstEid == 0) {
@@ -226,7 +224,6 @@ contract Endpoint is OApp, IEndpoint {
         bytes memory options;
         MessagingFee memory fee;
         address refundAddress;
-        _validateQuote(dstEid, payload, options);
         result = abi.encode(_lzSend(dstEid, payload, options, fee, refundAddress));*/
     }
 
@@ -308,4 +305,17 @@ contract Endpoint is OApp, IEndpoint {
             _lzSend(uint32(uint256(dstEids[i])), payload, options, fee, refundAddress);
         }
     }*/
+
+    function _mainnetRefund(bytes32 msgSender, address recipient) internal {
+        // Restrict operation to Ethereum Mainnet
+        if (block.chainid != 1) revert Invalid();
+        uint256 amount = failedTxRefunds[msgSender];
+        delete failedTxRefunds[msgSender];
+        (bool success,) = payable(recipient).call{value: amount}("");
+        if (!success) revert TxFailed();
+    }
+
+    function mainnetRefund(address recipient) external {
+        _mainnetRefund(_addressToBytes32(msg.sender), recipient);
+    }
 }
