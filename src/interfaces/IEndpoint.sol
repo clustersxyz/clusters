@@ -18,6 +18,7 @@ interface IEndpoint {
     event SoftAbort();
     event SignerAddr(address indexed addr);
     event ClustersAddr(address indexed addr);
+    event MessageFailed(uint32 indexed srcEid, uint64 indexed nonce, bytes32 indexed msgSender, uint256 msgValue);
 
     /// STORAGE ///
 
@@ -25,6 +26,7 @@ interface IEndpoint {
     function clusters() external view returns (address);
     function signer() external view returns (address);
     function userNonces(bytes32 addr) external view returns (uint256);
+    function failedTxRefunds(bytes32 addr) external view returns (uint256);
 
     /// ECDSA HELPERS ///
 

@@ -24,6 +24,7 @@ interface IClustersHubEndpoint {
 contract Endpoint is OApp, IEndpoint {
     using EnumerableSetLib for EnumerableSetLib.Bytes32Set;
 
+    bytes4 internal constant MULTICALL_SELECTOR = bytes4(keccak256("multicall(bytes[])"));
     bytes4 internal constant POKE_NAME_SELECTOR = bytes4(keccak256("pokeName(string)"));
     bytes4 internal constant REDUCE_BID_SELECTOR = bytes4(keccak256("reduceBid(bytes32,string,uint256)"));
     bytes4 internal constant ACCEPT_BID_SELECTOR = bytes4(keccak256("acceptBid(bytes32,string)"));
@@ -32,6 +33,7 @@ contract Endpoint is OApp, IEndpoint {
     address public clusters;
     address public signer;
     mapping(bytes32 addr => uint256 nonce) public userNonces;
+    mapping(bytes32 addr => uint256 refund) public failedTxRefunds;
 
     EnumerableSetLib.Bytes32Set internal _dstEids;
 
@@ -56,6 +58,28 @@ contract Endpoint is OApp, IEndpoint {
     function _stringToBytes32(string memory smallString) internal pure returns (bytes32) {
         bytes memory smallBytes = bytes(smallString);
         return bytes32(smallBytes);
+    }
+
+    /// @dev Returns bytes4 function selector
+    function _getFuncSelector(bytes memory data) internal pure returns (bytes4 selector) {
+        assembly {
+            selector := mload(add(data, 32))
+        }
+    }
+
+    /// @dev Returns bytes32 msgSender calldata parameter
+    function _getMsgSender(bytes memory data) internal pure returns (bytes32 msgSender) {
+        assembly {
+            msgSender := mload(add(data, 36)) // skip 32 bytes for bytes array length and 4 for function selector
+        }
+    }
+
+    /// @dev Returns true if msgSender in the provided calldata matches a particular address, true for pokeName()
+    function _validateMsgSender(bytes32 msgSender, bytes memory data) internal pure returns (bool) {
+        if (_getFuncSelector(data) == POKE_NAME_SELECTOR) return true;
+        bytes32 _msgSender = _getMsgSender(data);
+        if (msgSender == _msgSender) return true;
+        else return false;
     }
 
     /// ECDSA HELPERS ///
@@ -211,26 +235,16 @@ contract Endpoint is OApp, IEndpoint {
         payable
         returns (bytes memory)
     {
-        bytes4 selector;
-        assembly {
-            selector := mload(add(data, 32))
-        }
+        bytes4 selector = _getFuncSelector(data);
         if (selector == REDUCE_BID_SELECTOR || selector == ACCEPT_BID_SELECTOR) {
             revert Invalid();
         } else if (selector != POKE_NAME_SELECTOR) {
-            bytes32 msgSender;
-            assembly {
-                msgSender := mload(add(data, 36)) // Add 32 to skip the first 32 bytes (function selector + bytes array
-                    // length)
-            }
-            if (msgSender != _addressToBytes32(msg.sender)) revert Unauthorized();
+            if (!_validateMsgSender(_addressToBytes32(msg.sender), data)) revert Unauthorized();
         }
 
         // All endpoints only have one of two send paths: ETH -> Relay, Any -> ETH
-        uint32 dstEid_ = dstEid;
-        _validateQuote(dstEid_, data, options);
         MessagingFee memory fee = MessagingFee({nativeFee: nativeFee, lzTokenFee: 0});
-        return abi.encode(_lzSend(dstEid_, data, options, fee, refundAddress));
+        return abi.encode(_lzSend(dstEid, data, options, fee, refundAddress));
     }
 
     function lzSendMulticall(bytes[] memory data, bytes memory options, uint256 nativeFee, address refundAddress)
@@ -239,25 +253,14 @@ contract Endpoint is OApp, IEndpoint {
         returns (bytes memory)
     {
         for (uint256 i; i < data.length; ++i) {
-            bytes4 selector;
-            assembly {
-                selector := mload(add(data, 32))
-            }
+            bytes4 selector = _getFuncSelector(data[i]);
             if (selector == REDUCE_BID_SELECTOR || selector == ACCEPT_BID_SELECTOR) {
                 revert Invalid();
             } else if (selector != POKE_NAME_SELECTOR) {
-                bytes32 msgSender;
-                bytes memory currentCall = data[i];
-                assembly {
-                    msgSender := mload(add(currentCall, 36)) // Add 32 to skip the first 32 bytes (function selector +
-                        // bytes
-                        // array length)
-                }
-                if (msgSender != _addressToBytes32(msg.sender)) revert Unauthorized();
+                if (!_validateMsgSender(_addressToBytes32(msg.sender), data[i])) revert Unauthorized();
             }
         }
         bytes memory payload = abi.encodeWithSignature("multicall(bytes[])", data);
-        _validateQuote(dstEid, payload, options);
         MessagingFee memory fee = MessagingFee({nativeFee: nativeFee, lzTokenFee: 0});
         // All endpoints only have one of two send paths: ETH -> Relay, Any -> ETH
         return abi.encode(_lzSend(dstEid, payload, options, fee, refundAddress));
@@ -267,10 +270,31 @@ contract Endpoint is OApp, IEndpoint {
         internal
         override
     {
-        /*// Only the relay chain will receive from Ethereum Mainnet, so if it does, relay to all other chains
-        if (origin.srcEid == 30101) _relayMessage(payload);*/
         (bool success,) = clusters.call{value: msg.value}(payload);
-        if (!success) revert TxFailed();
+        if (!success) {
+            bytes32 msgSender;
+            bytes4 selector = _getFuncSelector(payload);
+
+            if (selector == POKE_NAME_SELECTOR) {
+                return;
+            } else if (selector == MULTICALL_SELECTOR) {
+                bytes[] memory data = abi.decode(payload[4:], (bytes[]));
+                uint256 i;
+                while (msgSender == bytes32("")) {
+                    selector = _getFuncSelector(data[i]);
+                    if (selector != POKE_NAME_SELECTOR) msgSender = _getMsgSender(data[i]);
+                    ++i;
+                }
+            } else {
+                msgSender = _getMsgSender(payload);
+            }
+
+            failedTxRefunds[msgSender] += msg.value;
+            emit MessageFailed(origin.srcEid, origin.nonce, msgSender, msg.value);
+        } else {
+            /*// Only the relay chain will receive from Ethereum Mainnet, so if it does, relay to all other chains
+            if (origin.srcEid == 30101) _relayMessage(payload);*/
+        }
     }
 
     /*
