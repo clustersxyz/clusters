@@ -78,14 +78,16 @@ interface IEndpoint {
         returns (uint256 nativeFee, uint256 lzTokenFee);
 
     function sendPayload(bytes calldata payload) external payable returns (bytes memory result);
-    function lzSend(bytes memory data, bytes memory options, uint256 nativeFee, address refundAddress)
+    function lzSend(bytes memory data, bytes memory options, address refundAddress)
         external
         payable
         returns (bytes memory);
-    function lzSendMulticall(bytes[] memory data, bytes memory options, uint256 nativeFee, address refundAddress)
+    function lzSendMulticall(bytes[] memory data, bytes memory options, address refundAddress)
         external
         payable
         returns (bytes memory);
 
-    function localRefund(address recipient) external;
+    function refund(bytes32 recipient, uint32 dstEid_, bytes memory options) external payable;
+    function refund() external;
+    function refund(address recipient) external;
 }

@@ -227,7 +227,7 @@ contract Endpoint is OApp, IEndpoint {
         result = abi.encode(_lzSend(dstEid, payload, options, fee, refundAddress));*/
     }
 
-    function lzSend(bytes memory data, bytes memory options, uint256 nativeFee, address refundAddress)
+    function lzSend(bytes memory data, bytes memory options, address refundAddress)
         external
         payable
         returns (bytes memory)
@@ -240,11 +240,11 @@ contract Endpoint is OApp, IEndpoint {
         }
 
         // All endpoints only have one of two send paths: ETH -> Relay, Any -> ETH
-        MessagingFee memory fee = MessagingFee({nativeFee: nativeFee, lzTokenFee: 0});
+        MessagingFee memory fee = MessagingFee({nativeFee: uint128(msg.value), lzTokenFee: 0});
         return abi.encode(_lzSend(dstEid, data, options, fee, refundAddress));
     }
 
-    function lzSendMulticall(bytes[] memory data, bytes memory options, uint256 nativeFee, address refundAddress)
+    function lzSendMulticall(bytes[] memory data, bytes memory options, address refundAddress)
         external
         payable
         returns (bytes memory)
@@ -258,7 +258,7 @@ contract Endpoint is OApp, IEndpoint {
             }
         }
         bytes memory payload = abi.encodeWithSignature("multicall(bytes[])", data);
-        MessagingFee memory fee = MessagingFee({nativeFee: nativeFee, lzTokenFee: 0});
+        MessagingFee memory fee = MessagingFee({nativeFee: uint128(msg.value), lzTokenFee: 0});
         // All endpoints only have one of two send paths: ETH -> Relay, Any -> ETH
         return abi.encode(_lzSend(dstEid, payload, options, fee, refundAddress));
     }
@@ -306,16 +306,33 @@ contract Endpoint is OApp, IEndpoint {
         }
     }*/
 
-    function _mainnetRefund(bytes32 msgSender, address recipient) internal {
-        // Restrict operation to Ethereum Mainnet
-        if (block.chainid != 1) revert Invalid();
+    function _refund(bytes32 msgSender, bytes32 recipient, uint32 dstEid_, bytes memory options) internal {
         uint256 amount = failedTxRefunds[msgSender];
+        if (amount == 0) return;
         delete failedTxRefunds[msgSender];
-        (bool success,) = payable(recipient).call{value: amount}("");
-        if (!success) revert TxFailed();
+
+        if (dstEid_ == 0) {
+            (bool success,) = payable(_bytes32ToAddress(recipient)).call{value: amount}("");
+            if (!success) revert TxFailed();
+        } else {
+            MessagingFee memory fee = MessagingFee({nativeFee: msg.value, lzTokenFee: 0});
+            if (msgSender == _addressToBytes32(msg.sender)) {
+                _lzSend(dstEid_, bytes(""), options, fee, payable(msg.sender));
+            } else {
+                // Implement try/catch for remote payment
+            }
+        }
     }
 
-    function mainnetRefund(address recipient) external {
-        _mainnetRefund(_addressToBytes32(msg.sender), recipient);
+    function refund(bytes32 recipient, uint32 dstEid_, bytes memory options) external payable {
+        _refund(_addressToBytes32(msg.sender), recipient, dstEid_, options);
+    }
+
+    function refund() external {
+        _refund(_addressToBytes32(msg.sender), _addressToBytes32(msg.sender), 0, bytes(""));
+    }
+
+    function refund(address recipient) external {
+        _refund(_addressToBytes32(msg.sender), _addressToBytes32(recipient), 0, bytes(""));
     }
 }
