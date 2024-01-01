@@ -7,7 +7,7 @@ import {OptionsBuilder} from "layerzero-oapp/contracts/oapp/libs/OptionsBuilder.
 contract Inbound_Endpoint_refund_Unit_Concrete_Test is Inbound_Harberger_Shared_Test {
     using OptionsBuilder for bytes;
 
-    function testRefund() public {
+    function testRefundEx() public {
         vm.startPrank(users.alicePrimary);
         bytes memory data = abi.encodeWithSignature(
             "buyName(bytes32,uint256,string)", _addressToBytes32(users.alicePrimary), minPrice, constants.TEST_NAME()
@@ -24,5 +24,11 @@ contract Inbound_Endpoint_refund_Unit_Concrete_Test is Inbound_Harberger_Shared_
         assertEq(
             minPrice / 2, localEndpoint.failedTxRefunds(_addressToBytes32(users.alicePrimary)), "failedTxRefunds error"
         );
+
+        uint256 balance = address(users.alicePrimary).balance;
+        vm.prank(users.alicePrimary);
+        localEndpoint.refund();
+        assertEq(0, address(localEndpoint).balance, "endpoint balance did not decrease");
+        assertEq(balance + (minPrice / 2), address(users.alicePrimary).balance, "refund not issued");
     }
 }
