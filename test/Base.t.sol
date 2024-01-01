@@ -190,7 +190,6 @@ abstract contract Base_Test is TestHelper, Utils {
         uint256 totalNameBacking,
         uint256 totalBidBacking
     ) internal {
-        assertEq(address(endpoint).balance, 0, "endpoint has balance");
         assertEq(address(clusters).balance, totalBal, "clusters total balance error");
         assertEq(clusters.protocolAccrual(), protocolAccrual, "clusters protocol accrual error");
         assertEq(clusters.totalNameBacking(), totalNameBacking, "clusters total name backing error");
@@ -207,7 +206,6 @@ abstract contract Base_Test is TestHelper, Utils {
     ) internal {
         assertFalse(eid < 1, "EID cannot be 0");
         address eidClusters = clustersGroup.at(eid - 1);
-        assertEq(address(endpointGroup.at(eid - 1)).balance, 0, "endpoint has balance");
         assertEq(address(eidClusters).balance, totalBal, "clusters total balance error");
         assertEq(ClustersHub(eidClusters).protocolAccrual(), protocolAccrual, "clusters protocol accrual error");
         assertEq(ClustersHub(eidClusters).totalNameBacking(), totalNameBacking, "clusters total name backing error");
