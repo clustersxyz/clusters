@@ -18,6 +18,9 @@ interface IEndpoint {
     event SoftAbort();
     event SignerAddr(address indexed addr);
     event ClustersAddr(address indexed addr);
+    event MessageFailed(uint32 indexed srcEid, uint64 indexed nonce, bytes32 indexed msgSender);
+    event RefundBalance(bytes32 indexed addr, uint256 indexed amount);
+    event Refunded(bytes32 indexed msgSender, bytes32 indexed recipient, uint256 indexed amount);
 
     /// STORAGE ///
 
@@ -25,6 +28,7 @@ interface IEndpoint {
     function clusters() external view returns (address);
     function signer() external view returns (address);
     function userNonces(bytes32 addr) external view returns (uint256);
+    function failedTxRefunds(bytes32 addr) external view returns (uint256);
 
     /// ECDSA HELPERS ///
 
@@ -74,13 +78,17 @@ interface IEndpoint {
     function quote(uint32 dstEid, bytes memory message, bytes memory options, bool payInLzToken)
         external
         returns (uint256 nativeFee, uint256 lzTokenFee);
+
     function sendPayload(bytes calldata payload) external payable returns (bytes memory result);
-    function lzSend(bytes memory data, bytes memory options, uint256 nativeFee, address refundAddress)
+    function lzSend(bytes memory data, bytes memory options, address refundAddress)
         external
         payable
         returns (bytes memory);
-    function lzSendMulticall(bytes[] memory data, bytes memory options, uint256 nativeFee, address refundAddress)
+    function lzSendMulticall(bytes[] memory data, bytes memory options, address refundAddress)
         external
         payable
         returns (bytes memory);
+
+    function refund() external;
+    function refund(address recipient) external;
 }

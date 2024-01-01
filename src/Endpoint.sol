@@ -24,6 +24,7 @@ interface IClustersHubEndpoint {
 contract Endpoint is OApp, IEndpoint {
     using EnumerableSetLib for EnumerableSetLib.Bytes32Set;
 
+    bytes4 internal constant MULTICALL_SELECTOR = bytes4(keccak256("multicall(bytes[])"));
     bytes4 internal constant POKE_NAME_SELECTOR = bytes4(keccak256("pokeName(string)"));
     bytes4 internal constant REDUCE_BID_SELECTOR = bytes4(keccak256("reduceBid(bytes32,string,uint256)"));
     bytes4 internal constant ACCEPT_BID_SELECTOR = bytes4(keccak256("acceptBid(bytes32,string)"));
@@ -32,6 +33,7 @@ contract Endpoint is OApp, IEndpoint {
     address public clusters;
     address public signer;
     mapping(bytes32 addr => uint256 nonce) public userNonces;
+    mapping(bytes32 addr => uint256 refund) public failedTxRefunds;
 
     EnumerableSetLib.Bytes32Set internal _dstEids;
 
@@ -56,6 +58,46 @@ contract Endpoint is OApp, IEndpoint {
     function _stringToBytes32(string memory smallString) internal pure returns (bytes32) {
         bytes memory smallBytes = bytes(smallString);
         return bytes32(smallBytes);
+    }
+
+    /// @dev Returns address representation of bytes32
+    function _bytes32ToAddress(bytes32 addr) internal pure returns (address) {
+        return address(uint160(uint256(addr)));
+    }
+
+    /// @dev Returns bytes4 function selector
+    function _getFuncSelector(bytes memory data) internal pure returns (bytes4 selector) {
+        assembly {
+            selector := mload(add(data, 32))
+        }
+    }
+
+    /// @dev Returns bytes32 msgSender calldata parameter
+    function _getMsgSender(bytes memory data) internal pure returns (bytes32 msgSender) {
+        assembly {
+            msgSender := mload(add(data, 36)) // skip 32 bytes for bytes array length and 4 for function selector
+        }
+    }
+
+    /// @dev Returns true if msgSender in the provided calldata matches a particular address, true for pokeName()
+    function _validateMsgSender(bytes32 msgSender, bytes memory data) internal pure returns (bool) {
+        if (_getFuncSelector(data) == POKE_NAME_SELECTOR) return true;
+        bytes32 _msgSender = _getMsgSender(data);
+        if (msgSender == _msgSender) return true;
+        else return false;
+    }
+
+    /// @dev Increment refund balance
+    function _increaseRefundBalance(bytes32 msgSender, uint256 amount) internal {
+        uint256 refundBal = failedTxRefunds[msgSender] + amount;
+        failedTxRefunds[msgSender] = refundBal;
+        emit RefundBalance(msgSender, uint128(refundBal));
+    }
+
+    /// @dev Set exact refund balance
+    function _setRefundBalance(bytes32 msgSender, uint256 amount) internal {
+        failedTxRefunds[msgSender] = amount;
+        emit RefundBalance(msgSender, uint128(amount));
     }
 
     /// ECDSA HELPERS ///
@@ -185,13 +227,6 @@ contract Endpoint is OApp, IEndpoint {
         lzTokenFee = msgQuote.lzTokenFee;
     }
 
-    function _validateQuote(uint32 dstEid_, bytes memory message, bytes memory options) internal {
-        // TODO: Determine if we should force check fee param by retrieving onchain quote or just validate msg.value at
-        // least covers the specified fee.
-        (uint256 nativeFee,) = quote(dstEid_, message, options, false);
-        if (msg.value < nativeFee) revert Insufficient();
-    }
-
     function sendPayload(bytes calldata payload) external payable onlyClusters returns (bytes memory result) {
         // Short-circuit if dstEid isn't set for local-only functionality
         if (dstEid == 0) {
@@ -202,63 +237,58 @@ contract Endpoint is OApp, IEndpoint {
         bytes memory options;
         MessagingFee memory fee;
         address refundAddress;
-        _validateQuote(dstEid, payload, options);
         result = abi.encode(_lzSend(dstEid, payload, options, fee, refundAddress));*/
     }
 
-    function lzSend(bytes memory data, bytes memory options, uint256 nativeFee, address refundAddress)
+    function selfClustersCall(bytes memory data) public payable {
+        if (msg.sender != address(this)) revert Unauthorized();
+        (bool success,) = clusters.call{value: msg.value}(data);
+        if (!success) revert TxFailed();
+    }
+
+    function selfLzSend(
+        uint32 dstEid_,
+        bytes memory data,
+        bytes memory options,
+        MessagingFee memory fee,
+        address refundAddress
+    ) public payable {
+        if (msg.sender != address(this)) revert Unauthorized();
+        _lzSend(dstEid_, data, options, fee, refundAddress);
+    }
+
+    function lzSend(bytes memory data, bytes memory options, address refundAddress)
         external
         payable
         returns (bytes memory)
     {
-        bytes4 selector;
-        assembly {
-            selector := mload(add(data, 32))
-        }
+        bytes4 selector = _getFuncSelector(data);
         if (selector == REDUCE_BID_SELECTOR || selector == ACCEPT_BID_SELECTOR) {
             revert Invalid();
         } else if (selector != POKE_NAME_SELECTOR) {
-            bytes32 msgSender;
-            assembly {
-                msgSender := mload(add(data, 36)) // Add 32 to skip the first 32 bytes (function selector + bytes array
-                    // length)
-            }
-            if (msgSender != _addressToBytes32(msg.sender)) revert Unauthorized();
+            if (!_validateMsgSender(_addressToBytes32(msg.sender), data)) revert Unauthorized();
         }
 
         // All endpoints only have one of two send paths: ETH -> Relay, Any -> ETH
-        uint32 dstEid_ = dstEid;
-        _validateQuote(dstEid_, data, options);
-        MessagingFee memory fee = MessagingFee({nativeFee: nativeFee, lzTokenFee: 0});
-        return abi.encode(_lzSend(dstEid_, data, options, fee, refundAddress));
+        MessagingFee memory fee = MessagingFee({nativeFee: uint128(msg.value), lzTokenFee: 0});
+        return abi.encode(_lzSend(dstEid, data, options, fee, refundAddress));
     }
 
-    function lzSendMulticall(bytes[] memory data, bytes memory options, uint256 nativeFee, address refundAddress)
+    function lzSendMulticall(bytes[] memory data, bytes memory options, address refundAddress)
         external
         payable
         returns (bytes memory)
     {
         for (uint256 i; i < data.length; ++i) {
-            bytes4 selector;
-            assembly {
-                selector := mload(add(data, 32))
-            }
+            bytes4 selector = _getFuncSelector(data[i]);
             if (selector == REDUCE_BID_SELECTOR || selector == ACCEPT_BID_SELECTOR) {
                 revert Invalid();
             } else if (selector != POKE_NAME_SELECTOR) {
-                bytes32 msgSender;
-                bytes memory currentCall = data[i];
-                assembly {
-                    msgSender := mload(add(currentCall, 36)) // Add 32 to skip the first 32 bytes (function selector +
-                        // bytes
-                        // array length)
-                }
-                if (msgSender != _addressToBytes32(msg.sender)) revert Unauthorized();
+                if (!_validateMsgSender(_addressToBytes32(msg.sender), data[i])) revert Unauthorized();
             }
         }
         bytes memory payload = abi.encodeWithSignature("multicall(bytes[])", data);
-        _validateQuote(dstEid, payload, options);
-        MessagingFee memory fee = MessagingFee({nativeFee: nativeFee, lzTokenFee: 0});
+        MessagingFee memory fee = MessagingFee({nativeFee: uint128(msg.value), lzTokenFee: 0});
         // All endpoints only have one of two send paths: ETH -> Relay, Any -> ETH
         return abi.encode(_lzSend(dstEid, payload, options, fee, refundAddress));
     }
@@ -267,10 +297,31 @@ contract Endpoint is OApp, IEndpoint {
         internal
         override
     {
-        /*// Only the relay chain will receive from Ethereum Mainnet, so if it does, relay to all other chains
-        if (origin.srcEid == 30101) _relayMessage(payload);*/
-        (bool success,) = clusters.call{value: msg.value}(payload);
-        if (!success) revert TxFailed();
+        bytes4 selector = _getFuncSelector(payload);
+        // Attempt to process ClustersHub call
+        try this.selfClustersCall{value: msg.value}(payload) {
+            /*// Only the relay chain will receive from Ethereum Mainnet, so if it does, relay to all other chains
+            if (origin.srcEid == 30101) _relayMessage(payload);*/
+        } catch {
+            bytes32 msgSender;
+            if (selector == POKE_NAME_SELECTOR) {
+                return;
+            } else if (selector == MULTICALL_SELECTOR) {
+                bytes[] memory data = abi.decode(payload[4:], (bytes[]));
+                uint256 i;
+                while (msgSender == bytes32("")) {
+                    // NOTE: This overwrites the initial selector, if that is needed, assign this to a new var
+                    selector = _getFuncSelector(data[i]);
+                    if (selector != POKE_NAME_SELECTOR) msgSender = _getMsgSender(data[i]);
+                    ++i;
+                }
+            } else {
+                msgSender = _getMsgSender(payload);
+            }
+
+            _increaseRefundBalance(msgSender, msg.value);
+            emit MessageFailed(origin.srcEid, origin.nonce, msgSender);
+        }
     }
 
     /*
@@ -284,4 +335,21 @@ contract Endpoint is OApp, IEndpoint {
             _lzSend(uint32(uint256(dstEids[i])), payload, options, fee, refundAddress);
         }
     }*/
+
+    // Internal handling for refunding value cached at mainnet from failed bridged calls to Clusters
+    function _refund(bytes32 msgSender, bytes32 recipient) internal {
+        uint256 amount = failedTxRefunds[msgSender];
+        delete failedTxRefunds[msgSender];
+        (bool success,) = payable(_bytes32ToAddress(recipient)).call{value: amount}("");
+        if (!success) revert TxFailed();
+        emit Refunded(msgSender, recipient, amount);
+    }
+
+    function refund() external {
+        _refund(_addressToBytes32(msg.sender), _addressToBytes32(msg.sender));
+    }
+
+    function refund(address recipient) external {
+        _refund(_addressToBytes32(msg.sender), _addressToBytes32(recipient));
+    }
 }

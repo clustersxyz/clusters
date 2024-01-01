@@ -36,7 +36,7 @@ contract RemoteBuyNameScript is Script {
 
         vm.startBroadcast(deployerPrivateKey);
         (uint256 nativeFee,) = endpoint.quote(40121, data, options, false);
-        endpoint.lzSend{value: nativeFee}(data, options, nativeFee, payable(msg.sender));
+        endpoint.lzSend{value: nativeFee}(data, options, payable(msg.sender));
         vm.stopBroadcast();
     }
 }
