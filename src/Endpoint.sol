@@ -28,7 +28,6 @@ contract Endpoint is OApp, IEndpoint {
     bytes4 internal constant POKE_NAME_SELECTOR = bytes4(keccak256("pokeName(string)"));
     bytes4 internal constant REDUCE_BID_SELECTOR = bytes4(keccak256("reduceBid(bytes32,string,uint256)"));
     bytes4 internal constant ACCEPT_BID_SELECTOR = bytes4(keccak256("acceptBid(bytes32,string)"));
-    bytes4 internal constant REFUND_SELECTOR = bytes4(keccak256("refund(bytes32,bytes32,uint32,bytes)"));
 
     uint32 public dstEid;
     address public clusters;
@@ -264,7 +263,7 @@ contract Endpoint is OApp, IEndpoint {
         returns (bytes memory)
     {
         bytes4 selector = _getFuncSelector(data);
-        if (selector == REDUCE_BID_SELECTOR || selector == ACCEPT_BID_SELECTOR || selector == REFUND_SELECTOR) {
+        if (selector == REDUCE_BID_SELECTOR || selector == ACCEPT_BID_SELECTOR) {
             revert Invalid();
         } else if (selector != POKE_NAME_SELECTOR) {
             if (!_validateMsgSender(_addressToBytes32(msg.sender), data)) revert Unauthorized();
@@ -282,7 +281,7 @@ contract Endpoint is OApp, IEndpoint {
     {
         for (uint256 i; i < data.length; ++i) {
             bytes4 selector = _getFuncSelector(data[i]);
-            if (selector == REDUCE_BID_SELECTOR || selector == ACCEPT_BID_SELECTOR || selector == REFUND_SELECTOR) {
+            if (selector == REDUCE_BID_SELECTOR || selector == ACCEPT_BID_SELECTOR) {
                 revert Invalid();
             } else if (selector != POKE_NAME_SELECTOR) {
                 if (!_validateMsgSender(_addressToBytes32(msg.sender), data[i])) revert Unauthorized();
@@ -298,15 +297,7 @@ contract Endpoint is OApp, IEndpoint {
         internal
         override
     {
-        // Short-circuit for refund handling logic only
         bytes4 selector = _getFuncSelector(payload);
-        if (selector == REFUND_SELECTOR) {
-            (bytes32 msgSender, bytes32 recipient, uint32 dstEid_, bytes memory options) =
-                abi.decode(payload[4:], (bytes32, bytes32, uint32, bytes));
-            _refund(msgSender, recipient, dstEid_, options);
-            return;
-        }
-
         // Attempt to process ClustersHub call
         try this.selfClustersCall{value: msg.value}(payload) {
             /*// Only the relay chain will receive from Ethereum Mainnet, so if it does, relay to all other chains
@@ -319,6 +310,7 @@ contract Endpoint is OApp, IEndpoint {
                 bytes[] memory data = abi.decode(payload[4:], (bytes[]));
                 uint256 i;
                 while (msgSender == bytes32("")) {
+                    // NOTE: This overwrites the initial selector, if that is needed, assign this to a new var
                     selector = _getFuncSelector(data[i]);
                     if (selector != POKE_NAME_SELECTOR) msgSender = _getMsgSender(data[i]);
                     ++i;
@@ -327,9 +319,8 @@ contract Endpoint is OApp, IEndpoint {
                 msgSender = _getMsgSender(payload);
             }
 
-            failedTxRefunds[msgSender] += msg.value;
+            _increaseRefundBalance(msgSender, msg.value);
             emit MessageFailed(origin.srcEid, origin.nonce, msgSender);
-            emit RefundBalance(msgSender, uint128(msg.value));
         }
     }
 
@@ -345,65 +336,20 @@ contract Endpoint is OApp, IEndpoint {
         }
     }*/
 
-    // Internal handling for refunding value cached from failed bridged calls to Clusters
-    function _refund(bytes32 msgSender, bytes32 recipient, uint32 dstEid_, bytes memory localOptions, bytes memory remoteOptions) internal {
-        // If no refund, abort and store msg.value if necessary
+    // Internal handling for refunding value cached at mainnet from failed bridged calls to Clusters
+    function _refund(bytes32 msgSender, bytes32 recipient) internal {
         uint256 amount = failedTxRefunds[msgSender];
-        if (amount == 0) {
-            if (msg.value == 0) return;
-            else _setRefundBalance(msgSender, msg.value);
-        }
-
-        // If no DstEid is provided, process local refund
-        if (dstEid_ == 0) {
-            delete failedTxRefunds[msgSender];
-            (bool success,) = payable(_bytes32ToAddress(recipient)).call{value: amount}("");
-            if (!success) revert TxFailed();
-        } else {
-            // Otherwise, prepare to process refund to remote chain
-            // Validate whether msgSender is entitled to/can afford bridging what has been requested
-            (uint256 nativeFee,) = quote(dstEid_, bytes(""), localOptions, false);
-            if (nativeFee > amount + msg.value) {
-                // If refund cannot be processed, cache payment sent to issue refund
-                _increaseRefundBalance(msgSender, msg.value);
-                return;
-            }
-
-            MessagingFee memory fee = MessagingFee({nativeFee: uint128(nativeFee), lzTokenFee: 0});
-            // If msgSender is the caller, just process bridge action and refund overpayment to them directly
-            if (msgSender == _addressToBytes32(msg.sender)) {
-                if (block.chainid == 1) {
-                    _lzSend(dstEid, bytes(""), localOptions, fee, payable(msg.sender));
-                } else {
-                    bytes memory data = abi.encodeWithSelector(REMOTE_SELECTOR, msgSender, recipient, dstEid_, remoteOptions);
-                    _lzSend(dstEid, data, localOptions, fee, payable(msg.sender));
-                }
-            } else {
-                // The only caller that can reach this branch is endpoint, so process remote refund.
-                // If payment and balance are sufficient, attempt to send refund to destination chain
-                uint256 balance = address(this).balance - nativeFee;
-                try this.selfLzSend{value: nativeFee}(dstEid_, bytes(""), localOptions, fee, payable(address(this))) {
-                    // Detect overpayment and appropriately adjust balance
-                    uint256 overage = address(this).balance - balance;
-                    uint256 remainder = amount + overage - (nativeFee - msg.value);
-                    _setRefundBalance(msgSender, remainder);
-                } catch {
-                    // If the attempt to bridge the refund fails, cache payment to process it
-                    _increaseRefundBalance(msgSender, msg.value);
-                }
-            }
-        }
-    }
-
-    function refund(bytes32 recipient, uint32 dstEid_, bytes memory localOptions, bytes memory remoteOptions) external payable {
-        _refund(_addressToBytes32(msg.sender), recipient, dstEid_, localOptions, remoteOptions);
+        delete failedTxRefunds[msgSender];
+        (bool success,) = payable(_bytes32ToAddress(recipient)).call{value: amount}("");
+        if (!success) revert TxFailed();
+        emit Refunded(msgSender, recipient, amount);
     }
 
     function refund() external {
-        _refund(_addressToBytes32(msg.sender), _addressToBytes32(msg.sender), 0, bytes(""), bytes(""));
+        _refund(_addressToBytes32(msg.sender), _addressToBytes32(msg.sender));
     }
 
     function refund(address recipient) external {
-        _refund(_addressToBytes32(msg.sender), _addressToBytes32(recipient), 0, bytes(""), bytes(""));
+        _refund(_addressToBytes32(msg.sender), _addressToBytes32(recipient));
     }
 }

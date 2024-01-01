@@ -19,7 +19,8 @@ interface IEndpoint {
     event SignerAddr(address indexed addr);
     event ClustersAddr(address indexed addr);
     event MessageFailed(uint32 indexed srcEid, uint64 indexed nonce, bytes32 indexed msgSender);
-    event RefundBalance(bytes32 indexed addr, uint128 indexed amount);
+    event RefundBalance(bytes32 indexed addr, uint256 indexed amount);
+    event Refunded(bytes32 indexed msgSender, bytes32 indexed recipient, uint256 indexed amount);
 
     /// STORAGE ///
 
@@ -88,7 +89,6 @@ interface IEndpoint {
         payable
         returns (bytes memory);
 
-    function refund(bytes32 recipient, uint32 dstEid_, bytes memory localOptions, bytes memory remoteOptions) external payable;
     function refund() external;
     function refund(address recipient) external;
 }
