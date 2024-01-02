@@ -3,8 +3,11 @@ pragma solidity ^0.8.13;
 
 import {Script, console2} from "forge-std/Script.sol";
 
+import {TransparentUpgradeableProxy} from "openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {PricingHarberger} from "../src/PricingHarberger.sol";
 import {Endpoint} from "../src/Endpoint.sol";
+import {IEndpoint} from "../src/interfaces/IEndpoint.sol";
+import {IOAppCore} from "layerzero-oapp/contracts/oapp/interfaces/IOAppCore.sol";
 import {ClustersHub} from "../src/ClustersHub.sol";
 
 contract ClustersScript is Script {
@@ -32,32 +35,42 @@ contract ClustersScript is Script {
     function run() public {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
+        bytes memory endpointInit;
 
         vm.selectFork(goerliFork);
         vm.startBroadcast(deployerPrivateKey);
         PricingHarberger goerliPricing = new PricingHarberger(block.timestamp);
         Endpoint goerliEndpoint = new Endpoint();
-        goerliEndpoint.initialize(deployer, ADMIN, SIGNER, LZ_END_GOERLI);
+        endpointInit = abi.encodeWithSignature(
+            "initialize(address,address,address,address)", deployer, ADMIN, SIGNER, LZ_END_GOERLI
+        );
+        IEndpoint goerliProxy =
+            IEndpoint(address(new TransparentUpgradeableProxy(address(goerliEndpoint), ADMIN, endpointInit)));
         ClustersHub goerliClusters =
-            new ClustersHub(address(goerliPricing), address(goerliEndpoint), block.timestamp + 5 minutes);
-        goerliEndpoint.setClustersAddr(address(goerliClusters));
+            new ClustersHub(address(goerliPricing), address(goerliProxy), block.timestamp + 5 minutes);
+        goerliProxy.setClustersAddr(address(goerliClusters));
         vm.stopBroadcast();
 
         vm.selectFork(sepoliaFork);
         vm.startBroadcast(deployerPrivateKey);
         //PricingHarberger sepoliaPricing = new PricingHarberger(block.timestamp);
         Endpoint sepoliaEndpoint = new Endpoint();
-        sepoliaEndpoint.initialize(deployer, ADMIN, SIGNER, LZ_END_SEPOLIA);
-        //ClustersHub sepoliaClusters = new ClustersHub(address(sepoliaPricing), address(sepoliaEndpoint),
+        endpointInit = abi.encodeWithSignature(
+            "initialize(address,address,address,address)", deployer, ADMIN, SIGNER, LZ_END_SEPOLIA
+        );
+        IEndpoint sepoliaProxy =
+            IEndpoint(address(new TransparentUpgradeableProxy(address(sepoliaEndpoint), ADMIN, endpointInit)));
+
+        //ClustersHub sepoliaClusters = new ClustersHub(address(sepoliaPricing), address(sepoliaProxy),
         // block.timestamp);
-        //sepoliaEndpoint.setClustersAddr(address(sepoliaClusters));
-        sepoliaEndpoint.setPeer(LZ_EID_GOERLI, addressToBytes32(address(goerliEndpoint)));
-        sepoliaEndpoint.setDstEid(LZ_EID_GOERLI);
+        //sepoliaProxy.setClustersAddr(address(sepoliaClusters));
+        IOAppCore(address(sepoliaProxy)).setPeer(LZ_EID_GOERLI, addressToBytes32(address(goerliProxy)));
+        sepoliaProxy.setDstEid(LZ_EID_GOERLI);
         vm.stopBroadcast();
 
         vm.selectFork(goerliFork);
         vm.startBroadcast(deployerPrivateKey);
-        goerliEndpoint.setPeer(LZ_EID_SEPOLIA, addressToBytes32(address(sepoliaEndpoint)));
+        IOAppCore(address(goerliProxy)).setPeer(LZ_EID_SEPOLIA, addressToBytes32(address(sepoliaProxy)));
         vm.stopBroadcast();
     }
 }
