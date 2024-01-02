@@ -271,7 +271,7 @@ contract Endpoint is OApp, IEndpoint {
 
         // All endpoints only have one of two send paths: ETH -> Relay, Any -> ETH
         MessagingFee memory fee = MessagingFee({nativeFee: uint128(msg.value), lzTokenFee: 0});
-        return abi.encode(_lzSend(dstEid, data, options, fee, refundAddress));
+        return abi.encode(_lzSend(dstEid, data, options, fee, payable(refundAddress)));
     }
 
     function lzSendMulticall(bytes[] memory data, bytes memory options, address refundAddress)
@@ -290,7 +290,13 @@ contract Endpoint is OApp, IEndpoint {
         bytes memory payload = abi.encodeWithSignature("multicall(bytes[])", data);
         MessagingFee memory fee = MessagingFee({nativeFee: uint128(msg.value), lzTokenFee: 0});
         // All endpoints only have one of two send paths: ETH -> Relay, Any -> ETH
-        return abi.encode(_lzSend(dstEid, payload, options, fee, refundAddress));
+        return abi.encode(_lzSend(dstEid, payload, options, fee, payable(refundAddress)));
+    }
+
+    function gasAirdrop(uint32 dstEid_, bytes memory options) external payable returns (bytes memory) {
+        if (msg.value == 0) revert Invalid();
+        MessagingFee memory fee = MessagingFee({nativeFee: uint128(msg.value), lzTokenFee: 0});
+        return abi.encode(_lzSend(dstEid_, bytes(""), options, fee, payable(msg.sender)));
     }
 
     function _lzReceive(Origin calldata origin, bytes32, bytes calldata payload, address, bytes calldata)
