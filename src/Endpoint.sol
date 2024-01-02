@@ -33,6 +33,7 @@ contract Endpoint is OAppUpgradeable, UUPSUpgradeable, IEndpoint {
     uint32 public dstEid;
     address public clusters;
     address public signer;
+    address public admin;
     mapping(bytes32 addr => uint256 nonce) public userNonces;
     mapping(bytes32 addr => uint256 refund) public failedTxRefunds;
 
@@ -43,15 +44,21 @@ contract Endpoint is OAppUpgradeable, UUPSUpgradeable, IEndpoint {
         _;
     }
 
+    modifier onlyAdmin() {
+        if (msg.sender != admin) revert Unauthorized();
+        _;
+    }
+
     /// MANAGEMENT FUNCTIONS ///
 
-    function initialize(address owner_, address signer_, address endpoint_) public initializer {
+    function initialize(address owner_, address admin_, address signer_, address endpoint_) public initializer {
         _initializeOApp(endpoint_, owner_);
+        admin = admin_;
         signer = signer_;
         emit SignerAddr(signer_);
     }
 
-    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+    function _authorizeUpgrade(address newImplementation) internal override onlyAdmin {}
 
     /// INTERNAL FUNCTIONS ///
 

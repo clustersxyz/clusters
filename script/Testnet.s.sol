@@ -8,6 +8,7 @@ import {Endpoint} from "../src/Endpoint.sol";
 import {ClustersHub} from "../src/ClustersHub.sol";
 
 contract ClustersScript is Script {
+    address internal constant ADMIN = address(uint160(uint256(keccak256(abi.encodePacked("ADMIN")))));
     address internal constant SIGNER = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
     address internal constant LZ_END_GOERLI = 0x464570adA09869d8741132183721B4f0769a0287;
     address internal constant LZ_END_SEPOLIA = 0x464570adA09869d8741132183721B4f0769a0287;
@@ -36,7 +37,7 @@ contract ClustersScript is Script {
         vm.startBroadcast(deployerPrivateKey);
         PricingHarberger goerliPricing = new PricingHarberger(block.timestamp);
         Endpoint goerliEndpoint = new Endpoint();
-        goerliEndpoint.initialize(deployer, SIGNER, LZ_END_GOERLI);
+        goerliEndpoint.initialize(deployer, ADMIN, SIGNER, LZ_END_GOERLI);
         ClustersHub goerliClusters =
             new ClustersHub(address(goerliPricing), address(goerliEndpoint), block.timestamp + 5 minutes);
         goerliEndpoint.setClustersAddr(address(goerliClusters));
@@ -46,7 +47,7 @@ contract ClustersScript is Script {
         vm.startBroadcast(deployerPrivateKey);
         //PricingHarberger sepoliaPricing = new PricingHarberger(block.timestamp);
         Endpoint sepoliaEndpoint = new Endpoint();
-        sepoliaEndpoint.initialize(deployer, SIGNER, LZ_END_SEPOLIA);
+        sepoliaEndpoint.initialize(deployer, ADMIN, SIGNER, LZ_END_SEPOLIA);
         //ClustersHub sepoliaClusters = new ClustersHub(address(sepoliaPricing), address(sepoliaEndpoint),
         // block.timestamp);
         //sepoliaEndpoint.setClustersAddr(address(sepoliaClusters));

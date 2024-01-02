@@ -95,6 +95,7 @@ abstract contract Base_Test is TestHelper, Utils {
         pricingFlat = new PricingFlat();
         pricingHarberger = new PricingHarbergerHarness(block.timestamp);
         endpoint = new Endpoint();
+        vm.label(address(endpoint), "Endpoint Implementation");
     }
 
     function configureFlatEnvironment(uint8 instances) internal {
@@ -140,7 +141,11 @@ abstract contract Base_Test is TestHelper, Utils {
     function deployHubFlat(address lzEndpoint) internal returns (address clustersAddr, address endpointAddr) {
         minPrice = pricingFlat.minAnnualPrice();
         bytes memory endpointInit = abi.encodeWithSignature(
-            "initialize(address,address,address)", users.clustersAdmin, users.signer, lzEndpoint
+            "initialize(address,address,address,address)",
+            users.clustersAdmin,
+            users.proxyAdmin,
+            users.signer,
+            lzEndpoint
         );
         endpointProxy =
             IEndpoint(address(new TransparentUpgradeableProxy(address(endpoint), users.proxyAdmin, endpointInit)));
@@ -157,7 +162,11 @@ abstract contract Base_Test is TestHelper, Utils {
     function deploySpokeFlat(address lzEndpoint) internal returns (address clustersAddr, address endpointAddr) {
         minPrice = pricingFlat.minAnnualPrice();
         bytes memory endpointInit = abi.encodeWithSignature(
-            "initialize(address,address,address)", users.clustersAdmin, users.signer, lzEndpoint
+            "initialize(address,address,address,address)",
+            users.clustersAdmin,
+            users.proxyAdmin,
+            users.signer,
+            lzEndpoint
         );
         endpointProxy =
             IEndpoint(address(new TransparentUpgradeableProxy(address(endpoint), users.proxyAdmin, endpointInit)));
@@ -173,7 +182,11 @@ abstract contract Base_Test is TestHelper, Utils {
     function deployHubHarberger(address lzEndpoint) internal returns (address clustersAddr, address endpointAddr) {
         minPrice = pricingHarberger.minAnnualPrice();
         bytes memory endpointInit = abi.encodeWithSignature(
-            "initialize(address,address,address)", users.clustersAdmin, users.signer, lzEndpoint
+            "initialize(address,address,address,address)",
+            users.clustersAdmin,
+            users.proxyAdmin,
+            users.signer,
+            lzEndpoint
         );
         endpointProxy =
             IEndpoint(address(new TransparentUpgradeableProxy(address(endpoint), users.proxyAdmin, endpointInit)));
@@ -190,7 +203,11 @@ abstract contract Base_Test is TestHelper, Utils {
     function deploySpokeHarberger(address lzEndpoint) internal returns (address clustersAddr, address endpointAddr) {
         minPrice = pricingHarberger.minAnnualPrice();
         bytes memory endpointInit = abi.encodeWithSignature(
-            "initialize(address,address,address)", users.clustersAdmin, users.signer, lzEndpoint
+            "initialize(address,address,address,address)",
+            users.clustersAdmin,
+            users.proxyAdmin,
+            users.signer,
+            lzEndpoint
         );
         endpointProxy =
             IEndpoint(address(new TransparentUpgradeableProxy(address(endpoint), users.proxyAdmin, endpointInit)));
