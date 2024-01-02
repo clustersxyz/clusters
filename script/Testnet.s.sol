@@ -35,7 +35,8 @@ contract ClustersScript is Script {
         vm.selectFork(goerliFork);
         vm.startBroadcast(deployerPrivateKey);
         PricingHarberger goerliPricing = new PricingHarberger(block.timestamp);
-        Endpoint goerliEndpoint = new Endpoint(deployer, SIGNER, LZ_END_GOERLI);
+        Endpoint goerliEndpoint = new Endpoint();
+        goerliEndpoint.initialize(deployer, SIGNER, LZ_END_GOERLI);
         ClustersHub goerliClusters =
             new ClustersHub(address(goerliPricing), address(goerliEndpoint), block.timestamp + 5 minutes);
         goerliEndpoint.setClustersAddr(address(goerliClusters));
@@ -44,7 +45,8 @@ contract ClustersScript is Script {
         vm.selectFork(sepoliaFork);
         vm.startBroadcast(deployerPrivateKey);
         //PricingHarberger sepoliaPricing = new PricingHarberger(block.timestamp);
-        Endpoint sepoliaEndpoint = new Endpoint(deployer, SIGNER, LZ_END_SEPOLIA);
+        Endpoint sepoliaEndpoint = new Endpoint();
+        sepoliaEndpoint.initialize(deployer, SIGNER, LZ_END_SEPOLIA);
         //ClustersHub sepoliaClusters = new ClustersHub(address(sepoliaPricing), address(sepoliaEndpoint),
         // block.timestamp);
         //sepoliaEndpoint.setClustersAddr(address(sepoliaClusters));

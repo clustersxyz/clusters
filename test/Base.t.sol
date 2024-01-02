@@ -2,6 +2,7 @@
 pragma solidity ^0.8.23;
 
 import "layerzero-oapp/test/TestHelper.sol";
+import {OAppUpgradeable} from "layerzero-oapp/contracts/oapp-upgradeable/OAppUpgradeable.sol";
 import {Utils} from "./utils/Utils.sol";
 
 import {IPricing} from "clusters/interfaces/IPricing.sol";
@@ -134,7 +135,8 @@ abstract contract Base_Test is TestHelper, Utils {
 
     function deployHubFlat(address lzEndpoint) internal returns (address clustersAddr, address endpointAddr) {
         minPrice = pricingFlat.minAnnualPrice();
-        endpoint = new Endpoint(users.endpointAdmin, users.signer, lzEndpoint);
+        endpoint = new Endpoint();
+        endpoint.initialize(users.endpointAdmin, users.signer, lzEndpoint);
         clusters = new ClustersHub(address(pricingFlat), address(endpoint), constants.MARKET_OPEN_TIMESTAMP());
         vm.label(address(clusters), "Clusters Hub EID-1");
         vm.label(address(endpoint), "Endpoint Hub EID-1");
@@ -147,7 +149,8 @@ abstract contract Base_Test is TestHelper, Utils {
 
     function deploySpokeFlat(address lzEndpoint) internal returns (address clustersAddr, address endpointAddr) {
         minPrice = pricingFlat.minAnnualPrice();
-        endpoint = new Endpoint(users.endpointAdmin, users.signer, lzEndpoint);
+        endpoint = new Endpoint();
+        endpoint.initialize(users.endpointAdmin, users.signer, lzEndpoint);
         //clusters = new ClustersHub(address(pricingFlat), address(endpoint), constants.MARKET_OPEN_TIMESTAMP());
         //vm.prank(users.endpointAdmin);
         //endpoint.setClustersAddr(address(clusters));
@@ -159,7 +162,8 @@ abstract contract Base_Test is TestHelper, Utils {
 
     function deployHubHarberger(address lzEndpoint) internal returns (address clustersAddr, address endpointAddr) {
         minPrice = pricingHarberger.minAnnualPrice();
-        endpoint = new Endpoint(users.endpointAdmin, users.signer, lzEndpoint);
+        endpoint = new Endpoint();
+        endpoint.initialize(users.endpointAdmin, users.signer, lzEndpoint);
         clusters = new ClustersHub(address(pricingHarberger), address(endpoint), constants.MARKET_OPEN_TIMESTAMP());
         vm.label(address(clusters), "Clusters Hub EID-1");
         vm.label(address(endpoint), "Endpoint Hub EID-1");
@@ -172,7 +176,8 @@ abstract contract Base_Test is TestHelper, Utils {
 
     function deploySpokeHarberger(address lzEndpoint) internal returns (address clustersAddr, address endpointAddr) {
         minPrice = pricingHarberger.minAnnualPrice();
-        endpoint = new Endpoint(users.endpointAdmin, users.signer, lzEndpoint);
+        endpoint = new Endpoint();
+        endpoint.initialize(users.endpointAdmin, users.signer, lzEndpoint);
         //clusters = new ClustersHub(address(pricingHarberger), address(endpoint), constants.MARKET_OPEN_TIMESTAMP());
         //vm.prank(users.endpointAdmin);
         //endpoint.setClustersAddr(address(clusters));
