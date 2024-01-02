@@ -22,11 +22,6 @@ import {EnumerableSet} from "openzeppelin/contracts/utils/structs/EnumerableSet.
 import {LibString} from "solady/utils/LibString.sol";
 import {console2} from "forge-std/Test.sol";
 
-interface IInitialize {
-    function initialize(address owner_) external;
-    function initialize(address owner_, uint256 protocolDeployTimestamp_) external;
-}
-
 abstract contract Base_Test is TestHelper, Utils {
     using EnumerableSet for EnumerableSet.Bytes32Set;
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -152,7 +147,7 @@ abstract contract Base_Test is TestHelper, Utils {
         returns (address clustersAddr, address endpointAddr, address pricingAddr)
     {
         pricingProxy = IPricing(LibClone.deployERC1967(address(pricingFlat)));
-        IInitialize(address(pricingProxy)).initialize(users.clustersAdmin);
+        PricingFlat(address(pricingProxy)).initialize(users.clustersAdmin);
         minPrice = pricingProxy.minAnnualPrice();
 
         endpointProxy = IEndpoint(LibClone.deployERC1967(address(endpoint)));
@@ -177,7 +172,7 @@ abstract contract Base_Test is TestHelper, Utils {
         returns (address clustersAddr, address endpointAddr, address pricingAddr)
     {
         pricingProxy = IPricing(LibClone.deployERC1967(address(pricingFlat)));
-        IInitialize(address(pricingProxy)).initialize(users.clustersAdmin);
+        PricingFlat(address(pricingProxy)).initialize(users.clustersAdmin);
         minPrice = pricingProxy.minAnnualPrice();
 
         endpointProxy = IEndpoint(LibClone.deployERC1967(address(endpoint)));
@@ -203,7 +198,7 @@ abstract contract Base_Test is TestHelper, Utils {
         returns (address clustersAddr, address endpointAddr, address pricingAddr)
     {
         pricingProxy = IPricing(LibClone.deployERC1967(address(pricingHarberger)));
-        IInitialize(address(pricingProxy)).initialize(users.clustersAdmin, block.timestamp);
+        PricingHarbergerHarness(address(pricingProxy)).initialize(users.clustersAdmin, block.timestamp);
         minPrice = pricingProxy.minAnnualPrice();
 
         endpointProxy = IEndpoint(LibClone.deployERC1967(address(endpoint)));
@@ -228,7 +223,7 @@ abstract contract Base_Test is TestHelper, Utils {
         returns (address clustersAddr, address endpointAddr, address pricingAddr)
     {
         pricingProxy = IPricing(LibClone.deployERC1967(address(pricingHarberger)));
-        IInitialize(address(pricingProxy)).initialize(users.clustersAdmin, block.timestamp);
+        PricingHarbergerHarness(address(pricingProxy)).initialize(users.clustersAdmin, block.timestamp);
         minPrice = pricingProxy.minAnnualPrice();
 
         endpointProxy = IEndpoint(LibClone.deployERC1967(address(endpoint)));

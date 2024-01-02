@@ -24,7 +24,7 @@ contract ClustersScript is Script {
         vm.startBroadcast();
         PricingHarberger pricing = new PricingHarberger();
         IPricing pricingProxy = IPricing(LibClone.deployERC1967(address(pricing)));
-        IInitialize(address(pricingProxy)).initialize(msg.sender, block.timestamp + 7 days);
+        PricingHarberger(address(pricingProxy)).initialize(msg.sender, block.timestamp + 7 days);
         Endpoint endpoint = new Endpoint();
         IEndpoint endpointProxy = IEndpoint(LibClone.deployERC1967(address(endpoint)));
         endpointProxy.initialize(msg.sender, SIGNER, LAYERZERO);

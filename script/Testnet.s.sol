@@ -11,10 +11,6 @@ import {IEndpoint} from "../src/interfaces/IEndpoint.sol";
 import {IOAppCore} from "layerzero-oapp/contracts/oapp/interfaces/IOAppCore.sol";
 import {ClustersHub} from "../src/ClustersHub.sol";
 
-interface IInitialize {
-    function initialize(address owner_, uint256 protocolDeployTimestamp_) external;
-}
-
 contract ClustersScript is Script {
     address internal constant SIGNER = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
     address internal constant LZ_END_GOERLI = 0x464570adA09869d8741132183721B4f0769a0287;
@@ -44,7 +40,7 @@ contract ClustersScript is Script {
         vm.startBroadcast(deployerPrivateKey);
         PricingHarberger goerliPricing = new PricingHarberger();
         IPricing goerliPricingProxy = IPricing(LibClone.deployERC1967(address(goerliPricing)));
-        IInitialize(address(goerliPricingProxy)).initialize(msg.sender, block.timestamp + 7 days);
+        PricingHarberger(address(goerliPricingProxy)).initialize(msg.sender, block.timestamp + 7 days);
         Endpoint goerliEndpoint = new Endpoint();
         IEndpoint goerliProxy = IEndpoint(LibClone.deployERC1967(address(goerliEndpoint)));
         goerliProxy.initialize(deployer, SIGNER, LZ_END_GOERLI);
@@ -57,7 +53,7 @@ contract ClustersScript is Script {
         vm.startBroadcast(deployerPrivateKey);
         //PricingHarberger sepoliaPricing = new PricingHarberger(block.timestamp);
         //IPricing sepoliaPricingProxy = IPricing(LibClone.deployERC1967(address(sepoliaPricing)));
-        //IInitialize(address(sepoliaPricingProxy)).initialize(msg.sender, block.timestamp + 7 days);
+        //PricingHarberger(address(sepoliaPricingProxy)).initialize(msg.sender, block.timestamp + 7 days);
         Endpoint sepoliaEndpoint = new Endpoint();
         IEndpoint sepoliaProxy = IEndpoint(LibClone.deployERC1967(address(sepoliaEndpoint)));
         sepoliaProxy.initialize(deployer, SIGNER, LZ_END_SEPOLIA);
