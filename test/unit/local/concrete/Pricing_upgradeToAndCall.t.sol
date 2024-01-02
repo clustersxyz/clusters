@@ -1,0 +1,24 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.23;
+
+import {PricingHarberger_Unit_Shared_Test} from "../shared/SharedPricingHarberger.t.sol";
+import {PricingHarberger} from "clusters/PricingHarberger.sol";
+import {IPricing} from "clusters/interfaces/IPricing.sol";
+
+interface IUUPS {
+    function upgradeToAndCall(address newImplementation, bytes memory data) external payable;
+}
+
+contract Pricing_upgradeToAndCall_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Test {
+    function testUpgradeToAndCall() public {
+        IPricing newPricing = new PricingHarberger();
+        vm.label(address(newPricing), "New Pricing Implementation");
+
+        vm.prank(users.hacker);
+        vm.expectRevert();
+        IUUPS(pricingProxy).upgradeToAndCall(address(newPricing), bytes(""));
+
+        vm.prank(users.clustersAdmin);
+        IUUPS(pricingProxy).upgradeToAndCall(address(newPricing), bytes(""));
+    }
+}

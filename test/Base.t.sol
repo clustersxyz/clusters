@@ -6,7 +6,8 @@ import {OAppUpgradeable} from "layerzero-oapp/contracts/oapp-upgradeable/OAppUpg
 import {LibClone} from "solady/utils/LibClone.sol";
 import {Utils} from "./utils/Utils.sol";
 
-import {IPricing} from "clusters/interfaces/IPricing.sol";
+import {IPricingFlat} from "clusters/interfaces/IPricingFlat.sol";
+import {IPricingHarberger} from "clusters/interfaces/IPricingHarberger.sol";
 import {IEndpoint} from "clusters/interfaces/IEndpoint.sol";
 import {IClustersHub} from "clusters/interfaces/IClustersHub.sol";
 
@@ -42,7 +43,9 @@ abstract contract Base_Test is TestHelper, Utils {
     IClustersHub internal clusters;
     FickleReceiver internal fickleReceiver;
     IEndpoint internal endpointProxy;
+    address internal pricingProxy;
 
+    EnumerableSet.AddressSet internal pricingGroup;
     EnumerableSet.AddressSet internal clustersGroup;
     EnumerableSet.AddressSet internal endpointGroup;
 
@@ -92,7 +95,7 @@ abstract contract Base_Test is TestHelper, Utils {
         vm.warp(constants.START_TIME());
 
         pricingFlat = new PricingFlat();
-        pricingHarberger = new PricingHarbergerHarness(block.timestamp);
+        pricingHarberger = new PricingHarbergerHarness();
         endpoint = new Endpoint();
         vm.label(address(endpoint), "Endpoint Implementation");
     }
@@ -137,59 +140,106 @@ abstract contract Base_Test is TestHelper, Utils {
 
     /// DEPLOY ///
 
-    function deployHubFlat(address lzEndpoint) internal returns (address clustersAddr, address endpointAddr) {
-        minPrice = pricingFlat.minAnnualPrice();
+    function deployHubFlat(address lzEndpoint)
+        internal
+        returns (address clustersAddr, address endpointAddr, address pricingAddr)
+    {
+        pricingProxy = LibClone.deployERC1967(address(pricingFlat));
+        IPricingFlat(pricingProxy).initialize(users.clustersAdmin);
+        minPrice = IPricingFlat(pricingProxy).minAnnualPrice();
+
         endpointProxy = IEndpoint(LibClone.deployERC1967(address(endpoint)));
         endpointProxy.initialize(users.clustersAdmin, users.signer, lzEndpoint);
-        clusters = new ClustersHub(address(pricingFlat), address(endpointProxy), constants.MARKET_OPEN_TIMESTAMP());
+        clusters = new ClustersHub(address(pricingProxy), address(endpointProxy), constants.MARKET_OPEN_TIMESTAMP());
+
+        vm.label(pricingProxy, "PricingFlat Hub EID-1");
         vm.label(address(clusters), "Clusters Hub EID-1");
         vm.label(address(endpointProxy), "Endpoint Hub EID-1");
+
         vm.prank(users.clustersAdmin);
         endpointProxy.setClustersAddr(address(clusters));
+
+        pricingGroup.add(pricingProxy);
         clustersGroup.add(address(clusters));
         endpointGroup.add(address(endpointProxy));
-        return (address(clusters), address(endpointProxy));
+        return (address(clusters), address(endpointProxy), pricingProxy);
     }
 
-    function deploySpokeFlat(address lzEndpoint) internal returns (address clustersAddr, address endpointAddr) {
-        minPrice = pricingFlat.minAnnualPrice();
+    function deploySpokeFlat(address lzEndpoint)
+        internal
+        returns (address clustersAddr, address endpointAddr, address pricingAddr)
+    {
+        pricingProxy = LibClone.deployERC1967(address(pricingFlat));
+        IPricingFlat(pricingProxy).initialize(users.clustersAdmin);
+        minPrice = IPricingFlat(pricingProxy).minAnnualPrice();
+
         endpointProxy = IEndpoint(LibClone.deployERC1967(address(endpoint)));
         endpointProxy.initialize(users.clustersAdmin, users.signer, lzEndpoint);
-        //clusters = new ClustersHub(address(pricingFlat), address(endpointProxy), constants.MARKET_OPEN_TIMESTAMP());
+        //clusters = new ClustersHub(address(pricingProxy), address(endpointProxy), constants.MARKET_OPEN_TIMESTAMP());
+
         //vm.prank(users.clustersAdmin);
         //endpointProxy.setClustersAddr(address(clusters));
+
+        pricingGroup.add(pricingProxy);
         clustersGroup.add(address(0));
         endpointGroup.add(address(endpointProxy));
+
+        vm.label(pricingProxy, LibString.concat("PricingFlat Spoke EID-", pricingGroup.length().toString()));
+        //vm.label(address(clusters), LibString.concat("Clusters Spoke EID-", clustersGroup.length().toString()));
         vm.label(address(endpointProxy), LibString.concat("Endpoint Spoke EID-", endpointGroup.length().toString()));
-        return (address(0), address(endpointProxy));
+
+        return (address(0), address(endpointProxy), pricingProxy);
     }
 
-    function deployHubHarberger(address lzEndpoint) internal returns (address clustersAddr, address endpointAddr) {
-        minPrice = pricingHarberger.minAnnualPrice();
+    function deployHubHarberger(address lzEndpoint)
+        internal
+        returns (address clustersAddr, address endpointAddr, address pricingAddr)
+    {
+        pricingProxy = LibClone.deployERC1967(address(pricingHarberger));
+        IPricingHarberger(pricingProxy).initialize(users.clustersAdmin, block.timestamp);
+        minPrice = IPricingHarberger(pricingProxy).minAnnualPrice();
+
         endpointProxy = IEndpoint(LibClone.deployERC1967(address(endpoint)));
         endpointProxy.initialize(users.clustersAdmin, users.signer, lzEndpoint);
-        clusters = new ClustersHub(address(pricingHarberger), address(endpointProxy), constants.MARKET_OPEN_TIMESTAMP());
+        clusters = new ClustersHub(address(pricingProxy), address(endpointProxy), constants.MARKET_OPEN_TIMESTAMP());
+
+        vm.label(pricingProxy, "PricingHarberger Hub EID-1");
         vm.label(address(clusters), "Clusters Hub EID-1");
         vm.label(address(endpointProxy), "Endpoint Hub EID-1");
+
         vm.prank(users.clustersAdmin);
         endpointProxy.setClustersAddr(address(clusters));
+
+        pricingGroup.add(pricingProxy);
         clustersGroup.add(address(clusters));
         endpointGroup.add(address(endpointProxy));
-        return (address(clusters), address(endpointProxy));
+        return (address(clusters), address(endpointProxy), pricingProxy);
     }
 
-    function deploySpokeHarberger(address lzEndpoint) internal returns (address clustersAddr, address endpointAddr) {
-        minPrice = pricingHarberger.minAnnualPrice();
+    function deploySpokeHarberger(address lzEndpoint)
+        internal
+        returns (address clustersAddr, address endpointAddr, address pricingAddr)
+    {
+        pricingProxy = LibClone.deployERC1967(address(pricingHarberger));
+        IPricingHarberger(pricingProxy).initialize(users.clustersAdmin, block.timestamp);
+        minPrice = IPricingHarberger(pricingProxy).minAnnualPrice();
+
         endpointProxy = IEndpoint(LibClone.deployERC1967(address(endpoint)));
         endpointProxy.initialize(users.clustersAdmin, users.signer, lzEndpoint);
-        //clusters = new ClustersHub(address(pricingHarberger), address(endpointProxy),
-        // constants.MARKET_OPEN_TIMESTAMP());
+        //clusters = new ClustersHub(address(pricingProxy), address(endpointProxy), constants.MARKET_OPEN_TIMESTAMP());
+
         //vm.prank(users.clustersAdmin);
         //endpointProxy.setClustersAddr(address(clusters));
+
+        pricingGroup.add(pricingProxy);
         clustersGroup.add(address(0));
         endpointGroup.add(address(endpointProxy));
+
+        vm.label(pricingProxy, LibString.concat("PricingHarberger Spoke EID-", pricingGroup.length().toString()));
+        //vm.label(address(clusters), LibString.concat("Clusters Spoke EID-", clustersGroup.length().toString()));
         vm.label(address(endpointProxy), LibString.concat("Endpoint Spoke EID-", endpointGroup.length().toString()));
-        return (address(0), address(endpointProxy));
+
+        return (address(0), address(endpointProxy), pricingProxy);
     }
 
     /// ASSERT HELPERS ///

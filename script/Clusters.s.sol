@@ -5,6 +5,7 @@ import {Script, console2} from "forge-std/Script.sol";
 
 import {LibClone} from "solady/utils/LibClone.sol";
 import {PricingHarberger} from "../src/PricingHarberger.sol";
+import {IPricingHarberger} from "../src/interfaces/IPricingHarberger.sol";
 import {Endpoint} from "../src/Endpoint.sol";
 import {IEndpoint} from "../src/interfaces/IEndpoint.sol";
 import {ClustersHub} from "../src/ClustersHub.sol";
@@ -17,11 +18,13 @@ contract ClustersScript is Script {
 
     function run() public {
         vm.startBroadcast();
-        PricingHarberger pricing = new PricingHarberger(block.timestamp);
+        PricingHarberger pricing = new PricingHarberger();
+        address pricingProxy = LibClone.deployERC1967(address(pricing));
+        IPricingHarberger(pricingProxy).initialize(msg.sender, block.timestamp + 7 days);
         Endpoint endpoint = new Endpoint();
         IEndpoint endpointProxy = IEndpoint(LibClone.deployERC1967(address(endpoint)));
         endpointProxy.initialize(msg.sender, SIGNER, LAYERZERO);
-        ClustersHub clusters = new ClustersHub(address(pricing), address(endpointProxy), block.timestamp + 7 days);
+        ClustersHub clusters = new ClustersHub(pricingProxy, address(endpointProxy), block.timestamp + 7 days);
         endpointProxy.setClustersAddr(address(clusters));
         vm.stopBroadcast();
     }
