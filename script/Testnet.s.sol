@@ -3,7 +3,7 @@ pragma solidity ^0.8.13;
 
 import {Script, console2} from "forge-std/Script.sol";
 
-import {ERC1967Proxy} from "openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {LibClone} from "solady/utils/LibClone.sol";
 import {PricingHarberger} from "../src/PricingHarberger.sol";
 import {Endpoint} from "../src/Endpoint.sol";
 import {IEndpoint} from "../src/interfaces/IEndpoint.sol";
@@ -34,14 +34,13 @@ contract ClustersScript is Script {
     function run() public {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
-        bytes memory endpointInit;
 
         vm.selectFork(goerliFork);
         vm.startBroadcast(deployerPrivateKey);
         PricingHarberger goerliPricing = new PricingHarberger(block.timestamp);
-        Endpoint goerliEndpoint = new Endpoint();
-        endpointInit = abi.encodeWithSignature("initialize(address,address,address)", deployer, SIGNER, LZ_END_GOERLI);
-        IEndpoint goerliProxy = IEndpoint(address(new ERC1967Proxy(address(goerliEndpoint), endpointInit)));
+        Endpoint goerliEndpoint = new Endpoint();        
+        IEndpoint goerliProxy = IEndpoint(LibClone.deployERC1967(address(goerliEndpoint)));
+        goerliProxy.initialize(deployer, SIGNER, LZ_END_GOERLI);
         ClustersHub goerliClusters =
             new ClustersHub(address(goerliPricing), address(goerliProxy), block.timestamp + 5 minutes);
         goerliProxy.setClustersAddr(address(goerliClusters));
@@ -51,9 +50,8 @@ contract ClustersScript is Script {
         vm.startBroadcast(deployerPrivateKey);
         //PricingHarberger sepoliaPricing = new PricingHarberger(block.timestamp);
         Endpoint sepoliaEndpoint = new Endpoint();
-        endpointInit = abi.encodeWithSignature("initialize(address,address,address)", deployer, SIGNER, LZ_END_SEPOLIA);
-        IEndpoint sepoliaProxy = IEndpoint(address(new ERC1967Proxy(address(sepoliaEndpoint), endpointInit)));
-
+        IEndpoint sepoliaProxy = IEndpoint(LibClone.deployERC1967(address(sepoliaEndpoint)));
+        sepoliaProxy.initialize(deployer, SIGNER, LZ_END_SEPOLIA);
         //ClustersHub sepoliaClusters = new ClustersHub(address(sepoliaPricing), address(sepoliaProxy),
         // block.timestamp);
         //sepoliaProxy.setClustersAddr(address(sepoliaClusters));
