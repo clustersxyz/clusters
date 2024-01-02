@@ -4,7 +4,7 @@ pragma solidity ^0.8.23;
 import {UUPSUpgradeable} from "solady/utils/UUPSUpgradeable.sol";
 import {Initializable} from "openzeppelin/contracts/proxy/utils/Initializable.sol";
 import {Ownable} from "solady/auth/Ownable.sol";
-import {IPricing, IPricingHarberger} from "clusters/interfaces/IPricingHarberger.sol";
+import {IPricing} from "./interfaces/IPricing.sol";
 import {FixedPointMathLib as F} from "solady/utils/FixedPointMathLib.sol";
 import {console2} from "forge-std/console2.sol";
 
@@ -24,7 +24,7 @@ for months >= 1
 /// @notice A stateless computation library for price, bids, decays, etc
 /// @dev All state is stored in clusters so we can replace the Pricing module while providing guarantees to existing
 /// holders
-contract PricingHarberger is UUPSUpgradeable, Initializable, Ownable, IPricingHarberger {
+contract PricingHarberger is UUPSUpgradeable, Initializable, Ownable, IPricing {
     uint256 internal constant SECONDS_IN_MONTH = 30 days;
     uint256 internal constant SECONDS_IN_YEAR = 365 days;
     uint256 internal constant DENOMINATOR = 10_000;

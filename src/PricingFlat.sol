@@ -4,9 +4,9 @@ pragma solidity ^0.8.23;
 import {UUPSUpgradeable} from "solady/utils/UUPSUpgradeable.sol";
 import {Initializable} from "openzeppelin/contracts/proxy/utils/Initializable.sol";
 import {Ownable} from "solady/auth/Ownable.sol";
-import {IPricing, IPricingFlat} from "./interfaces/IPricingFlat.sol";
+import {IPricing} from "./interfaces/IPricing.sol";
 
-contract PricingFlat is UUPSUpgradeable, Initializable, Ownable, IPricingFlat {
+contract PricingFlat is UUPSUpgradeable, Initializable, Ownable, IPricing {
     uint256 public constant minAnnualPrice = 0.01 ether;
 
     function initialize(address owner_) public initializer {

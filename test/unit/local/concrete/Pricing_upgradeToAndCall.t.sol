@@ -16,9 +16,9 @@ contract Pricing_upgradeToAndCall_Unit_Concrete_Test is PricingHarberger_Unit_Sh
 
         vm.prank(users.hacker);
         vm.expectRevert();
-        IUUPS(pricingProxy).upgradeToAndCall(address(newPricing), bytes(""));
+        IUUPS(address(pricingProxy)).upgradeToAndCall(address(newPricing), bytes(""));
 
         vm.prank(users.clustersAdmin);
-        IUUPS(pricingProxy).upgradeToAndCall(address(newPricing), bytes(""));
+        IUUPS(address(pricingProxy)).upgradeToAndCall(address(newPricing), bytes(""));
     }
 }
