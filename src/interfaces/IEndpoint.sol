@@ -24,7 +24,7 @@ interface IEndpoint {
 
     /// SETUP ///
 
-    function initialize(address owner_, address admin_, address signer_, address endpoint_) external;
+    function initialize(address owner_, address signer_, address endpoint_) external;
 
     /// STORAGE ///
 

@@ -3,7 +3,7 @@ pragma solidity ^0.8.23;
 
 import "layerzero-oapp/test/TestHelper.sol";
 import {OAppUpgradeable} from "layerzero-oapp/contracts/oapp-upgradeable/OAppUpgradeable.sol";
-import {TransparentUpgradeableProxy} from "openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {ERC1967Proxy} from "openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {Utils} from "./utils/Utils.sol";
 
 import {IPricing} from "clusters/interfaces/IPricing.sol";
@@ -79,7 +79,6 @@ abstract contract Base_Test is TestHelper, Utils {
         users = Users({
             signerPrivKey: 0,
             signer: payable(address(0)),
-            proxyAdmin: createUser("Proxy Admin"),
             clustersAdmin: createUser("Clusters Admin"),
             alicePrimary: createAndFundUser("Alice (Primary)", fundingAmount),
             aliceSecondary: createAndFundUser("Alice (Secondary)", fundingAmount),
@@ -141,14 +140,9 @@ abstract contract Base_Test is TestHelper, Utils {
     function deployHubFlat(address lzEndpoint) internal returns (address clustersAddr, address endpointAddr) {
         minPrice = pricingFlat.minAnnualPrice();
         bytes memory endpointInit = abi.encodeWithSignature(
-            "initialize(address,address,address,address)",
-            users.clustersAdmin,
-            users.proxyAdmin,
-            users.signer,
-            lzEndpoint
+            "initialize(address,address,address)", users.clustersAdmin, users.signer, lzEndpoint
         );
-        endpointProxy =
-            IEndpoint(address(new TransparentUpgradeableProxy(address(endpoint), users.proxyAdmin, endpointInit)));
+        endpointProxy = IEndpoint(address(new ERC1967Proxy(address(endpoint), endpointInit)));
         clusters = new ClustersHub(address(pricingFlat), address(endpointProxy), constants.MARKET_OPEN_TIMESTAMP());
         vm.label(address(clusters), "Clusters Hub EID-1");
         vm.label(address(endpointProxy), "Endpoint Hub EID-1");
@@ -162,14 +156,9 @@ abstract contract Base_Test is TestHelper, Utils {
     function deploySpokeFlat(address lzEndpoint) internal returns (address clustersAddr, address endpointAddr) {
         minPrice = pricingFlat.minAnnualPrice();
         bytes memory endpointInit = abi.encodeWithSignature(
-            "initialize(address,address,address,address)",
-            users.clustersAdmin,
-            users.proxyAdmin,
-            users.signer,
-            lzEndpoint
+            "initialize(address,address,address)", users.clustersAdmin, users.signer, lzEndpoint
         );
-        endpointProxy =
-            IEndpoint(address(new TransparentUpgradeableProxy(address(endpoint), users.proxyAdmin, endpointInit)));
+        endpointProxy = IEndpoint(address(new ERC1967Proxy(address(endpoint), endpointInit)));
         //clusters = new ClustersHub(address(pricingFlat), address(endpointProxy), constants.MARKET_OPEN_TIMESTAMP());
         //vm.prank(users.clustersAdmin);
         //endpointProxy.setClustersAddr(address(clusters));
@@ -182,14 +171,9 @@ abstract contract Base_Test is TestHelper, Utils {
     function deployHubHarberger(address lzEndpoint) internal returns (address clustersAddr, address endpointAddr) {
         minPrice = pricingHarberger.minAnnualPrice();
         bytes memory endpointInit = abi.encodeWithSignature(
-            "initialize(address,address,address,address)",
-            users.clustersAdmin,
-            users.proxyAdmin,
-            users.signer,
-            lzEndpoint
+            "initialize(address,address,address)", users.clustersAdmin, users.signer, lzEndpoint
         );
-        endpointProxy =
-            IEndpoint(address(new TransparentUpgradeableProxy(address(endpoint), users.proxyAdmin, endpointInit)));
+        endpointProxy = IEndpoint(address(new ERC1967Proxy(address(endpoint), endpointInit)));
         clusters = new ClustersHub(address(pricingHarberger), address(endpointProxy), constants.MARKET_OPEN_TIMESTAMP());
         vm.label(address(clusters), "Clusters Hub EID-1");
         vm.label(address(endpointProxy), "Endpoint Hub EID-1");
@@ -203,14 +187,9 @@ abstract contract Base_Test is TestHelper, Utils {
     function deploySpokeHarberger(address lzEndpoint) internal returns (address clustersAddr, address endpointAddr) {
         minPrice = pricingHarberger.minAnnualPrice();
         bytes memory endpointInit = abi.encodeWithSignature(
-            "initialize(address,address,address,address)",
-            users.clustersAdmin,
-            users.proxyAdmin,
-            users.signer,
-            lzEndpoint
+            "initialize(address,address,address)", users.clustersAdmin, users.signer, lzEndpoint
         );
-        endpointProxy =
-            IEndpoint(address(new TransparentUpgradeableProxy(address(endpoint), users.proxyAdmin, endpointInit)));
+        endpointProxy = IEndpoint(address(new ERC1967Proxy(address(endpoint), endpointInit)));
         //clusters = new ClustersHub(address(pricingHarberger), address(endpointProxy),
         // constants.MARKET_OPEN_TIMESTAMP());
         //vm.prank(users.clustersAdmin);

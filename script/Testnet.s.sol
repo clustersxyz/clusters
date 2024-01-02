@@ -3,7 +3,7 @@ pragma solidity ^0.8.13;
 
 import {Script, console2} from "forge-std/Script.sol";
 
-import {TransparentUpgradeableProxy} from "openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {ERC1967Proxy} from "openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {PricingHarberger} from "../src/PricingHarberger.sol";
 import {Endpoint} from "../src/Endpoint.sol";
 import {IEndpoint} from "../src/interfaces/IEndpoint.sol";
@@ -11,7 +11,6 @@ import {IOAppCore} from "layerzero-oapp/contracts/oapp/interfaces/IOAppCore.sol"
 import {ClustersHub} from "../src/ClustersHub.sol";
 
 contract ClustersScript is Script {
-    address internal constant ADMIN = address(uint160(uint256(keccak256(abi.encodePacked("ADMIN")))));
     address internal constant SIGNER = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
     address internal constant LZ_END_GOERLI = 0x464570adA09869d8741132183721B4f0769a0287;
     address internal constant LZ_END_SEPOLIA = 0x464570adA09869d8741132183721B4f0769a0287;
@@ -41,11 +40,8 @@ contract ClustersScript is Script {
         vm.startBroadcast(deployerPrivateKey);
         PricingHarberger goerliPricing = new PricingHarberger(block.timestamp);
         Endpoint goerliEndpoint = new Endpoint();
-        endpointInit = abi.encodeWithSignature(
-            "initialize(address,address,address,address)", deployer, ADMIN, SIGNER, LZ_END_GOERLI
-        );
-        IEndpoint goerliProxy =
-            IEndpoint(address(new TransparentUpgradeableProxy(address(goerliEndpoint), ADMIN, endpointInit)));
+        endpointInit = abi.encodeWithSignature("initialize(address,address,address)", deployer, SIGNER, LZ_END_GOERLI);
+        IEndpoint goerliProxy = IEndpoint(address(new ERC1967Proxy(address(goerliEndpoint), endpointInit)));
         ClustersHub goerliClusters =
             new ClustersHub(address(goerliPricing), address(goerliProxy), block.timestamp + 5 minutes);
         goerliProxy.setClustersAddr(address(goerliClusters));
@@ -55,11 +51,8 @@ contract ClustersScript is Script {
         vm.startBroadcast(deployerPrivateKey);
         //PricingHarberger sepoliaPricing = new PricingHarberger(block.timestamp);
         Endpoint sepoliaEndpoint = new Endpoint();
-        endpointInit = abi.encodeWithSignature(
-            "initialize(address,address,address,address)", deployer, ADMIN, SIGNER, LZ_END_SEPOLIA
-        );
-        IEndpoint sepoliaProxy =
-            IEndpoint(address(new TransparentUpgradeableProxy(address(sepoliaEndpoint), ADMIN, endpointInit)));
+        endpointInit = abi.encodeWithSignature("initialize(address,address,address)", deployer, SIGNER, LZ_END_SEPOLIA);
+        IEndpoint sepoliaProxy = IEndpoint(address(new ERC1967Proxy(address(sepoliaEndpoint), endpointInit)));
 
         //ClustersHub sepoliaClusters = new ClustersHub(address(sepoliaPricing), address(sepoliaProxy),
         // block.timestamp);

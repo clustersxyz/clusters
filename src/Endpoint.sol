@@ -44,21 +44,15 @@ contract Endpoint is OAppUpgradeable, UUPSUpgradeable, IEndpoint {
         _;
     }
 
-    modifier onlyAdmin() {
-        if (msg.sender != admin) revert Unauthorized();
-        _;
-    }
-
     /// MANAGEMENT FUNCTIONS ///
 
-    function initialize(address owner_, address admin_, address signer_, address endpoint_) public initializer {
+    function initialize(address owner_, address signer_, address endpoint_) public initializer {
         _initializeOApp(endpoint_, owner_);
-        admin = admin_;
         signer = signer_;
         emit SignerAddr(signer_);
     }
 
-    function _authorizeUpgrade(address newImplementation) internal override onlyAdmin {}
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     /// INTERNAL FUNCTIONS ///
 
