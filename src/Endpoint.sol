@@ -2,7 +2,7 @@
 pragma solidity ^0.8.23;
 
 import {OAppUpgradeable, Origin, MessagingFee} from "layerzero-oapp/contracts/oapp-upgradeable/OAppUpgradeable.sol";
-import {UUPSUpgradeable} from "openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import {UUPSUpgradeable} from "solady/utils/UUPSUpgradeable.sol";
 import {IEndpoint} from "./interfaces/IEndpoint.sol";
 import {ECDSA} from "solady/utils/ECDSA.sol";
 import {EnumerableSetLib} from "./EnumerableSetLib.sol";
