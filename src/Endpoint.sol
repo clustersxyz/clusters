@@ -2,7 +2,7 @@
 pragma solidity ^0.8.23;
 
 import {OAppUpgradeable, Origin, MessagingFee} from "layerzero-oapp/contracts/oapp-upgradeable/OAppUpgradeable.sol";
-//import {UUPSUpgradeable} from "openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import {UUPSUpgradeable} from "openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import {IEndpoint} from "./interfaces/IEndpoint.sol";
 import {ECDSA} from "solady/utils/ECDSA.sol";
 import {EnumerableSetLib} from "./EnumerableSetLib.sol";
@@ -22,7 +22,7 @@ interface IClustersHubEndpoint {
 
 // TODO: Make this a proxy contract to swap out logic, ownership can be reverted later
 
-contract Endpoint is OAppUpgradeable, IEndpoint {
+contract Endpoint is OAppUpgradeable, UUPSUpgradeable, IEndpoint {
     using EnumerableSetLib for EnumerableSetLib.Bytes32Set;
 
     bytes4 internal constant MULTICALL_SELECTOR = bytes4(keccak256("multicall(bytes[])"));
@@ -43,11 +43,15 @@ contract Endpoint is OAppUpgradeable, IEndpoint {
         _;
     }
 
+    /// MANAGEMENT FUNCTIONS ///
+
     function initialize(address owner_, address signer_, address endpoint_) public initializer {
         _initializeOApp(endpoint_, owner_);
         signer = signer_;
         emit SignerAddr(signer_);
     }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     /// INTERNAL FUNCTIONS ///
 

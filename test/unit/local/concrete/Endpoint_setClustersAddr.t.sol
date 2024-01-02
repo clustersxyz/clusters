@@ -9,8 +9,8 @@ contract Endpoint_setClustersAddr_Unit_Concrete_Test is PricingHarberger_Unit_Sh
         address testAddr = constants.TEST_ADDRESS();
         assertEndpointVars(address(clusters), users.signer);
 
-        vm.prank(users.endpointAdmin);
-        endpoint.setClustersAddr(testAddr);
+        vm.prank(users.clustersAdmin);
+        endpointProxy.setClustersAddr(testAddr);
 
         assertEndpointVars(testAddr, users.signer);
     }
@@ -19,6 +19,6 @@ contract Endpoint_setClustersAddr_Unit_Concrete_Test is PricingHarberger_Unit_Sh
         address testAddr = constants.TEST_ADDRESS();
         vm.prank(users.hacker);
         vm.expectRevert("Ownable: caller is not the owner");
-        endpoint.setClustersAddr(testAddr);
+        endpointProxy.setClustersAddr(testAddr);
     }
 }

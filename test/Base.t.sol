@@ -3,6 +3,7 @@ pragma solidity ^0.8.23;
 
 import "layerzero-oapp/test/TestHelper.sol";
 import {OAppUpgradeable} from "layerzero-oapp/contracts/oapp-upgradeable/OAppUpgradeable.sol";
+import {TransparentUpgradeableProxy} from "openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {Utils} from "./utils/Utils.sol";
 
 import {IPricing} from "clusters/interfaces/IPricing.sol";
@@ -40,6 +41,7 @@ abstract contract Base_Test is TestHelper, Utils {
     IEndpoint internal endpoint;
     IClustersHub internal clusters;
     FickleReceiver internal fickleReceiver;
+    IEndpoint internal endpointProxy;
 
     EnumerableSet.AddressSet internal clustersGroup;
     EnumerableSet.AddressSet internal endpointGroup;
@@ -77,7 +79,8 @@ abstract contract Base_Test is TestHelper, Utils {
         users = Users({
             signerPrivKey: 0,
             signer: payable(address(0)),
-            endpointAdmin: createUser("Endpoint Admin"),
+            proxyAdmin: createUser("Proxy Admin"),
+            clustersAdmin: createUser("Clusters Admin"),
             alicePrimary: createAndFundUser("Alice (Primary)", fundingAmount),
             aliceSecondary: createAndFundUser("Alice (Secondary)", fundingAmount),
             bobPrimary: createAndFundUser("Bob (Primary)", fundingAmount),
@@ -91,6 +94,7 @@ abstract contract Base_Test is TestHelper, Utils {
 
         pricingFlat = new PricingFlat();
         pricingHarberger = new PricingHarbergerHarness(block.timestamp);
+        endpoint = new Endpoint();
     }
 
     function configureFlatEnvironment(uint8 instances) internal {
@@ -104,7 +108,7 @@ abstract contract Base_Test is TestHelper, Utils {
                 deploySpokeFlat(endpoints[i + 1]);
             }
         }
-        vm.startPrank(users.endpointAdmin);
+        vm.startPrank(users.clustersAdmin);
         wireOApps(endpointGroup.values());
         for (uint8 i = 1; i < instances; ++i) {
             Endpoint(endpointGroup.at(i)).setDstEid(1);
@@ -123,7 +127,7 @@ abstract contract Base_Test is TestHelper, Utils {
                 deploySpokeHarberger(endpoints[i + 1]);
             }
         }
-        vm.startPrank(users.endpointAdmin);
+        vm.startPrank(users.clustersAdmin);
         wireOApps(endpointGroup.values());
         for (uint8 i = 1; i < instances; ++i) {
             Endpoint(endpointGroup.at(i)).setDstEid(1);
@@ -135,56 +139,69 @@ abstract contract Base_Test is TestHelper, Utils {
 
     function deployHubFlat(address lzEndpoint) internal returns (address clustersAddr, address endpointAddr) {
         minPrice = pricingFlat.minAnnualPrice();
-        endpoint = new Endpoint();
-        endpoint.initialize(users.endpointAdmin, users.signer, lzEndpoint);
-        clusters = new ClustersHub(address(pricingFlat), address(endpoint), constants.MARKET_OPEN_TIMESTAMP());
+        bytes memory endpointInit = abi.encodeWithSignature(
+            "initialize(address,address,address)", users.clustersAdmin, users.signer, lzEndpoint
+        );
+        endpointProxy =
+            IEndpoint(address(new TransparentUpgradeableProxy(address(endpoint), users.proxyAdmin, endpointInit)));
+        clusters = new ClustersHub(address(pricingFlat), address(endpointProxy), constants.MARKET_OPEN_TIMESTAMP());
         vm.label(address(clusters), "Clusters Hub EID-1");
-        vm.label(address(endpoint), "Endpoint Hub EID-1");
-        vm.prank(users.endpointAdmin);
-        endpoint.setClustersAddr(address(clusters));
+        vm.label(address(endpointProxy), "Endpoint Hub EID-1");
+        vm.prank(users.clustersAdmin);
+        endpointProxy.setClustersAddr(address(clusters));
         clustersGroup.add(address(clusters));
-        endpointGroup.add(address(endpoint));
-        return (address(clusters), address(endpoint));
+        endpointGroup.add(address(endpointProxy));
+        return (address(clusters), address(endpointProxy));
     }
 
     function deploySpokeFlat(address lzEndpoint) internal returns (address clustersAddr, address endpointAddr) {
         minPrice = pricingFlat.minAnnualPrice();
-        endpoint = new Endpoint();
-        endpoint.initialize(users.endpointAdmin, users.signer, lzEndpoint);
-        //clusters = new ClustersHub(address(pricingFlat), address(endpoint), constants.MARKET_OPEN_TIMESTAMP());
-        //vm.prank(users.endpointAdmin);
-        //endpoint.setClustersAddr(address(clusters));
+        bytes memory endpointInit = abi.encodeWithSignature(
+            "initialize(address,address,address)", users.clustersAdmin, users.signer, lzEndpoint
+        );
+        endpointProxy =
+            IEndpoint(address(new TransparentUpgradeableProxy(address(endpoint), users.proxyAdmin, endpointInit)));
+        //clusters = new ClustersHub(address(pricingFlat), address(endpointProxy), constants.MARKET_OPEN_TIMESTAMP());
+        //vm.prank(users.clustersAdmin);
+        //endpointProxy.setClustersAddr(address(clusters));
         clustersGroup.add(address(0));
-        endpointGroup.add(address(endpoint));
-        vm.label(address(endpoint), LibString.concat("Endpoint Spoke EID-", endpointGroup.length().toString()));
-        return (address(0), address(endpoint));
+        endpointGroup.add(address(endpointProxy));
+        vm.label(address(endpointProxy), LibString.concat("Endpoint Spoke EID-", endpointGroup.length().toString()));
+        return (address(0), address(endpointProxy));
     }
 
     function deployHubHarberger(address lzEndpoint) internal returns (address clustersAddr, address endpointAddr) {
         minPrice = pricingHarberger.minAnnualPrice();
-        endpoint = new Endpoint();
-        endpoint.initialize(users.endpointAdmin, users.signer, lzEndpoint);
-        clusters = new ClustersHub(address(pricingHarberger), address(endpoint), constants.MARKET_OPEN_TIMESTAMP());
+        bytes memory endpointInit = abi.encodeWithSignature(
+            "initialize(address,address,address)", users.clustersAdmin, users.signer, lzEndpoint
+        );
+        endpointProxy =
+            IEndpoint(address(new TransparentUpgradeableProxy(address(endpoint), users.proxyAdmin, endpointInit)));
+        clusters = new ClustersHub(address(pricingHarberger), address(endpointProxy), constants.MARKET_OPEN_TIMESTAMP());
         vm.label(address(clusters), "Clusters Hub EID-1");
-        vm.label(address(endpoint), "Endpoint Hub EID-1");
-        vm.prank(users.endpointAdmin);
-        endpoint.setClustersAddr(address(clusters));
+        vm.label(address(endpointProxy), "Endpoint Hub EID-1");
+        vm.prank(users.clustersAdmin);
+        endpointProxy.setClustersAddr(address(clusters));
         clustersGroup.add(address(clusters));
-        endpointGroup.add(address(endpoint));
-        return (address(clusters), address(endpoint));
+        endpointGroup.add(address(endpointProxy));
+        return (address(clusters), address(endpointProxy));
     }
 
     function deploySpokeHarberger(address lzEndpoint) internal returns (address clustersAddr, address endpointAddr) {
         minPrice = pricingHarberger.minAnnualPrice();
-        endpoint = new Endpoint();
-        endpoint.initialize(users.endpointAdmin, users.signer, lzEndpoint);
-        //clusters = new ClustersHub(address(pricingHarberger), address(endpoint), constants.MARKET_OPEN_TIMESTAMP());
-        //vm.prank(users.endpointAdmin);
-        //endpoint.setClustersAddr(address(clusters));
+        bytes memory endpointInit = abi.encodeWithSignature(
+            "initialize(address,address,address)", users.clustersAdmin, users.signer, lzEndpoint
+        );
+        endpointProxy =
+            IEndpoint(address(new TransparentUpgradeableProxy(address(endpoint), users.proxyAdmin, endpointInit)));
+        //clusters = new ClustersHub(address(pricingHarberger), address(endpointProxy),
+        // constants.MARKET_OPEN_TIMESTAMP());
+        //vm.prank(users.clustersAdmin);
+        //endpointProxy.setClustersAddr(address(clusters));
         clustersGroup.add(address(0));
-        endpointGroup.add(address(endpoint));
-        vm.label(address(endpoint), LibString.concat("Endpoint Spoke EID-", endpointGroup.length().toString()));
-        return (address(0), address(endpoint));
+        endpointGroup.add(address(endpointProxy));
+        vm.label(address(endpointProxy), LibString.concat("Endpoint Spoke EID-", endpointGroup.length().toString()));
+        return (address(0), address(endpointProxy));
     }
 
     /// ASSERT HELPERS ///
@@ -376,8 +393,8 @@ abstract contract Base_Test is TestHelper, Utils {
     }
 
     function assertEndpointVars(address clusters_, address signer) internal {
-        assertEq(clusters_, endpoint.clusters(), "endpoint clusters address error");
-        assertEq(signer, endpoint.signer(), "endpoint signer address error");
+        assertEq(clusters_, endpointProxy.clusters(), "endpoint clusters address error");
+        assertEq(signer, endpointProxy.signer(), "endpoint signer address error");
     }
 
     function assertEndpointVars(uint32 eid, address clusters_, address signer) internal {

@@ -6,8 +6,10 @@ struct Users {
     uint256 signerPrivKey;
     // Frontend's signer
     address payable signer;
-    // Default admin for Endpoint.sol
-    address payable endpointAdmin;
+    // Default admin for proxies
+    address payable proxyAdmin;
+    // Default admin for Clusters
+    address payable clustersAdmin;
     // Alice's primary address
     address payable alicePrimary;
     // Alice's secondary address
