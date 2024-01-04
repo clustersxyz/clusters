@@ -5,6 +5,7 @@ import {OApp, Origin, MessagingFee} from "layerzero-oapp/contracts/oapp/OApp.sol
 import {IEndpoint} from "./interfaces/IEndpoint.sol";
 import {ECDSA} from "solady/utils/ECDSA.sol";
 import {EnumerableSetLib} from "./EnumerableSetLib.sol";
+import {ExecutorOptions} from "@layerzerolabs/lz-evm-protocol-v2/contracts/messagelib/libs/ExecutorOptions.sol";
 import {console2} from "forge-std/Test.sol";
 
 interface IClustersHubEndpoint {
@@ -28,6 +29,7 @@ contract Endpoint is OApp, IEndpoint {
     bytes4 internal constant POKE_NAME_SELECTOR = bytes4(keccak256("pokeName(string)"));
     bytes4 internal constant REDUCE_BID_SELECTOR = bytes4(keccak256("reduceBid(bytes32,string,uint256)"));
     bytes4 internal constant ACCEPT_BID_SELECTOR = bytes4(keccak256("acceptBid(bytes32,string)"));
+    bytes4 internal constant GAS_AIRDROP_SELECTOR = bytes4(keccak256("gasAirdrop(uint32,bytes)"));
 
     uint32 public dstEid;
     address public clusters;
@@ -150,8 +152,47 @@ contract Endpoint is OApp, IEndpoint {
     /// PERMISSIONED FUNCTIONS ///
 
     function multicall(bytes[] calldata data, bytes calldata sig) external payable returns (bytes[] memory results) {
+        // Validate signature
         if (!verifyMulticall(data, sig)) revert ECDSA.InvalidSignature();
-        results = IClustersHubEndpoint(clusters).multicall{value: msg.value}(data);
+
+        // Determine how many calls are for ClustersHub
+        uint256 forwardedCalls;
+        for (uint256 i; i < data.length; ++i) {
+            bytes4 selector = _getFuncSelector(data[i]);
+            if (selector != GAS_AIRDROP_SELECTOR) {
+                ++forwardedCalls;
+            }
+        }
+
+        // Repackage multicall calldata if necessary, excluding Endpoint operations
+        if (data.length != forwardedCalls) {
+            bytes[] memory _data = new bytes[](forwardedCalls);
+            uint256 clustersValue = msg.value;
+            // Iterate through each call looking for gasAirdrop()
+            for (uint256 i; i < data.length; ++i) {
+                bytes4 selector = _getFuncSelector(data[i]);
+                // If gasAirdrop() is found, parse calldata and process the gasAirdrop call
+                if (selector == GAS_AIRDROP_SELECTOR) {
+                    bytes memory airdropCall = data[i];
+                    uint32 _dstEid;
+                    bytes memory options;
+                    assembly {
+                        _dstEid := mload(add(airdropCall, 36))
+                        options := mload(add(airdropCall, 40))
+                    }
+                    (uint128 amount,) = ExecutorOptions.decodeNativeDropOption(data[i][8:]);
+                    clustersValue -= amount; // Adjust value sent to ClustersHub by airdrop amount
+                    gasAirdrop(_dstEid, options);
+                } else {
+                    // Cache non-Endpoint calls to send to ClustersHub
+                    _data[i] = data[i];
+                }
+            }
+            results = IClustersHubEndpoint(clusters).multicall{value: clustersValue}(_data);
+        } else {
+            // If no calls to Endpoint, pass the calldata directly to ClustersHub
+            results = IClustersHubEndpoint(clusters).multicall{value: msg.value}(data);
+        }
     }
 
     function fulfillOrder(
@@ -293,7 +334,7 @@ contract Endpoint is OApp, IEndpoint {
         return abi.encode(_lzSend(dstEid, payload, options, fee, payable(refundAddress)));
     }
 
-    function gasAirdrop(uint32 dstEid_, bytes memory options) external payable returns (bytes memory) {
+    function gasAirdrop(uint32 dstEid_, bytes memory options) public payable returns (bytes memory) {
         if (msg.value == 0) revert Invalid();
         MessagingFee memory fee = MessagingFee({nativeFee: uint128(msg.value), lzTokenFee: 0});
         return abi.encode(_lzSend(dstEid_, bytes(""), options, fee, payable(msg.sender)));
