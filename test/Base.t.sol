@@ -151,7 +151,7 @@ abstract contract Base_Test is TestHelper, Utils {
         minPrice = pricingProxy.minAnnualPrice();
 
         endpointProxy = IEndpoint(LibClone.deployERC1967(address(endpoint)));
-        endpointProxy.initialize(users.clustersAdmin, users.signer, lzEndpoint);
+        Endpoint(address(endpointProxy)).initialize(users.clustersAdmin, users.signer, lzEndpoint);
         clusters = new ClustersHub(address(pricingProxy), address(endpointProxy), constants.MARKET_OPEN_TIMESTAMP());
 
         vm.label(address(pricingProxy), "PricingFlat Hub EID-1");
@@ -176,7 +176,7 @@ abstract contract Base_Test is TestHelper, Utils {
         minPrice = pricingProxy.minAnnualPrice();
 
         endpointProxy = IEndpoint(LibClone.deployERC1967(address(endpoint)));
-        endpointProxy.initialize(users.clustersAdmin, users.signer, lzEndpoint);
+        Endpoint(address(endpointProxy)).initialize(users.clustersAdmin, users.signer, lzEndpoint);
         //clusters = new ClustersHub(address(pricingProxy), address(endpointProxy), constants.MARKET_OPEN_TIMESTAMP());
 
         //vm.prank(users.clustersAdmin);
@@ -202,7 +202,7 @@ abstract contract Base_Test is TestHelper, Utils {
         minPrice = pricingProxy.minAnnualPrice();
 
         endpointProxy = IEndpoint(LibClone.deployERC1967(address(endpoint)));
-        endpointProxy.initialize(users.clustersAdmin, users.signer, lzEndpoint);
+        Endpoint(address(endpointProxy)).initialize(users.clustersAdmin, users.signer, lzEndpoint);
         clusters = new ClustersHub(address(pricingProxy), address(endpointProxy), constants.MARKET_OPEN_TIMESTAMP());
 
         vm.label(address(pricingProxy), "PricingHarberger Hub EID-1");
@@ -227,7 +227,7 @@ abstract contract Base_Test is TestHelper, Utils {
         minPrice = pricingProxy.minAnnualPrice();
 
         endpointProxy = IEndpoint(LibClone.deployERC1967(address(endpoint)));
-        endpointProxy.initialize(users.clustersAdmin, users.signer, lzEndpoint);
+        Endpoint(address(endpointProxy)).initialize(users.clustersAdmin, users.signer, lzEndpoint);
         //clusters = new ClustersHub(address(pricingProxy), address(endpointProxy), constants.MARKET_OPEN_TIMESTAMP());
 
         //vm.prank(users.clustersAdmin);

@@ -22,10 +22,6 @@ interface IEndpoint {
     event RefundBalance(bytes32 indexed addr, uint256 indexed amount);
     event Refunded(bytes32 indexed msgSender, bytes32 indexed recipient, uint256 indexed amount);
 
-    /// SETUP ///
-
-    function initialize(address owner_, address signer_, address endpoint_) external;
-
     /// STORAGE ///
 
     function dstEid() external view returns (uint32);

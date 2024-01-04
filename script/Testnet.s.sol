@@ -43,7 +43,7 @@ contract ClustersScript is Script {
         PricingHarberger(address(goerliPricingProxy)).initialize(msg.sender, block.timestamp + 7 days);
         Endpoint goerliEndpoint = new Endpoint();
         IEndpoint goerliProxy = IEndpoint(LibClone.deployERC1967(address(goerliEndpoint)));
-        goerliProxy.initialize(deployer, SIGNER, LZ_END_GOERLI);
+        Endpoint(address(goerliProxy)).initialize(deployer, SIGNER, LZ_END_GOERLI);
         ClustersHub goerliClusters =
             new ClustersHub(address(goerliPricingProxy), address(goerliProxy), block.timestamp + 5 minutes);
         goerliProxy.setClustersAddr(address(goerliClusters));
@@ -56,7 +56,7 @@ contract ClustersScript is Script {
         //PricingHarberger(address(sepoliaPricingProxy)).initialize(msg.sender, block.timestamp + 7 days);
         Endpoint sepoliaEndpoint = new Endpoint();
         IEndpoint sepoliaProxy = IEndpoint(LibClone.deployERC1967(address(sepoliaEndpoint)));
-        sepoliaProxy.initialize(deployer, SIGNER, LZ_END_SEPOLIA);
+        Endpoint(address(sepoliaProxy)).initialize(deployer, SIGNER, LZ_END_SEPOLIA);
         //ClustersHub sepoliaClusters = new ClustersHub(address(sepoliaPricingProxy), address(sepoliaProxy),
         // block.timestamp);
         //sepoliaProxy.setClustersAddr(address(sepoliaClusters));

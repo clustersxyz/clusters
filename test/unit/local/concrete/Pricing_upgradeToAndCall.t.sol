@@ -4,10 +4,7 @@ pragma solidity ^0.8.23;
 import {PricingHarberger_Unit_Shared_Test} from "../shared/SharedPricingHarberger.t.sol";
 import {PricingHarberger} from "clusters/PricingHarberger.sol";
 import {IPricing} from "clusters/interfaces/IPricing.sol";
-
-interface IUUPS {
-    function upgradeToAndCall(address newImplementation, bytes memory data) external payable;
-}
+import {IUUPS} from "clusters/interfaces/IUUPS.sol";
 
 contract Pricing_upgradeToAndCall_Unit_Concrete_Test is PricingHarberger_Unit_Shared_Test {
     function testUpgradeToAndCall() public {
