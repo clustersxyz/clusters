@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {OApp, Origin, MessagingFee} from "layerzero-oapp/contracts/oapp/OApp.sol";
+import {OAppUpgradeable, Origin, MessagingFee} from "layerzero-oapp/contracts/oapp-upgradeable/OAppUpgradeable.sol";
+import {UUPSUpgradeable} from "solady/utils/UUPSUpgradeable.sol";
 import {IEndpoint} from "./interfaces/IEndpoint.sol";
 import {ECDSA} from "solady/utils/ECDSA.sol";
 import {EnumerableSetLib} from "./EnumerableSetLib.sol";
@@ -21,7 +22,7 @@ interface IClustersHubEndpoint {
 
 // TODO: Make this a proxy contract to swap out logic, ownership can be reverted later
 
-contract Endpoint is OApp, IEndpoint {
+contract Endpoint is OAppUpgradeable, UUPSUpgradeable, IEndpoint {
     using EnumerableSetLib for EnumerableSetLib.Bytes32Set;
 
     bytes4 internal constant MULTICALL_SELECTOR = bytes4(keccak256("multicall(bytes[])"));
@@ -32,6 +33,7 @@ contract Endpoint is OApp, IEndpoint {
     uint32 public dstEid;
     address public clusters;
     address public signer;
+    address public admin;
     mapping(bytes32 addr => uint256 nonce) public userNonces;
     mapping(bytes32 addr => uint256 refund) public failedTxRefunds;
 
@@ -42,10 +44,15 @@ contract Endpoint is OApp, IEndpoint {
         _;
     }
 
-    constructor(address owner_, address signer_, address lzEndpoint) OApp(lzEndpoint, owner_) {
+    /// MANAGEMENT FUNCTIONS ///
+
+    function initialize(address owner_, address signer_, address endpoint_) public initializer {
+        _initializeOApp(endpoint_, owner_);
         signer = signer_;
         emit SignerAddr(signer_);
     }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     /// INTERNAL FUNCTIONS ///
 

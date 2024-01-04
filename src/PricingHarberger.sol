@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
+import {UUPSUpgradeable} from "solady/utils/UUPSUpgradeable.sol";
+import {Initializable} from "openzeppelin/contracts/proxy/utils/Initializable.sol";
+import {Ownable} from "solady/auth/Ownable.sol";
+import {IPricing} from "./interfaces/IPricing.sol";
 import {FixedPointMathLib as F} from "solady/utils/FixedPointMathLib.sol";
-
-import {IPricing} from "clusters/interfaces/IPricing.sol";
-
 import {console2} from "forge-std/console2.sol";
 
 /*
@@ -23,7 +24,7 @@ for months >= 1
 /// @notice A stateless computation library for price, bids, decays, etc
 /// @dev All state is stored in clusters so we can replace the Pricing module while providing guarantees to existing
 /// holders
-contract PricingHarberger is IPricing {
+contract PricingHarberger is UUPSUpgradeable, Initializable, Ownable, IPricing {
     uint256 internal constant SECONDS_IN_MONTH = 30 days;
     uint256 internal constant SECONDS_IN_YEAR = 365 days;
     uint256 internal constant DENOMINATOR = 10_000;
@@ -34,11 +35,14 @@ contract PricingHarberger is IPricing {
     uint256 public constant maxPriceBase = 0.02 ether;
     uint256 public constant maxPriceIncrement = 0.01 ether;
 
-    uint256 public immutable protocolDeployTimestamp;
+    uint256 public protocolDeployTimestamp;
 
-    constructor(uint256 _protocolDeployTimestamp) {
-        protocolDeployTimestamp = _protocolDeployTimestamp;
+    function initialize(address owner_, uint256 protocolDeployTimestamp_) public initializer {
+        _initializeOwner(owner_);
+        protocolDeployTimestamp = protocolDeployTimestamp_;
     }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     /// PUBLIC FUNCTIONS ///
 

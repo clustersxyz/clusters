@@ -4,8 +4,6 @@ pragma solidity ^0.8.23;
 import {PricingHarberger} from "clusters/PricingHarberger.sol";
 
 contract PricingHarbergerHarness is PricingHarberger {
-    constructor(uint256 _protocolDeployTimestamp) PricingHarberger(_protocolDeployTimestamp) {}
-
     /// EXPOSED INTERNAL FUNCTIONS ///
 
     function exposed_getMaxIntersection(uint256 p, uint256 yearsSinceDeploymentWad) public pure returns (uint256) {
