@@ -532,13 +532,13 @@ abstract contract NameManagerHub is IClustersHub {
             _walletName = reverseLookup[addr];
             delete forwardLookup[clusterId][_walletName];
             delete reverseLookup[addr];
-            emit SetWalletName(bytes32(""), addr);
+            emit SetWalletName(bytes32(""), addr, clusterId);
         } else {
             bytes32 prev = reverseLookup[addr];
             if (prev != bytes32("")) delete forwardLookup[clusterId][prev];
             forwardLookup[clusterId][_walletName] = addr;
             reverseLookup[addr] = _walletName;
-            emit SetWalletName(_walletName, addr);
+            emit SetWalletName(_walletName, addr, clusterId);
         }
 
         payload = abi.encodeWithSignature("setWalletName(bytes32,bytes32,string)", msgSender, addr, walletName);
