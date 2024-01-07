@@ -28,7 +28,7 @@ interface IClustersHub {
     event TransferName(bytes32 indexed name, uint256 indexed fromClusterId, uint256 indexed toClusterId);
     event PokeName(bytes32 indexed name);
     event DefaultClusterName(bytes32 indexed name, uint256 indexed clusterId);
-    event SetWalletName(bytes32 indexed walletName, bytes32 indexed wallet);
+    event SetWalletName(bytes32 indexed walletName, bytes32 indexed wallet, uint256 indexed clusterId);
 
     event BidPlaced(bytes32 indexed name, bytes32 indexed bidder, uint256 indexed amount);
     event BidRefunded(bytes32 indexed name, bytes32 indexed bidder, uint256 indexed amount);

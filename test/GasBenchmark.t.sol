@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {Base_Test} from "./Base.t.sol";
-
-import {IClustersHub} from "clusters/interfaces/IClustersHub.sol";
+import {Base_Test, IEndpoint, IClustersHub} from "./Base.t.sol";
 
 contract GasBenchmarkTest is Base_Test {
     function setUp() public virtual override {
@@ -20,14 +18,14 @@ contract GasBenchmarkTest is Base_Test {
             abi.encodeWithSignature("buyName(bytes32,uint256,string)", users.alicePrimary, minPrice, "zodomo");
 
         vm.startPrank(users.signer);
-        bytes32 messageHash = endpoint.getMulticallHash(buyBatchData);
-        bytes32 digest = endpoint.getEthSignedMessageHash(messageHash);
+        bytes32 messageHash = endpointProxy.getMulticallHash(buyBatchData);
+        bytes32 digest = endpointProxy.getEthSignedMessageHash(messageHash);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(users.signerPrivKey, digest);
         bytes memory sig1 = abi.encodePacked(r, s, v);
         vm.stopPrank();
 
         vm.startPrank(users.alicePrimary);
-        endpoint.multicall{value: 2 * minPrice}(buyBatchData, sig1);
+        endpointProxy.multicall{value: 2 * minPrice}(buyBatchData, sig1);
         clusters.fundName{value: 0.5 ether}(0.5 ether, constants.TEST_NAME());
         clusters.add(_addressToBytes32(users.aliceSecondary));
         clusters.setDefaultClusterName("zodomo");
