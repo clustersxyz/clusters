@@ -88,7 +88,10 @@ interface IEndpoint {
         external
         payable
         returns (bytes memory);
-    function gasAirdrop(uint32 dstEid_, bytes memory options) external payable returns (bytes memory);
+    function gasAirdrop(uint256 msgValue, uint32 dstEid_, bytes memory options)
+        external
+        payable
+        returns (bytes memory);
 
     function refund() external;
     function refund(address recipient) external;

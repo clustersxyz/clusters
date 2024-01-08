@@ -6,7 +6,6 @@ import {UUPSUpgradeable} from "solady/utils/UUPSUpgradeable.sol";
 import {IEndpoint} from "./interfaces/IEndpoint.sol";
 import {ECDSA} from "solady/utils/ECDSA.sol";
 import {EnumerableSetLib} from "./EnumerableSetLib.sol";
-import {ExecutorOptions} from "@layerzerolabs/lz-evm-protocol-v2/contracts/messagelib/libs/ExecutorOptions.sol";
 import {console2} from "forge-std/Test.sol";
 
 interface IClustersHubEndpoint {
@@ -30,7 +29,7 @@ contract Endpoint is OAppUpgradeable, UUPSUpgradeable, IEndpoint {
     bytes4 internal constant POKE_NAME_SELECTOR = bytes4(keccak256("pokeName(string)"));
     bytes4 internal constant REDUCE_BID_SELECTOR = bytes4(keccak256("reduceBid(bytes32,string,uint256)"));
     bytes4 internal constant ACCEPT_BID_SELECTOR = bytes4(keccak256("acceptBid(bytes32,string)"));
-    bytes4 internal constant GAS_AIRDROP_SELECTOR = bytes4(keccak256("gasAirdrop(uint32,bytes)"));
+    bytes4 internal constant GAS_AIRDROP_SELECTOR = bytes4(keccak256("gasAirdrop(uint256,uint32,bytes)"));
 
     uint32 public dstEid;
     address public clusters;
@@ -85,6 +84,49 @@ contract Endpoint is OAppUpgradeable, UUPSUpgradeable, IEndpoint {
     function _getMsgSender(bytes memory data) internal pure returns (bytes32 msgSender) {
         assembly {
             msgSender := mload(add(data, 36)) // skip 32 bytes for bytes array length and 4 for function selector
+        }
+    }
+
+    /// @dev Returns uint256 msgValue parameter for gasAirdrop()
+    function _getGasAirdropMsgValue(bytes memory data) internal pure returns (uint256 msgValue) {
+        assembly {
+            msgValue := mload(add(data, 36))
+        }
+    }
+
+    /// @dev Returns uint32 LayerZero DstEid parameter for gasAirdrop()
+    function _getGasAirdropDstEid(bytes memory data) internal pure returns (uint32 dstEid_) {
+        assembly {
+            dstEid_ := mload(add(data, 68))
+        }
+    }
+
+    /// @dev Returns bytes LayerZero options parameter for gasAirdrop()
+    // TODO: Fix this, the value returned isn't remotely close to what is embedded in the calldata
+    // data's structure looks like: abi.encodeWithSignature(gasAirdrop(uint256,uint32,bytes), msgValue, dstEid_, options)
+    function _getGasAirdropOptions(bytes memory data) internal pure returns (bytes memory options) {
+        assembly {
+            // Calculate the starting position of the 'options' offset
+            let optionsOffset := mload(add(data, 68))
+
+            // Calculate the actual position of the 'options' data (offset + position of the offset itself)
+            let optionsDataStart := add(optionsOffset, 68)
+
+            // Load the length of the 'options' data
+            let optionsLength := mload(add(data, optionsDataStart))
+
+            // Allocate memory for the 'options' data
+            options := mload(0x40)
+            // Set the length of the 'options' array
+            mstore(options, optionsLength)
+
+            // Calculate the start of the actual data
+            let startOfData := add(add(data, optionsDataStart), 32)
+
+            // Copy the 'options' data word by word
+            for { let i := 0 } lt(i, optionsLength) { i := add(i, 32) } {
+                mstore(add(options, add(i, 32)), mload(add(startOfData, i)))
+            }
         }
     }
 
@@ -173,29 +215,28 @@ contract Endpoint is OAppUpgradeable, UUPSUpgradeable, IEndpoint {
 
         // Repackage multicall calldata if necessary, excluding Endpoint operations
         if (data.length != forwardedCalls) {
+            uint256 endpointFunds;
             bytes[] memory _data = new bytes[](forwardedCalls);
-            uint256 clustersValue = msg.value;
             // Iterate through each call looking for gasAirdrop()
             for (uint256 i; i < data.length; ++i) {
                 bytes4 selector = _getFuncSelector(data[i]);
                 // If gasAirdrop() is found, parse calldata and process the gasAirdrop call
                 if (selector == GAS_AIRDROP_SELECTOR) {
-                    bytes memory airdropCall = data[i];
-                    uint32 _dstEid;
-                    bytes memory options;
-                    assembly {
-                        _dstEid := mload(add(airdropCall, 36))
-                        options := mload(add(airdropCall, 40))
-                    }
-                    (uint128 amount,) = ExecutorOptions.decodeNativeDropOption(data[i][8:]);
-                    clustersValue -= amount; // Adjust value sent to ClustersHub by airdrop amount
-                    gasAirdrop(_dstEid, options);
+                    uint256 msgValue = _getGasAirdropMsgValue(data[i]);
+                    uint32 _dstEid = _getGasAirdropDstEid(data[i]);
+                    bytes memory options = _getGasAirdropOptions(data[i]);
+                    console2.log(msgValue);
+                    console2.log(_dstEid);
+                    console2.logBytes(options);
+                    endpointFunds += msgValue;
+                    this.gasAirdrop{value: msgValue}(msgValue, _dstEid, options);
                 } else {
                     // Cache non-Endpoint calls to send to ClustersHub
                     _data[i] = data[i];
                 }
             }
-            results = IClustersHubEndpoint(clusters).multicall{value: clustersValue}(_data);
+            // Send remainder of msg.value to Clusters
+            results = IClustersHubEndpoint(clusters).multicall{value: msg.value - endpointFunds}(_data);
         } else {
             // If no calls to Endpoint, pass the calldata directly to ClustersHub
             results = IClustersHubEndpoint(clusters).multicall{value: msg.value}(data);
@@ -341,9 +382,9 @@ contract Endpoint is OAppUpgradeable, UUPSUpgradeable, IEndpoint {
         return abi.encode(_lzSend(dstEid, payload, options, fee, payable(refundAddress)));
     }
 
-    function gasAirdrop(uint32 dstEid_, bytes memory options) public payable returns (bytes memory) {
-        if (msg.value == 0) revert Invalid();
-        MessagingFee memory fee = MessagingFee({nativeFee: uint128(msg.value), lzTokenFee: 0});
+    function gasAirdrop(uint256 msgValue, uint32 dstEid_, bytes memory options) public payable returns (bytes memory) {
+        if (msg.value < msgValue) revert Insufficient();
+        MessagingFee memory fee = MessagingFee({nativeFee: uint128(msgValue), lzTokenFee: 0});
         return abi.encode(_lzSend(dstEid_, bytes(""), options, fee, payable(msg.sender)));
     }
 
