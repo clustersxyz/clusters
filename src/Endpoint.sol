@@ -29,6 +29,7 @@ contract Endpoint is OAppUpgradeable, UUPSUpgradeable, IEndpoint {
     bytes4 internal constant POKE_NAME_SELECTOR = bytes4(keccak256("pokeName(string)"));
     bytes4 internal constant REDUCE_BID_SELECTOR = bytes4(keccak256("reduceBid(bytes32,string,uint256)"));
     bytes4 internal constant ACCEPT_BID_SELECTOR = bytes4(keccak256("acceptBid(bytes32,string)"));
+    bytes4 internal constant GAS_AIRDROP_SELECTOR = bytes4(keccak256("gasAirdrop(uint256,uint32,bytes)"));
 
     uint32 public dstEid;
     address public clusters;
@@ -83,6 +84,13 @@ contract Endpoint is OAppUpgradeable, UUPSUpgradeable, IEndpoint {
     function _getMsgSender(bytes memory data) internal pure returns (bytes32 msgSender) {
         assembly {
             msgSender := mload(add(data, 36)) // skip 32 bytes for bytes array length and 4 for function selector
+        }
+    }
+
+    /// @dev Returns uint256 msgValue parameter for gasAirdrop()
+    function _getGasAirdropMsgValue(bytes memory data) internal pure returns (uint256 msgValue) {
+        assembly {
+            msgValue := mload(add(data, 36))
         }
     }
 
@@ -157,8 +165,42 @@ contract Endpoint is OAppUpgradeable, UUPSUpgradeable, IEndpoint {
     /// PERMISSIONED FUNCTIONS ///
 
     function multicall(bytes[] calldata data, bytes calldata sig) external payable returns (bytes[] memory results) {
+        // Validate signature
         if (!verifyMulticall(data, sig)) revert ECDSA.InvalidSignature();
-        results = IClustersHubEndpoint(clusters).multicall{value: msg.value}(data);
+
+        // Determine how many calls are for ClustersHub
+        uint256 forwardedCalls;
+        for (uint256 i; i < data.length; ++i) {
+            bytes4 selector = _getFuncSelector(data[i]);
+            if (selector != GAS_AIRDROP_SELECTOR) {
+                ++forwardedCalls;
+            }
+        }
+
+        // Repackage multicall calldata if necessary, excluding Endpoint operations
+        if (data.length != forwardedCalls) {
+            uint256 endpointFunds;
+            bytes[] memory _data = new bytes[](forwardedCalls);
+            // Iterate through each call looking for gasAirdrop()
+            for (uint256 i; i < data.length; ++i) {
+                bytes4 selector = _getFuncSelector(data[i]);
+                // If gasAirdrop() is found, parse calldata and process the gasAirdrop call
+                if (selector == GAS_AIRDROP_SELECTOR) {
+                    uint256 msgValue = _getGasAirdropMsgValue(data[i]);
+                    endpointFunds += msgValue;
+                    (bool success,) = address(this).call{value: msgValue}(data[i]);
+                    if (!success) revert TxFailed();
+                } else {
+                    // Cache non-Endpoint calls to send to ClustersHub
+                    _data[i] = data[i];
+                }
+            }
+            // Send remainder of msg.value to Clusters
+            results = IClustersHubEndpoint(clusters).multicall{value: msg.value - endpointFunds}(_data);
+        } else {
+            // If no calls to Endpoint, pass the calldata directly to ClustersHub
+            results = IClustersHubEndpoint(clusters).multicall{value: msg.value}(data);
+        }
     }
 
     function fulfillOrder(
@@ -278,7 +320,7 @@ contract Endpoint is OAppUpgradeable, UUPSUpgradeable, IEndpoint {
 
         // All endpoints only have one of two send paths: ETH -> Relay, Any -> ETH
         MessagingFee memory fee = MessagingFee({nativeFee: uint128(msg.value), lzTokenFee: 0});
-        return abi.encode(_lzSend(dstEid, data, options, fee, refundAddress));
+        return abi.encode(_lzSend(dstEid, data, options, fee, payable(refundAddress)));
     }
 
     function lzSendMulticall(bytes[] memory data, bytes memory options, address refundAddress)
@@ -297,7 +339,13 @@ contract Endpoint is OAppUpgradeable, UUPSUpgradeable, IEndpoint {
         bytes memory payload = abi.encodeWithSignature("multicall(bytes[])", data);
         MessagingFee memory fee = MessagingFee({nativeFee: uint128(msg.value), lzTokenFee: 0});
         // All endpoints only have one of two send paths: ETH -> Relay, Any -> ETH
-        return abi.encode(_lzSend(dstEid, payload, options, fee, refundAddress));
+        return abi.encode(_lzSend(dstEid, payload, options, fee, payable(refundAddress)));
+    }
+
+    function gasAirdrop(uint256 msgValue, uint32 dstEid_, bytes memory options) public payable returns (bytes memory) {
+        if (msg.value < msgValue) revert Insufficient();
+        MessagingFee memory fee = MessagingFee({nativeFee: uint128(msgValue), lzTokenFee: 0});
+        return abi.encode(_lzSend(dstEid_, bytes(""), options, fee, payable(msg.sender)));
     }
 
     function _lzReceive(Origin calldata origin, bytes32, bytes calldata payload, address, bytes calldata)
