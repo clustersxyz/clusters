@@ -94,42 +94,6 @@ contract Endpoint is OAppUpgradeable, UUPSUpgradeable, IEndpoint {
         }
     }
 
-    /// @dev Returns uint32 LayerZero DstEid parameter for gasAirdrop()
-    function _getGasAirdropDstEid(bytes memory data) internal pure returns (uint32 dstEid_) {
-        assembly {
-            dstEid_ := mload(add(data, 68))
-        }
-    }
-
-    /// @dev Returns bytes LayerZero options parameter for gasAirdrop()
-    // TODO: Fix this, the value returned isn't remotely close to what is embedded in the calldata
-    // data's structure looks like: abi.encodeWithSignature(gasAirdrop(uint256,uint32,bytes), msgValue, dstEid_, options)
-    function _getGasAirdropOptions(bytes memory data) internal pure returns (bytes memory options) {
-        assembly {
-            // Calculate the starting position of the 'options' offset
-            let optionsOffset := mload(add(data, 68))
-
-            // Calculate the actual position of the 'options' data (offset + position of the offset itself)
-            let optionsDataStart := add(optionsOffset, 68)
-
-            // Load the length of the 'options' data
-            let optionsLength := mload(add(data, optionsDataStart))
-
-            // Allocate memory for the 'options' data
-            options := mload(0x40)
-            // Set the length of the 'options' array
-            mstore(options, optionsLength)
-
-            // Calculate the start of the actual data
-            let startOfData := add(add(data, optionsDataStart), 32)
-
-            // Copy the 'options' data word by word
-            for { let i := 0 } lt(i, optionsLength) { i := add(i, 32) } {
-                mstore(add(options, add(i, 32)), mload(add(startOfData, i)))
-            }
-        }
-    }
-
     /// @dev Returns true if msgSender in the provided calldata matches a particular address, true for pokeName()
     function _validateMsgSender(bytes32 msgSender, bytes memory data) internal pure returns (bool) {
         if (_getFuncSelector(data) == POKE_NAME_SELECTOR) return true;
@@ -223,13 +187,9 @@ contract Endpoint is OAppUpgradeable, UUPSUpgradeable, IEndpoint {
                 // If gasAirdrop() is found, parse calldata and process the gasAirdrop call
                 if (selector == GAS_AIRDROP_SELECTOR) {
                     uint256 msgValue = _getGasAirdropMsgValue(data[i]);
-                    uint32 _dstEid = _getGasAirdropDstEid(data[i]);
-                    bytes memory options = _getGasAirdropOptions(data[i]);
-                    console2.log(msgValue);
-                    console2.log(_dstEid);
-                    console2.logBytes(options);
                     endpointFunds += msgValue;
-                    this.gasAirdrop{value: msgValue}(msgValue, _dstEid, options);
+                    (bool success,) = address(this).call{value: msgValue}(data[i]);
+                    if (!success) revert TxFailed();
                 } else {
                     // Cache non-Endpoint calls to send to ClustersHub
                     _data[i] = data[i];
