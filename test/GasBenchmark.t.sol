@@ -59,9 +59,9 @@ contract GasBenchmarkTest is Base_Test {
 
         vm.startPrank(users.alicePrimary);
         clusters.buyName{value: minPrice}(minPrice, "burned");
-        clusters.transferName("burned", 0);
+        clusters.transferName("burned", bytes32(""));
         clusters.acceptBid(constants.TEST_NAME());
-        clusters.transferName("zodomo", 2);
+        clusters.transferName("zodomo", _addressToBytes32(users.bidder));
         vm.stopPrank();
     }
 }

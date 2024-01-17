@@ -21,7 +21,7 @@ contract Clusters_refundBid_Unit_Concrete_Test is PricingHarberger_Unit_Shared_T
 
     function testRefundBidTransferBurn() public {
         vm.startPrank(users.alicePrimary);
-        clusters.transferName(constants.TEST_NAME(), 0);
+        clusters.transferName(constants.TEST_NAME(), bytes32(""));
         vm.stopPrank();
         assertEq(minPrice * 2, clusters.bidRefunds(_addressToBytes32(address(fickleReceiver))), "bidRefunds incorrect");
         assertBalances(minPrice * 6, minPrice, minPrice, minPrice * 4);
@@ -55,7 +55,7 @@ contract Clusters_refundBid_Unit_Concrete_Test is PricingHarberger_Unit_Shared_T
     function testRefundBid_Reverts() public {
         fickleReceiver.toggle();
         vm.startPrank(users.alicePrimary);
-        clusters.transferName(constants.TEST_NAME(), 0);
+        clusters.transferName(constants.TEST_NAME(), bytes32(""));
         vm.expectRevert(IClustersHub.NoBid.selector);
         clusters.refundBid();
         vm.expectRevert(IClustersHub.Unauthorized.selector);

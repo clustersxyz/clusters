@@ -20,7 +20,7 @@ contract Clusters_transferName_Unit_Concrete_Test is PricingHarberger_Unit_Share
 
     function testTransferName() public {
         vm.startPrank(users.alicePrimary);
-        clusters.transferName("FOOBAR", 2);
+        clusters.transferName("FOOBAR", _addressToBytes32(users.bobPrimary));
         vm.stopPrank();
 
         bytes32[] memory names = new bytes32[](1);
@@ -34,12 +34,12 @@ contract Clusters_transferName_Unit_Concrete_Test is PricingHarberger_Unit_Share
 
     function testTransferNameZeroCluster() public {
         vm.startPrank(users.alicePrimary);
-        clusters.transferName("FOOBAR", 0);
+        clusters.transferName("FOOBAR", bytes32(""));
         clusters.bidName{value: minPrice}(minPrice, "zodomo");
         vm.stopPrank();
 
         vm.prank(users.bobPrimary);
-        clusters.transferName("zodomo", 0);
+        clusters.transferName("zodomo", bytes32(""));
 
         bytes32[] memory empty;
         assertClusterNames(0, 0, empty);
@@ -50,8 +50,8 @@ contract Clusters_transferName_Unit_Concrete_Test is PricingHarberger_Unit_Share
 
     function testTransferNameAll() public {
         vm.startPrank(users.alicePrimary);
-        clusters.transferName("FOOBAR", 2);
-        clusters.transferName(constants.TEST_NAME(), 2);
+        clusters.transferName("FOOBAR", _addressToBytes32(users.bobPrimary));
+        clusters.transferName(constants.TEST_NAME(), _addressToBytes32(users.bobPrimary));
         vm.stopPrank();
 
         bytes32[] memory empty;
@@ -67,22 +67,24 @@ contract Clusters_transferName_Unit_Concrete_Test is PricingHarberger_Unit_Share
     function testTransferName_Reverts() public {
         vm.startPrank(users.alicePrimary);
         vm.expectRevert(IClustersHub.EmptyName.selector);
-        clusters.transferName("", 2);
+        clusters.transferName("", _addressToBytes32(users.bobPrimary));
         vm.expectRevert(IClustersHub.LongName.selector);
-        clusters.transferName("Privacy is necessary for an open society in the electronic age.", 2);
+        clusters.transferName(
+            "Privacy is necessary for an open society in the electronic age.", _addressToBytes32(users.bobPrimary)
+        );
 
         vm.expectRevert(IClustersHub.Unauthorized.selector);
-        clusters.transferName("zodomo", 1);
+        clusters.transferName("zodomo", _addressToBytes32(users.alicePrimary));
         vm.expectRevert(IClustersHub.Unauthorized.selector);
-        clusters.transferName(_addressToBytes32(users.bobPrimary), "FOOBAR", 0);
+        clusters.transferName(_addressToBytes32(users.bobPrimary), "FOOBAR", bytes32(""));
 
         vm.expectRevert(IClustersHub.Invalid.selector);
-        clusters.transferName("FOOBAR", 3);
+        clusters.transferName("FOOBAR", _addressToBytes32(users.aliceSecondary));
         vm.stopPrank();
 
         vm.prank(users.hacker);
         vm.expectRevert(IClustersHub.NoCluster.selector);
-        clusters.transferName(_addressToBytes32(users.hacker), "FOOBAR", 0);
+        clusters.transferName(_addressToBytes32(users.hacker), "FOOBAR", bytes32(""));
         vm.stopPrank();
     }
 }

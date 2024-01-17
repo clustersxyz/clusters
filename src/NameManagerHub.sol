@@ -206,13 +206,13 @@ abstract contract NameManagerHub is IClustersHub {
 
     /// @notice Move name from one cluster to another without payment
     /// @dev Processing is handled in overload
-    function transferName(string memory name, uint256 toClusterId) external payable returns (bytes memory) {
-        transferName(_addressToBytes32(msg.sender), name, toClusterId);
+    function transferName(string memory name, bytes32 recipient) external payable returns (bytes memory) {
+        transferName(_addressToBytes32(msg.sender), name, recipient);
         return bytes("");
     }
 
     /// @notice transferName() overload used by endpoint, msgSender must be msg.sender or endpoint
-    function transferName(bytes32 msgSender, string memory name, uint256 toClusterId)
+    function transferName(bytes32 msgSender, string memory name, bytes32 recipient)
         public
         payable
         onlyEndpoint(msgSender)
@@ -222,13 +222,14 @@ abstract contract NameManagerHub is IClustersHub {
         _checkNameOwnership(msgSender, name);
         bytes32 _name = _stringToBytes32(name);
         uint256 fromClusterId = addressToClusterId[msgSender];
+        uint256 toClusterId = addressToClusterId[recipient];
         // Prevent transfers to empty/invalid clusters
-        _hookCheck(toClusterId);
+        if (recipient != bytes32("")) _hookCheck(toClusterId);
         _transferName(_name, fromClusterId, toClusterId);
         // Purge all addresses from cluster if last name was transferred out
         if (_clusterNames[fromClusterId].length() == 0) _hookDelete(fromClusterId);
 
-        payload = abi.encodeWithSignature("transferName(bytes32,string,uint256)", msgSender, name, toClusterId);
+        payload = abi.encodeWithSignature("transferName(bytes32,string,bytes32)", msgSender, name, recipient);
         if (_inMulticall) return payload;
         else IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
     }

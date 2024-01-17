@@ -23,7 +23,10 @@ contract Inbound_Endpoint_transferName_Unit_Concrete_Test is Inbound_Harberger_S
     function testTransferName() public {
         vm.startPrank(users.alicePrimary);
         bytes memory data = abi.encodeWithSignature(
-            "transferName(bytes32,string,uint256)", _addressToBytes32(users.alicePrimary), "FOOBAR", 2
+            "transferName(bytes32,string,bytes32)",
+            _addressToBytes32(users.alicePrimary),
+            "FOOBAR",
+            _addressToBytes32(users.bobPrimary)
         );
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(250_000 gwei, 0);
         (uint256 nativeFee,) = remoteEndpoint.quote(1, data, options, false);

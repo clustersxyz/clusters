@@ -98,8 +98,8 @@ interface IClustersHub {
         external
         payable
         returns (bytes memory);
-    function transferName(string memory name, uint256 toClusterId) external payable returns (bytes memory);
-    function transferName(bytes32 msgSender, string memory name, uint256 toClusterId)
+    function transferName(string memory name, bytes32 recipient) external payable returns (bytes memory);
+    function transferName(bytes32 msgSender, string memory name, bytes32 recipient)
         external
         payable
         returns (bytes memory);
