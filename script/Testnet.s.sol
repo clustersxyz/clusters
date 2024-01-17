@@ -98,7 +98,9 @@ contract TestnetScript is Script {
         // block.timestamp);
         //vm.label(address(holeskyClusters), "Holesky Clusters Spoke");
         //holeskyEndpointProxy.setClustersAddr(address(holeskyClusters));
-        IOAppCore(address(holeskyEndpointProxy)).setPeer(LZ_EID_SEPOLIA, addressToBytes32(address(sepoliaEndpointProxy)));
+        IOAppCore(address(holeskyEndpointProxy)).setPeer(
+            LZ_EID_SEPOLIA, addressToBytes32(address(sepoliaEndpointProxy))
+        );
         IOAppCore(address(holeskyEndpointProxy)).setPeer(LZ_EID_GOERLI, addressToBytes32(address(goerliEndpointProxy)));
         holeskyEndpointProxy.setDstEid(LZ_EID_SEPOLIA);
         vm.stopBroadcast();
@@ -113,7 +115,9 @@ contract TestnetScript is Script {
         vm.selectFork(sepoliaFork);
         vm.startBroadcast(deployerPrivateKey);
         IOAppCore(address(sepoliaEndpointProxy)).setPeer(LZ_EID_GOERLI, addressToBytes32(address(goerliEndpointProxy)));
-        IOAppCore(address(sepoliaEndpointProxy)).setPeer(LZ_EID_HOLESKY, addressToBytes32(address(holeskyEndpointProxy)));
+        IOAppCore(address(sepoliaEndpointProxy)).setPeer(
+            LZ_EID_HOLESKY, addressToBytes32(address(holeskyEndpointProxy))
+        );
         // No DstEid is set on Sepolia Hub as that engages replication, which is not yet fully implemented
         vm.stopBroadcast();
     }
