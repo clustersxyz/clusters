@@ -117,6 +117,7 @@ contract ClustersSpoke is NameManagerSpoke {
     }
 
     function _hookCheck(uint256 clusterId) internal view override {
+        if (clusterId == 0) return;
         if (_verifiedAddresses[clusterId].length() == 0) revert Invalid();
     }
 
