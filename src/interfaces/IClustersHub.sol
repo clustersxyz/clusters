@@ -82,31 +82,55 @@ interface IClustersHub {
 
     /// EXTERNAL FUNCTIONS ///
 
-    function multicall(bytes[] calldata data) external payable returns (bytes[] memory results);
+    function multicall(bytes[] calldata data, bytes calldata config)
+        external
+        payable
+        returns (bytes[] memory results);
 
-    function add(bytes32 addr) external payable returns (bytes memory);
-    function add(bytes32 msgSender, bytes32 addr) external payable returns (bytes memory);
-    function verify(uint256 clusterId) external payable returns (bytes memory);
-    function verify(bytes32 msgSender, uint256 clusterId) external payable returns (bytes memory);
-    function remove(bytes32 addr) external payable returns (bytes memory);
-    function remove(bytes32 msgSender, bytes32 addr) external payable returns (bytes memory);
-
-    function buyName(uint256 msgValue, string memory name) external payable returns (bytes memory);
-    function buyName(bytes32 msgSender, uint256 msgValue, string memory name) external payable returns (bytes memory);
-    function fundName(uint256 msgValue, string memory name) external payable returns (bytes memory);
-    function fundName(bytes32 msgSender, uint256 msgValue, string memory name)
+    function add(bytes32 addr, bytes calldata config) external payable returns (bytes memory);
+    function add(bytes32 msgSender, bytes32 addr, bytes calldata config) external payable returns (bytes memory);
+    function verify(uint256 clusterId, bytes calldata config) external payable returns (bytes memory);
+    function verify(bytes32 msgSender, uint256 clusterId, bytes calldata config)
         external
         payable
         returns (bytes memory);
-    function transferName(string memory name, uint256 toClusterId) external payable returns (bytes memory);
-    function transferName(bytes32 msgSender, string memory name, uint256 toClusterId)
+    function remove(bytes32 addr, bytes calldata config) external payable returns (bytes memory);
+    function remove(bytes32 msgSender, bytes32 addr, bytes calldata config) external payable returns (bytes memory);
+
+    function buyName(uint256 msgValue, string memory name, bytes calldata config)
         external
         payable
         returns (bytes memory);
-    function pokeName(string memory name) external payable returns (bytes memory);
+    function buyName(bytes32 msgSender, uint256 msgValue, string memory name, bytes calldata config)
+        external
+        payable
+        returns (bytes memory);
+    function fundName(uint256 msgValue, string memory name, bytes calldata config)
+        external
+        payable
+        returns (bytes memory);
+    function fundName(bytes32 msgSender, uint256 msgValue, string memory name, bytes calldata config)
+        external
+        payable
+        returns (bytes memory);
+    function transferName(string memory name, uint256 toClusterId, bytes calldata config)
+        external
+        payable
+        returns (bytes memory);
+    function transferName(bytes32 msgSender, string memory name, uint256 toClusterId, bytes calldata config)
+        external
+        payable
+        returns (bytes memory);
+    function pokeName(string memory name, bytes calldata config) external payable returns (bytes memory);
 
-    function bidName(uint256 msgValue, string memory name) external payable returns (bytes memory);
-    function bidName(bytes32 msgSender, uint256 msgValue, string memory name) external payable returns (bytes memory);
+    function bidName(uint256 msgValue, string memory name, bytes calldata config)
+        external
+        payable
+        returns (bytes memory);
+    function bidName(bytes32 msgSender, uint256 msgValue, string memory name, bytes calldata config)
+        external
+        payable
+        returns (bytes memory);
     function reduceBid(string memory name, uint256 amount) external payable returns (bytes memory);
     function reduceBid(bytes32 msgSender, string memory name, uint256 amount) external payable returns (bytes memory);
     function acceptBid(string memory name) external payable returns (bytes memory);
@@ -114,10 +138,16 @@ interface IClustersHub {
     function refundBid() external payable returns (bytes memory);
     function refundBid(bytes32 msgSender) external payable returns (bytes memory);
 
-    function setDefaultClusterName(string memory name) external payable returns (bytes memory);
-    function setDefaultClusterName(bytes32 msgSender, string memory name) external payable returns (bytes memory);
-    function setWalletName(bytes32 addr, string memory walletname) external payable returns (bytes memory);
-    function setWalletName(bytes32 msgSender, bytes32 addr, string memory walletname)
+    function setDefaultClusterName(string memory name, bytes calldata config) external payable returns (bytes memory);
+    function setDefaultClusterName(bytes32 msgSender, string memory name, bytes calldata config)
+        external
+        payable
+        returns (bytes memory);
+    function setWalletName(bytes32 addr, string memory walletname, bytes calldata config)
+        external
+        payable
+        returns (bytes memory);
+    function setWalletName(bytes32 msgSender, bytes32 addr, string memory walletname, bytes calldata config)
         external
         payable
         returns (bytes memory);

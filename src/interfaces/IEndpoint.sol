@@ -79,7 +79,10 @@ interface IEndpoint {
         external
         returns (uint256 nativeFee, uint256 lzTokenFee);
 
-    function sendPayload(bytes calldata payload) external payable returns (bytes memory result);
+    function sendPayload(bytes calldata payload, bytes calldata config)
+        external
+        payable
+        returns (bytes memory result);
     function lzSend(bytes memory data, bytes memory options, address refundAddress)
         external
         payable

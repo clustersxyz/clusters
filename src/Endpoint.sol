@@ -276,7 +276,12 @@ contract Endpoint is OAppUpgradeable, UUPSUpgradeable, IEndpoint {
         lzTokenFee = msgQuote.lzTokenFee;
     }
 
-    function sendPayload(bytes calldata payload) external payable onlyClusters returns (bytes memory result) {
+    function sendPayload(bytes calldata payload, bytes calldata config)
+        external
+        payable
+        onlyClusters
+        returns (bytes memory result)
+    {
         // Short-circuit if dstEid isn't set for local-only functionality
         if (dstEid == 0) {
             IClustersHubEndpoint(clusters).noBridgeFundsReturn{value: msg.value}();

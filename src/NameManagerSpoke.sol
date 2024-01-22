@@ -221,7 +221,7 @@ abstract contract NameManagerSpoke is IClustersSpoke, Ownable {
         if (msg.sender != endpoint) {
             payload = abi.encodeWithSignature("pokeName(string)", name);
             if (_inMulticall) return payload;
-            else return IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
+            else return IEndpoint(endpoint).sendPayload{value: msg.value}(payload, bytes(""));
         } else {
             bytes32 _name = _stringToBytes32(name);
             IClustersSpoke.PriceIntegral memory integral = priceIntegral[_name];
