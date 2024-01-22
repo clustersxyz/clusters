@@ -4,6 +4,7 @@ pragma solidity ^0.8.13;
 import {Script, console2} from "forge-std/Script.sol";
 
 import {LibClone} from "solady/utils/LibClone.sol";
+import {Ownable} from "solady/auth/Ownable.sol";
 import {PricingHarberger} from "../src/PricingHarberger.sol";
 import {IPricing} from "../src/interfaces/IPricing.sol";
 import {Endpoint} from "../src/Endpoint.sol";
@@ -48,7 +49,7 @@ contract TestnetScript is Script {
         vm.label(address(sepoliaPricing), "Sepolia Pricing Template");
         IPricing sepoliaPricingProxy = IPricing(LibClone.deployERC1967(address(sepoliaPricing)));
         vm.label(address(sepoliaPricingProxy), "Sepolia Pricing Proxy");
-        PricingHarberger(address(sepoliaPricingProxy)).initialize(msg.sender, block.timestamp + 7 days);
+        PricingHarberger(address(sepoliaPricingProxy)).initialize(msg.sender, block.timestamp + 1 minutes);
         Endpoint sepoliaEndpoint = new Endpoint();
         vm.label(address(sepoliaEndpoint), "Sepolia Endpoint Template");
         IEndpoint sepoliaEndpointProxy = IEndpoint(LibClone.deployERC1967(address(sepoliaEndpoint)));
@@ -67,7 +68,7 @@ contract TestnetScript is Script {
         //vm.label(address(goerliPricing), "Goerli Pricing Template");
         //IPricing goerliPricingProxy = IPricing(LibClone.deployERC1967(address(goerliPricing)));
         //vm.label(address(goerliPricingProxy), "Goerli Pricing Proxy");
-        //PricingHarberger(address(goerliPricingProxy)).initialize(msg.sender, block.timestamp + 7 days);
+        //PricingHarberger(address(goerliPricingProxy)).initialize(msg.sender, block.timestamp + 1 minutes);
         Endpoint goerliEndpoint = new Endpoint();
         vm.label(address(goerliEndpoint), "Goerli Endpoint Template");
         IEndpoint goerliEndpointProxy = IEndpoint(LibClone.deployERC1967(address(goerliEndpoint)));
@@ -88,7 +89,7 @@ contract TestnetScript is Script {
         //vm.label(address(holeskyPricing), "Holesky Pricing Template");
         //IPricing holeskyPricingProxy = IPricing(LibClone.deployERC1967(address(holeskyPricing)));
         //vm.label(address(holeskyPricingProxy), "Holesky Pricing Proxy");
-        //PricingHarberger(address(holeskyPricingProxy)).initialize(msg.sender, block.timestamp + 7 days);
+        //PricingHarberger(address(holeskyPricingProxy)).initialize(msg.sender, block.timestamp + 1 minutes);
         Endpoint holeskyEndpoint = new Endpoint();
         vm.label(address(holeskyEndpoint), "Holesky Endpoint Template");
         IEndpoint holeskyEndpointProxy = IEndpoint(LibClone.deployERC1967(address(holeskyEndpoint)));
@@ -120,5 +121,32 @@ contract TestnetScript is Script {
         );
         // No DstEid is set on Sepolia Hub as that engages replication, which is not yet fully implemented
         vm.stopBroadcast();
+
+        // Check state
+        vm.selectFork(sepoliaFork);
+        console2.log("Sepolia Pricing:");
+        console2.log(address(sepoliaPricingProxy));
+        console2.log("Sepolia Endpoint:");
+        console2.log(address(sepoliaEndpointProxy));
+        console2.log("Sepolia Clusters Hub:");
+        console2.log(address(sepoliaClusters));
+        //console2.log(sepoliaEndpointProxy.dstEid());
+        //console2.log(Ownable(address(sepoliaEndpointProxy)).owner());
+        //console2.logBytes32(IOAppCore(address(sepoliaEndpointProxy)).peers(LZ_EID_GOERLI));
+        //console2.logBytes32(IOAppCore(address(sepoliaEndpointProxy)).peers(LZ_EID_HOLESKY));
+        vm.selectFork(goerliFork);
+        console2.log("Goerli Endpoint:");
+        console2.log(address(goerliEndpointProxy));
+        //console2.log(goerliEndpointProxy.dstEid());
+        //console2.log(Ownable(address(goerliEndpointProxy)).owner());
+        //console2.logBytes32(IOAppCore(address(goerliEndpointProxy)).peers(LZ_EID_SEPOLIA));
+        //console2.logBytes32(IOAppCore(address(goerliEndpointProxy)).peers(LZ_EID_HOLESKY));
+        vm.selectFork(holeskyFork);
+        console2.log("Holesky Endpoint:");
+        console2.log(address(holeskyEndpointProxy));
+        //console2.log(holeskyEndpointProxy.dstEid());
+        //console2.log(Ownable(address(holeskyEndpointProxy)).owner());
+        //console2.logBytes32(IOAppCore(address(holeskyEndpointProxy)).peers(LZ_EID_SEPOLIA));
+        //console2.logBytes32(IOAppCore(address(holeskyEndpointProxy)).peers(LZ_EID_GOERLI));
     }
 }
