@@ -11,12 +11,12 @@ import {console2} from "forge-std/Test.sol";
 interface IClustersHubEndpoint {
     function noBridgeFundsReturn() external payable;
 
-    function multicall(bytes[] calldata data) external payable returns (bytes[] memory results);
+    function multicall(bytes[] calldata data, bytes calldata config) external payable returns (bytes[] memory results);
 
-    function buyName(bytes32 msgSender, uint256 msgValue, string memory name) external payable;
+    function buyName(bytes32 msgSender, uint256 msgValue, string memory name, bytes calldata config) external payable;
 
     function bids(bytes32 name) external view returns (uint256 ethAmount, uint256 createdTimestamp, bytes32 bidder);
-    function bidName(bytes32 msgSender, uint256 msgValue, string memory name) external payable;
+    function bidName(bytes32 msgSender, uint256 msgValue, string memory name, bytes calldata config) external payable;
     function acceptBid(bytes32 msgSender, string memory name) external payable returns (uint256 bidAmount);
 }
 
@@ -94,6 +94,21 @@ contract Endpoint is OAppUpgradeable, UUPSUpgradeable, IEndpoint {
         }
     }
 
+    /// @dev Returns LZ config params
+    function _decodeLzConfig(bytes calldata config) internal pure returns (MessagingFee memory fee, address refundAddress, bytes memory options) {
+        (fee.nativeFee, fee.lzTokenFee) = abi.decode(config[0:64], (uint256, uint256));
+        uint256 optionsLength;
+        assembly {
+            calldatacopy(add(0x20, 0), 64, 20)
+            refundAddress := mload(0x20)
+            optionsLength := calldataload(84)
+        }
+        options = new bytes(optionsLength);
+        assembly {
+            calldatacopy(add(options, 32), add(84, 32), optionsLength)
+        }
+    }
+
     /// @dev Returns true if msgSender in the provided calldata matches a particular address, true for pokeName()
     function _validateMsgSender(bytes32 msgSender, bytes memory data) internal pure returns (bool) {
         if (_getFuncSelector(data) == POKE_NAME_SELECTOR) return true;
@@ -164,7 +179,7 @@ contract Endpoint is OAppUpgradeable, UUPSUpgradeable, IEndpoint {
 
     /// PERMISSIONED FUNCTIONS ///
 
-    function multicall(bytes[] calldata data, bytes calldata sig) external payable returns (bytes[] memory results) {
+    function multicall(bytes[] calldata data, bytes calldata sig, bytes calldata config) external payable returns (bytes[] memory results) {
         // Validate signature
         if (!verifyMulticall(data, sig)) revert ECDSA.InvalidSignature();
 
@@ -196,10 +211,10 @@ contract Endpoint is OAppUpgradeable, UUPSUpgradeable, IEndpoint {
                 }
             }
             // Send remainder of msg.value to Clusters
-            results = IClustersHubEndpoint(clusters).multicall{value: msg.value - endpointFunds}(_data);
+            results = IClustersHubEndpoint(clusters).multicall{value: msg.value - endpointFunds}(_data, config);
         } else {
             // If no calls to Endpoint, pass the calldata directly to ClustersHub
-            results = IClustersHubEndpoint(clusters).multicall{value: msg.value}(data);
+            results = IClustersHubEndpoint(clusters).multicall{value: msg.value}(data, config);
         }
     }
 
@@ -217,7 +232,7 @@ contract Endpoint is OAppUpgradeable, UUPSUpgradeable, IEndpoint {
 
         if (msg.value < msgValue || msgValue <= bidAmount) revert Insufficient();
         if (!isValid) revert Invalid();
-        IClustersHubEndpoint(clusters).bidName{value: msg.value}(_addressToBytes32(msg.sender), msg.value, name);
+        IClustersHubEndpoint(clusters).bidName{value: msg.value}(_addressToBytes32(msg.sender), msg.value, name, bytes(""));
         {
             bytes32 originatorBytes = _addressToBytes32(originator);
             IClustersHubEndpoint(clusters).acceptBid{value: 0}(originatorBytes, name);
@@ -287,11 +302,12 @@ contract Endpoint is OAppUpgradeable, UUPSUpgradeable, IEndpoint {
             IClustersHubEndpoint(clusters).noBridgeFundsReturn{value: msg.value}();
             return bytes("");
         }
-        /*// TODO: Figure out how to assign these
-        bytes memory options;
-        MessagingFee memory fee;
-        address refundAddress;
-        result = abi.encode(_lzSend(dstEid, payload, options, fee, refundAddress));*/
+        // Potentially remove this if desired so replication cannot be skipped, mainly for testing
+        if (config.length > 0) {
+            // Route payload to relay spoke
+            (MessagingFee memory fee, address refundAddress, bytes memory options) = _decodeLzConfig(config);
+            result = abi.encode(_lzSend(dstEid, payload, options, fee, refundAddress));
+        }
     }
 
     function selfClustersCall(bytes memory data) public payable {

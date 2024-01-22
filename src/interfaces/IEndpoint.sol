@@ -55,7 +55,7 @@ interface IEndpoint {
 
     /// PERMISSIONED FUNCTIONS ///
 
-    function multicall(bytes[] calldata data, bytes calldata sig) external payable returns (bytes[] memory results);
+    function multicall(bytes[] calldata data, bytes calldata sig, bytes calldata config) external payable returns (bytes[] memory results);
     function fulfillOrder(
         uint256 msgValue,
         uint256 nonce,

@@ -31,7 +31,7 @@ contract Outbound_Endpoint_gasAirdrop_Unit_Concrete_Test is Inbound_Harberger_Sh
         (uint256 airdropFee,) = localEndpoint.quote(2, bytes(""), options, false);
         uint256 balance = address(users.aliceSecondary).balance;
         bytes[] memory data = new bytes[](2);
-        data[0] = abi.encodeWithSignature("buyName(bytes32,uint256,string)", caller, minPrice, testName);
+        data[0] = abi.encodeWithSignature("buyName(bytes32,uint256,string,bytes)", caller, minPrice, testName, bytes(""));
         data[1] = abi.encodeWithSignature("gasAirdrop(uint256,uint32,bytes)", airdropFee, 2, options);
         vm.stopPrank();
 
@@ -44,7 +44,7 @@ contract Outbound_Endpoint_gasAirdrop_Unit_Concrete_Test is Inbound_Harberger_Sh
 
         vm.prank(users.alicePrimary);
         console2.logBytes(options);
-        localEndpoint.multicall{value: airdropFee + minPrice}(data, sig);
+        localEndpoint.multicall{value: airdropFee + minPrice}(data, sig, bytes(""));
         verifyPackets(2, address(remoteEndpoint));
         assertEq(balance + minPrice, address(users.aliceSecondary).balance, "airdrop balance error");
     }
