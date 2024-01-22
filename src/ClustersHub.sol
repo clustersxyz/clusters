@@ -32,7 +32,11 @@ contract ClustersHub is NameManagerHub {
 
     /// @dev For payable multicall to be secure, we cannot trust msg.value params in other external methods
     /// @dev Must instead do strict protocol invariant checking at the end of methods like Uniswap V2
-    function multicall(bytes[] calldata data) external payable returns (bytes[] memory results) {
+    function multicall(bytes[] calldata data, bytes calldata config)
+        external
+        payable
+        returns (bytes[] memory results)
+    {
         _inMulticall = true;
         results = new bytes[](data.length);
         bool success;
@@ -47,20 +51,20 @@ contract ClustersHub is NameManagerHub {
         _checkInvariant();
 
         bytes memory payload = abi.encodeWithSignature("multicall(bytes[])", results);
-        IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
+        IEndpoint(endpoint).sendPayload{value: msg.value}(payload, config);
         _inMulticall = false;
     }
 
-    function add(bytes32 addr) external payable returns (bytes memory payload) {
-        return add(_addressToBytes32(msg.sender), addr);
+    function add(bytes32 addr, bytes calldata config) external payable returns (bytes memory payload) {
+        return add(_addressToBytes32(msg.sender), addr, config);
     }
 
-    function verify(uint256 clusterId) external payable returns (bytes memory payload) {
-        return verify(_addressToBytes32(msg.sender), clusterId);
+    function verify(uint256 clusterId, bytes calldata config) external payable returns (bytes memory payload) {
+        return verify(_addressToBytes32(msg.sender), clusterId, config);
     }
 
-    function remove(bytes32 addr) external payable returns (bytes memory payload) {
-        return remove(_addressToBytes32(msg.sender), addr);
+    function remove(bytes32 addr, bytes calldata config) external payable returns (bytes memory payload) {
+        return remove(_addressToBytes32(msg.sender), addr, config);
     }
 
     function getUnverifiedAddresses(uint256 clusterId) external view returns (bytes32[] memory) {
@@ -77,7 +81,7 @@ contract ClustersHub is NameManagerHub {
 
     /// ENDPOINT FUNCTIONS ///
 
-    function add(bytes32 msgSender, bytes32 addr)
+    function add(bytes32 msgSender, bytes32 addr, bytes calldata config)
         public
         payable
         onlyEndpoint(msgSender)
@@ -90,10 +94,10 @@ contract ClustersHub is NameManagerHub {
 
         payload = abi.encodeWithSignature("add(bytes32,bytes32)", msgSender, addr);
         if (_inMulticall) return payload;
-        else IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
+        else IEndpoint(endpoint).sendPayload{value: msg.value}(payload, config);
     }
 
-    function verify(bytes32 msgSender, uint256 clusterId)
+    function verify(bytes32 msgSender, uint256 clusterId, bytes calldata config)
         public
         payable
         onlyEndpoint(msgSender)
@@ -115,10 +119,10 @@ contract ClustersHub is NameManagerHub {
 
         payload = abi.encodeWithSignature("verify(bytes32,uint256)", msgSender, clusterId);
         if (_inMulticall) return payload;
-        else IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
+        else IEndpoint(endpoint).sendPayload{value: msg.value}(payload, config);
     }
 
-    function remove(bytes32 msgSender, bytes32 addr)
+    function remove(bytes32 msgSender, bytes32 addr, bytes calldata config)
         public
         payable
         onlyEndpoint(msgSender)
@@ -134,7 +138,7 @@ contract ClustersHub is NameManagerHub {
 
         payload = abi.encodeWithSignature("remove(bytes32,bytes32)", msgSender, addr);
         if (_inMulticall) return payload;
-        else IEndpoint(endpoint).sendPayload{value: msg.value}(payload);
+        else IEndpoint(endpoint).sendPayload{value: msg.value}(payload, config);
     }
 
     /// INTERNAL FUNCTIONS ///
