@@ -3,11 +3,17 @@ pragma solidity ^0.8.23;
 
 import {UUPSUpgradeable} from "solady/utils/UUPSUpgradeable.sol";
 
-contract ClustersBeta {
-
+contract ClustersBeta is UUPSUpgradeable {
     event Bid(address from, uint256 amount, bytes32 name);
 
     error BadBatch();
+
+    error Unauthorized();
+
+    // Authentication for UUPS
+    function _authorizeUpgrade(address newImplementation) internal override {
+        if (msg.sender != 0x000000dE1E80ea5a234FB5488fee2584251BC7e8) revert Unauthorized();
+    }
 
     function placeBid(bytes32 name) public payable {
         emit Bid(msg.sender, msg.value, name);
