@@ -8,4 +8,4 @@ deploy-testnet:
 	forge script -vvv script/Testnet.s.sol --sig "run()" --broadcast
 
 sim-vanity:
-	forge script -vvv script/VanityMining.s.sol --fork-url https://1rpc.io/holesky
+	forge script -vvv script/VanityMining.s.sol --sig "deployAndUpgrade()" --fork-url ${RPC_URL} --private-key ${PK}  --broadcast --verify --delay 30 --etherscan-api-key ${ETHERSCAN_API_KEY}
