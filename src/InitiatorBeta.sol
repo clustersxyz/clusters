@@ -3,7 +3,7 @@ pragma solidity ^0.8.23;
 
 import {
     OAppSenderUpgradeable, MessagingFee
-} from "layerzero-oapp/contracts/oapp-upgradeable/OAppSenbderUpgradeable.sol";
+} from "layerzero-oapp/contracts/oapp-upgradeable/OAppSenderUpgradeable.sol";
 
 contract InitiatorBeta is OAppSenderUpgradeable {
     uint32 public dstEid;

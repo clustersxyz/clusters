@@ -109,7 +109,7 @@ abstract contract Base_Test is TestHelper, Utils {
                 vm.label(endpoints[1], LibString.concat("L0 Endpoint EID-", uint256(1).toString()));
                 deployHubFlat(endpoints[1]);
             } else {
-                vm.label(endpoints[1 + 1], LibString.concat("L0 Endpoint EID-", uint256(i + 1).toString()));
+                vm.label(endpoints[i + 1], LibString.concat("L0 Endpoint EID-", uint256(i + 1).toString()));
                 deploySpokeFlat(endpoints[i + 1]);
             }
         }
@@ -128,7 +128,7 @@ abstract contract Base_Test is TestHelper, Utils {
                 vm.label(endpoints[1], LibString.concat("L0 Endpoint EID-", uint256(1).toString()));
                 deployHubHarberger(endpoints[1]);
             } else {
-                vm.label(endpoints[1 + 1], LibString.concat("L0 Endpoint EID-", uint256(i + 1).toString()));
+                vm.label(endpoints[i + 1], LibString.concat("L0 Endpoint EID-", uint256(i + 1).toString()));
                 deploySpokeHarberger(endpoints[i + 1]);
             }
         }

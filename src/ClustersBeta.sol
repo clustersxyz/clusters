@@ -2,10 +2,7 @@
 pragma solidity ^0.8.23;
 
 import {UUPSUpgradeable} from "solady/utils/UUPSUpgradeable.sol";
-import {
-    OAppReceiverUpgradeable,
-    MessagingFee
-} from "layerzero-oapp/contracts/oapp-upgradeable/OAppReceiverUpgradeable.sol";
+import {Origin, OAppReceiverUpgradeable} from "layerzero-oapp/contracts/oapp-upgradeable/OAppReceiverUpgradeable.sol";
 
 contract ClustersBeta is UUPSUpgradeable, OAppReceiverUpgradeable {
     event Bid(address from, uint256 amount, bytes32 name);
@@ -33,7 +30,7 @@ contract ClustersBeta is UUPSUpgradeable, OAppReceiverUpgradeable {
         address executor,
         bytes calldata extraData
     ) internal override {
-        address(this).call{value: msg.value}(_message);
+        address(this).call{value: msg.value}(message);
     }
 
     /// Core Logic ///
