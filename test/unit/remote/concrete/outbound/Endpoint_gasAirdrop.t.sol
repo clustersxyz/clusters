@@ -10,9 +10,8 @@ contract Outbound_Endpoint_gasAirdrop_Unit_Concrete_Test is Inbound_Harberger_Sh
 
     function testGasAirdrop() public {
         vm.startPrank(users.alicePrimary);
-        bytes memory options = OptionsBuilder.newOptions().addExecutorNativeDropOption(
-            uint128(minPrice), _addressToBytes32(users.aliceSecondary)
-        );
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(50_000, 0)
+            .addExecutorNativeDropOption(uint128(minPrice), _addressToBytes32(users.aliceSecondary));
         uint256 balance = address(users.aliceSecondary).balance;
         (uint256 nativeFee,) = localEndpoint.quote(2, bytes(""), options, false);
         localEndpoint.gasAirdrop{value: nativeFee}(nativeFee, 2, options);
@@ -25,9 +24,8 @@ contract Outbound_Endpoint_gasAirdrop_Unit_Concrete_Test is Inbound_Harberger_Sh
         vm.startPrank(users.alicePrimary);
         bytes32 caller = _addressToBytes32(users.alicePrimary);
         string memory testName = constants.TEST_NAME();
-        bytes memory options = OptionsBuilder.newOptions().addExecutorNativeDropOption(
-            uint128(minPrice), _addressToBytes32(users.aliceSecondary)
-        );
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(50_000, 0)
+            .addExecutorNativeDropOption(uint128(minPrice), _addressToBytes32(users.aliceSecondary));
         (uint256 airdropFee,) = localEndpoint.quote(2, bytes(""), options, false);
         uint256 balance = address(users.aliceSecondary).balance;
         bytes[] memory data = new bytes[](2);
