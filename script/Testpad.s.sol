@@ -17,10 +17,11 @@ import "../lib/LayerZero-v2/protocol/contracts/EndpointV2.sol";
 contract TestpadScript is Script {
     using OptionsBuilder for bytes;
 
-    address internal constant HOLESKY_ENDPOINT = 0xc986CB24E8422a179D0799511D42275BcB148714;
+    address internal constant ENDPOINT = 0xc986CB24E8422a179D0799511D42275BcB148714;
 
-    string internal HOLESKY_RPC_URL = vm.envString("HOLESKY_RPC_URL");
-    uint256 internal holeskyFork;
+    string internal RPC_URL = vm.envString("HOLESKY_RPC_URL");
+    string internal name = "zodomoooo";
+    uint256 internal fork;
 
     /// @dev Convert address to bytes32
     function _addressToBytes32(address addr) internal pure returns (bytes32) {
@@ -28,27 +29,29 @@ contract TestpadScript is Script {
     }
 
     function setUp() public {
-        holeskyFork = vm.createFork(HOLESKY_RPC_URL);
+        fork = vm.createFork(RPC_URL);
     }
 
     function run() public {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
-        IEndpoint endpoint = IEndpoint(HOLESKY_ENDPOINT);
-        IOAppCore lzEndpoint = IOAppCore(HOLESKY_ENDPOINT);
+        IEndpoint endpoint = IEndpoint(ENDPOINT);
+        IOAppCore lzEndpoint = IOAppCore(ENDPOINT);
 
-        vm.selectFork(holeskyFork);
+        vm.selectFork(fork);
         bytes memory data = abi.encodeWithSignature(
-            "buyName(bytes32,uint256,string)", _addressToBytes32(deployer), 0.01 ether, "zodomo"
+            "buyName(bytes32,uint256,string)", _addressToBytes32(deployer), 0.01 ether, name
         );
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(300_000 gwei, uint128(0.01 ether));
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(299_000, uint128(0.01 ether));
         (uint256 nativeFee,) = endpoint.quote(40161, data, options, false);
+        vm.startBroadcast(deployerPrivateKey);
         bytes memory results = endpoint.lzSend{value: nativeFee}(data, options, deployer);
+        vm.stopBroadcast();
 
         console2.log(nativeFee);
         console2.log(endpoint.dstEid());
         console2.log(deployer);
-        console2.log(Ownable(HOLESKY_ENDPOINT).owner());
+        console2.log(Ownable(ENDPOINT).owner());
         console2.logBytes32(lzEndpoint.peers(40161));
         console2.logBytes(results);
     }

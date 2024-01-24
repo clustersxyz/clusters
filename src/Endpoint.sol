@@ -47,7 +47,7 @@ contract Endpoint is OAppUpgradeable, UUPSUpgradeable, IEndpoint {
 
     /// MANAGEMENT FUNCTIONS ///
 
-    function initialize(address owner_, address signer_, address endpoint_) public initializer {
+    function initialize(address owner_, address signer_, address endpoint_) public onlyInitializing {
         _initializeOApp(endpoint_, owner_);
         signer = signer_;
         emit SignerAddr(signer_);
@@ -406,5 +406,9 @@ contract Endpoint is OAppUpgradeable, UUPSUpgradeable, IEndpoint {
 
     function refund(address recipient) external {
         _refund(_addressToBytes32(msg.sender), _addressToBytes32(recipient));
+    }
+
+    function invalidateVerification() public view onlyOwner returns (bool) {
+        return true;
     }
 }

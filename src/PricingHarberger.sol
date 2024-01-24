@@ -181,4 +181,8 @@ contract PricingHarberger is UUPSUpgradeable, Initializable, Ownable, IPricing {
     function toWadUnsafe(uint256 x) internal pure returns (uint256) {
         return F.rawMul(WAD, x);
     }
+
+    function invalidateVerification() public pure returns (bool) {
+        return true;
+    }
 }

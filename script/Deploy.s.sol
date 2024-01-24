@@ -22,9 +22,9 @@ contract DeployScript is Script {
 
     struct Deployment {
         string chain;
-        address pricingTemplate;
+        address pricingImplementation;
         address pricingProxy;
-        address endpointTemplate;
+        address endpointImplementation;
         address endpointProxy;
         address clusters;
         address layerzero;
@@ -39,12 +39,20 @@ contract DeployScript is Script {
     mapping(uint256 forkId => Deployment) internal deployments;
 
     uint32 internal constant LZ_EID_SEPOLIA = 40161;
-    uint32 internal constant LZ_EID_GOERLI = 40121;
+    uint32 internal constant LZ_EID_ARBITRUM_SEPOLIA = 40231;
+    uint32 internal constant LZ_EID_OPTIMISM_SEPOLIA = 40232;
+    uint32 internal constant LZ_EID_SCROLL_SEPOLIA = 40170;
+    uint32 internal constant LZ_EID_FRAME_SEPOLIA = 40222;
     uint32 internal constant LZ_EID_HOLESKY = 40217;
+    uint32 internal constant LZ_EID_GOERLI = 40121;
+    uint32 internal constant LZ_EID_ARBITRUM_GOERLI = 40143;
+    uint32 internal constant LZ_EID_POLYGON_GOERLI = 40158;
+    uint32 internal constant LZ_EID_MANTLE_GOERLI = 40181;
+    uint32 internal constant LZ_EID_ZKSYNC_GOERLI = 40165;
 
-    address internal constant LZ_END_SEPOLIA = 0x464570adA09869d8741132183721B4f0769a0287;
-    address internal constant LZ_END_GOERLI = 0x464570adA09869d8741132183721B4f0769a0287;
-    address internal constant LZ_END_HOLESKY = 0x464570adA09869d8741132183721B4f0769a0287;
+    // All chains above use the same address so far
+    address internal constant LZ_END_SHARED = 0x464570adA09869d8741132183721B4f0769a0287;
+    address internal constant LZ_END_ZKSYNC = 0x0DA8aA8452eCC2f6241Ee41ed535efB64BEc40ea;
 
     function _addressToBytes32(address addr) internal pure returns (bytes32) {
         return bytes32(uint256(uint160(addr)));
@@ -69,13 +77,13 @@ contract DeployScript is Script {
         if (isHub) {
             if (isHarberger) {
                 PricingHarberger pricing = new PricingHarberger();
-                deployments[forkId].pricingTemplate = address(pricing);
+                deployments[forkId].pricingImplementation = address(pricing);
             } else {
                 PricingFlat pricing = new PricingFlat();
-                deployments[forkId].pricingTemplate = address(pricing);
+                deployments[forkId].pricingImplementation = address(pricing);
             }
-            vm.label(deployments[forkId].pricingTemplate, chain.concat(" Pricing Template"));
-            deployments[forkId].pricingProxy = LibClone.deployERC1967(deployments[forkId].pricingTemplate);
+            vm.label(deployments[forkId].pricingImplementation, chain.concat(" Pricing Implementation"));
+            deployments[forkId].pricingProxy = LibClone.deployERC1967(deployments[forkId].pricingImplementation);
             vm.label(deployments[forkId].pricingProxy, chain.concat(" Pricing Proxy"));
             if (isHarberger) {
                 PricingHarberger(deployments[forkId].pricingProxy).initialize(deployer, block.timestamp);
@@ -84,9 +92,9 @@ contract DeployScript is Script {
             }
         }
         // Deploy and initialize endpoint
-        deployments[forkId].endpointTemplate = address(new Endpoint());
-        vm.label(deployments[forkId].endpointTemplate, chain.concat(" Endpoint Template"));
-        deployments[forkId].endpointProxy = LibClone.deployERC1967(deployments[forkId].endpointTemplate);
+        deployments[forkId].endpointImplementation = address(new Endpoint());
+        vm.label(deployments[forkId].endpointImplementation, chain.concat(" Endpoint Implementation"));
+        deployments[forkId].endpointProxy = LibClone.deployERC1967(deployments[forkId].endpointImplementation);
         vm.label(deployments[forkId].endpointProxy, chain.concat(" Endpoint Proxy"));
         Endpoint(deployments[forkId].endpointProxy).initialize(deployer, signer, lzEndpoint);
         if (isHub) {
@@ -129,17 +137,25 @@ contract DeployScript is Script {
     }
 
     function run() public {
-        deploy("Sepolia", vm.envString("SEPOLIA_RPC_URL"), true, true, LZ_EID_SEPOLIA, LZ_END_SEPOLIA);
-        deploy("Goerli", vm.envString("GOERLI_RPC_URL"), true, false, LZ_EID_GOERLI, LZ_END_GOERLI);
-        deploy("Holesky", vm.envString("HOLESKY_RPC_URL"), true, false, LZ_EID_HOLESKY, LZ_END_HOLESKY);
+        deploy("Sepolia", vm.envString("SEPOLIA_RPC_URL"), true, true, LZ_EID_SEPOLIA, LZ_END_SHARED);
+        deploy("Arbitrum Sepolia", vm.envString("ARBITRUM_SEPOLIA_RPC_URL"), true, false, LZ_EID_ARBITRUM_SEPOLIA, LZ_END_SHARED);
+        deploy("Optimism Sepolia", vm.envString("OPTIMISM_SEPOLIA_RPC_URL"), true, false, LZ_EID_OPTIMISM_SEPOLIA, LZ_END_SHARED);
+        //deploy("Scroll Sepolia", vm.envString("SCROLL_SEPOLIA_RPC_URL"), true, false, LZ_EID_SCROLL_SEPOLIA, LZ_END_SHARED);
+        ///deploy("Frame Sepolia", vm.envString("FRAME_SEPOLIA_RPC_URL"), true, false, LZ_EID_FRAME_SEPOLIA, LZ_END_SHARED);
+        deploy("Holesky", vm.envString("HOLESKY_RPC_URL"), true, false, LZ_EID_HOLESKY, LZ_END_SHARED);
+        deploy("Goerli", vm.envString("GOERLI_RPC_URL"), true, false, LZ_EID_GOERLI, LZ_END_SHARED);
+        //deploy("Arbitrum Goerli", vm.envString("ARBITRUM_GOERLI_RPC_URL"), true, false, LZ_EID_ARBITRUM_GOERLI, LZ_END_SHARED);
+        deploy("Polygon zkEVM Goerli", vm.envString("POLYGON_GOERLI_RPC_URL"), true, false, LZ_EID_POLYGON_GOERLI, LZ_END_SHARED);
+        ///deploy("Mantle Goerli", vm.envString("MANTLE_GOERLI_RPC_URL"), true, false, LZ_EID_MANTLE_GOERLI, LZ_END_SHARED);
+        ///deploy("zkSync Goerli", vm.envString("ZKSYNC_GOERLI_RPC_URL"), true, false, LZ_EID_ZKSYNC_GOERLI, LZ_END_ZKSYNC);
         configure();
 
         for (uint256 i; i < forkIds.length(); ++i) {
             Deployment memory deployment = deployments[forkIds.at(i)];
-            if (deployment.pricingTemplate != address(0)) {
+            if (deployment.pricingImplementation != address(0)) {
                 console2.log(
-                    deployment.chain.concat(" Pricing Template: ").concat(
-                        deployment.pricingTemplate.toHexStringChecksummed()
+                    deployment.chain.concat(" Pricing Implementation: ").concat(
+                        deployment.pricingImplementation.toHexStringChecksummed()
                     )
                 );
             }
@@ -149,8 +165,8 @@ contract DeployScript is Script {
                 );
             }
             console2.log(
-                deployment.chain.concat(" Endpoint Template: ").concat(
-                    deployment.endpointTemplate.toHexStringChecksummed()
+                deployment.chain.concat(" Endpoint Implementation: ").concat(
+                    deployment.endpointImplementation.toHexStringChecksummed()
                 )
             );
             console2.log(

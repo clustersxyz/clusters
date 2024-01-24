@@ -23,9 +23,9 @@
     wrap_comments = true
 
 [rpc_endpoints]
-goerli = "${GOERLI_RPC_URL}"
 sepolia = "${SEPOLIA_RPC_URL}"
 holesky = "${HOLESKY_RPC_URL}"
+goerli = "${GOERLI_RPC_URL}"
 
 [etherscan]
 goerli = { key = "${ETHERSCAN_API_KEY}" }

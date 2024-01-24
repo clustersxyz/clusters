@@ -189,4 +189,8 @@ contract ClustersHub is NameManagerHub {
             revert Unauthorized();
         }
     }
+
+    function invalidateVerification() public pure returns (bool) {
+        return true;
+    }
 }

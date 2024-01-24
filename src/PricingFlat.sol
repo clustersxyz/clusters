@@ -24,4 +24,8 @@ contract PricingFlat is UUPSUpgradeable, Initializable, Ownable, IPricing {
         spent = secondsSinceUpdate * minAnnualPrice / 365 days;
         price = minAnnualPrice;
     }
+
+    function invalidateVerification() public pure returns (bool) {
+        return true;
+    }
 }
