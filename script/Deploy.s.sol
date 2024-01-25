@@ -51,7 +51,7 @@ contract DeployScript is Script {
     uint32 internal constant LZ_EID_ZKSYNC_GOERLI = 40165;
 
     // All chains above use the same address so far
-    address internal constant LZ_END_SHARED = 0x464570adA09869d8741132183721B4f0769a0287;
+    address internal constant LZ_END_SHARED = 0x6EDCE65403992e310A62460808c4b910D972f10f;
     address internal constant LZ_END_ZKSYNC = 0x0DA8aA8452eCC2f6241Ee41ed535efB64BEc40ea;
 
     function _addressToBytes32(address addr) internal pure returns (bytes32) {
@@ -140,12 +140,10 @@ contract DeployScript is Script {
         deploy("Sepolia", vm.envString("SEPOLIA_RPC_URL"), true, true, LZ_EID_SEPOLIA, LZ_END_SHARED);
         deploy("Arbitrum Sepolia", vm.envString("ARBITRUM_SEPOLIA_RPC_URL"), true, false, LZ_EID_ARBITRUM_SEPOLIA, LZ_END_SHARED);
         deploy("Optimism Sepolia", vm.envString("OPTIMISM_SEPOLIA_RPC_URL"), true, false, LZ_EID_OPTIMISM_SEPOLIA, LZ_END_SHARED);
+        deploy("Holesky", vm.envString("HOLESKY_RPC_URL"), true, false, LZ_EID_HOLESKY, LZ_END_SHARED);
+        deploy("Polygon zkEVM Goerli", vm.envString("POLYGON_GOERLI_RPC_URL"), true, false, LZ_EID_POLYGON_GOERLI, LZ_END_SHARED);
         //deploy("Scroll Sepolia", vm.envString("SCROLL_SEPOLIA_RPC_URL"), true, false, LZ_EID_SCROLL_SEPOLIA, LZ_END_SHARED);
         ///deploy("Frame Sepolia", vm.envString("FRAME_SEPOLIA_RPC_URL"), true, false, LZ_EID_FRAME_SEPOLIA, LZ_END_SHARED);
-        deploy("Holesky", vm.envString("HOLESKY_RPC_URL"), true, false, LZ_EID_HOLESKY, LZ_END_SHARED);
-        deploy("Goerli", vm.envString("GOERLI_RPC_URL"), true, false, LZ_EID_GOERLI, LZ_END_SHARED);
-        //deploy("Arbitrum Goerli", vm.envString("ARBITRUM_GOERLI_RPC_URL"), true, false, LZ_EID_ARBITRUM_GOERLI, LZ_END_SHARED);
-        deploy("Polygon zkEVM Goerli", vm.envString("POLYGON_GOERLI_RPC_URL"), true, false, LZ_EID_POLYGON_GOERLI, LZ_END_SHARED);
         ///deploy("Mantle Goerli", vm.envString("MANTLE_GOERLI_RPC_URL"), true, false, LZ_EID_MANTLE_GOERLI, LZ_END_SHARED);
         ///deploy("zkSync Goerli", vm.envString("ZKSYNC_GOERLI_RPC_URL"), true, false, LZ_EID_ZKSYNC_GOERLI, LZ_END_ZKSYNC);
         configure();

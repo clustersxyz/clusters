@@ -47,7 +47,7 @@ contract Endpoint is OAppUpgradeable, UUPSUpgradeable, IEndpoint {
 
     /// MANAGEMENT FUNCTIONS ///
 
-    function initialize(address owner_, address signer_, address endpoint_) public onlyInitializing {
+    function initialize(address owner_, address signer_, address endpoint_) public initializer {
         _initializeOApp(endpoint_, owner_);
         signer = signer_;
         emit SignerAddr(signer_);
