@@ -9,9 +9,8 @@ contract Inbound_Endpoint_gasAirdrop_Unit_Concrete_Test is Inbound_Harberger_Sha
 
     function testGasAirdrop() public {
         vm.startPrank(users.alicePrimary);
-        bytes memory options = OptionsBuilder.newOptions().addExecutorNativeDropOption(
-            uint128(minPrice), _addressToBytes32(users.aliceSecondary)
-        );
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(50_000, 0)
+            .addExecutorNativeDropOption(uint128(minPrice), _addressToBytes32(users.aliceSecondary));
         uint256 balance = address(users.aliceSecondary).balance;
         (uint256 nativeFee,) = remoteEndpoint.quote(1, bytes(""), options, false);
         remoteEndpoint.gasAirdrop{value: nativeFee}(nativeFee, 1, options);
