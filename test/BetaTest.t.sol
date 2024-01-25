@@ -30,7 +30,8 @@ contract Beta_Test is TestHelper, Utils {
 
     ClustersBeta internal clustersImplementation;
     ClustersBeta internal clustersProxy;
-    InitiatorBeta internal initiator;
+    InitiatorBeta internal initiatorImplementation;
+    InitiatorBeta internal initiatorProxy;
 
     /// USER HELPERS ///
 
@@ -83,16 +84,18 @@ contract Beta_Test is TestHelper, Utils {
         // Deploy and initialize contracts
         vm.startPrank(users.clustersAdmin);
         clustersImplementation = new ClustersBeta();
-        initiator = new InitiatorBeta();
+        initiatorImplementation = new InitiatorBeta();
         clustersProxy = ClustersBeta(LibClone.deployERC1967(address(clustersImplementation)));
         clustersProxy.initialize(endpoints[1], users.clustersAdmin);
-        clustersProxy.setPeer(2, _addressToBytes32(address(initiator)));
-        initiator.initialize(endpoints[2], users.clustersAdmin, 1, _addressToBytes32(address(clustersProxy)));
+        initiatorProxy = InitiatorBeta(LibClone.deployERC1967(address(initiatorImplementation)));
+        initiatorProxy.initialize(endpoints[2], users.clustersAdmin, 1, _addressToBytes32(address(clustersProxy)));
+        clustersProxy.setPeer(2, _addressToBytes32(address(initiatorProxy)));
 
         // Label deployed contracts
         vm.label(address(clustersImplementation), "ClustersBeta Implementation");
         vm.label(address(clustersProxy), "ClustersBeta Proxy");
-        vm.label(address(initiator), "InitiatorBeta");
+        vm.label(address(initiatorImplementation), "InitiatorBeta Implementation");
+        vm.label(address(initiatorProxy), "InitiatorBeta Proxy");
         vm.stopPrank();
     }
 
