@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {OAppSenderUpgradeable, MessagingFee} from "layerzero-oapp/contracts/oapp-upgradeable/OAppUpgradeable.sol";
+import {
+    OAppSenderUpgradeable, MessagingFee
+} from "layerzero-oapp/contracts/oapp-upgradeable/OAppSenbderUpgradeable.sol";
 
 contract InitiatorBeta is OAppSenderUpgradeable {
     uint32 public dstEid;
@@ -12,11 +14,7 @@ contract InitiatorBeta is OAppSenderUpgradeable {
         setPeer(dstEid_, peer_);
     }
 
-    function quote(bytes memory message, bytes memory options)
-        public
-        view
-        returns (uint256 nativeFee)
-    {
+    function quote(bytes memory message, bytes memory options) public view returns (uint256 nativeFee) {
         MessagingFee memory msgQuote = _quote(dstEid, message, options, false);
         return msgQuote.nativeFee;
     }
