@@ -351,6 +351,8 @@ contract Endpoint is OAppUpgradeable, UUPSUpgradeable, IEndpoint {
         override
     {
         bytes4 selector = _getFuncSelector(payload);
+        // Short-circuit for gas airdrop
+        if (selector == GAS_AIRDROP_SELECTOR) return;
         // Attempt to process ClustersHub call
         try this.selfClustersCall{value: msg.value}(payload) {
             /*// Only the relay chain will receive from Ethereum Mainnet, so if it does, relay to all other chains
