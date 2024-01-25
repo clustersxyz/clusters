@@ -11,15 +11,9 @@ import {InitiatorBeta} from "clusters/InitiatorBeta.sol";
 
 import {Constants} from "./utils/Constants.sol";
 import {Users} from "./utils/Types.sol";
-import {EnumerableSet} from "openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import {LibString} from "solady/utils/LibString.sol";
 import {console2} from "forge-std/Test.sol";
 
 contract Beta_Test is TestHelper, Utils {
-    using EnumerableSet for EnumerableSet.Bytes32Set;
-    using EnumerableSet for EnumerableSet.AddressSet;
-    using LibString for uint256;
-
     /// VARIABLES ///
 
     Users internal users;
