@@ -12,14 +12,13 @@ contract InitiatorBeta is OAppSenderUpgradeable {
         setPeer(dstEid_, peer_);
     }
 
-    function quote(uint32 dstEid_, bytes memory message, bytes memory options, bool payInLzToken)
+    function quote(bytes memory message, bytes memory options)
         public
         view
-        returns (uint256 nativeFee, uint256 lzTokenFee)
+        returns (uint256 nativeFee)
     {
-        MessagingFee memory msgQuote = _quote(dstEid_, message, options, payInLzToken);
-        nativeFee = msgQuote.nativeFee;
-        lzTokenFee = msgQuote.lzTokenFee;
+        MessagingFee memory msgQuote = _quote(dstEid, message, options, false);
+        return msgQuote.nativeFee;
     }
 
     function lzSend(bytes memory message, bytes memory options) external payable {
