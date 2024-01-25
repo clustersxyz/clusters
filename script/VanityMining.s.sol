@@ -45,7 +45,8 @@ contract VanityMining is Script {
         bytes32 proxyInitCodeHash = LibClone.initCodeHashERC1967(implAddress);
         console2.logBytes32(proxyInitCodeHash);
 
-        address proxyAddress = factory.safeCreate2(0x00000000000000000000000000000000000000001d210f3224b0fe09a30c6ddc, proxyInitCode);
+        address proxyAddress =
+            factory.safeCreate2(0x00000000000000000000000000000000000000001d210f3224b0fe09a30c6ddc, proxyInitCode);
         console2.log(proxyAddress);
 
         vm.stopBroadcast();

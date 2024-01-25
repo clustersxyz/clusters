@@ -20,8 +20,6 @@ interface IClustersHubEndpoint {
     function acceptBid(bytes32 msgSender, string memory name) external payable returns (uint256 bidAmount);
 }
 
-// TODO: Make this a proxy contract to swap out logic, ownership can be reverted later
-
 contract Endpoint is OAppUpgradeable, UUPSUpgradeable, IEndpoint {
     using EnumerableSetLib for EnumerableSetLib.Bytes32Set;
 
