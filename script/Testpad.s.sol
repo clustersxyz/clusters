@@ -17,10 +17,10 @@ import "../lib/LayerZero-v2/protocol/contracts/EndpointV2.sol";
 contract TestpadScript is Script {
     using OptionsBuilder for bytes;
 
-    address internal constant ENDPOINT = 0xc986CB24E8422a179D0799511D42275BcB148714;
+    address internal constant ENDPOINT = 0x1D8950d5c29e68d24341a82684e7858C38AAD1E2;
 
     string internal RPC_URL = vm.envString("HOLESKY_RPC_URL");
-    string internal name = "zodomoooo";
+    string internal name = "zodomoX";
     uint256 internal fork;
 
     /// @dev Convert address to bytes32
@@ -42,7 +42,7 @@ contract TestpadScript is Script {
         bytes memory data = abi.encodeWithSignature(
             "buyName(bytes32,uint256,string)", _addressToBytes32(deployer), 0.01 ether, name
         );
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(299_000, uint128(0.01 ether));
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(1_000_000, uint128(0.01 ether));
         (uint256 nativeFee,) = endpoint.quote(40161, data, options, false);
         vm.startBroadcast(deployerPrivateKey);
         bytes memory results = endpoint.lzSend{value: nativeFee}(data, options, deployer);
