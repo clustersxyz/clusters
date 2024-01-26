@@ -5,7 +5,10 @@ import {UUPSUpgradeable} from "solady/utils/UUPSUpgradeable.sol";
 import {Origin, OAppReceiverUpgradeable} from "layerzero-oapp/contracts/oapp-upgradeable/OAppReceiverUpgradeable.sol";
 
 contract ClustersBeta is UUPSUpgradeable, OAppReceiverUpgradeable {
-    event Bid(address from, uint256 amount, bytes32 name);
+    bytes32 internal constant PLACEHOLDER = bytes32(uint256(1)); // Cheaper to modify a nonzero slot
+    bytes32 internal tstoreSender = PLACEHOLDER;
+
+    event Bid(bytes32 from, uint256 amount, bytes32 name);
 
     error BadBatch();
 
@@ -30,21 +33,25 @@ contract ClustersBeta is UUPSUpgradeable, OAppReceiverUpgradeable {
         address executor,
         bytes calldata extraData
     ) internal override {
-        address(this).call{value: msg.value}(message);
+        tstoreSender = origin.sender;
+        address(this).delegatecall(message);
+        tstoreSender = PLACEHOLDER;
     }
 
     /// Core Logic ///
 
     function placeBid(bytes32 name) external payable {
-        emit Bid(msg.sender, msg.value, name);
+        bytes32 from = tstoreSender == PLACEHOLDER ? bytes32(uint256(uint160(msg.sender))) : tstoreSender;
+        emit Bid(from, msg.value, name);
     }
 
     function placeBids(uint256[] calldata amounts, bytes32[] calldata names) external payable {
         uint256 amountTotal = 0;
+        bytes32 from = tstoreSender == PLACEHOLDER ? bytes32(uint256(uint160(msg.sender))) : tstoreSender;
         if (amounts.length != names.length) revert BadBatch();
         for (uint256 i = 0; i < amounts.length; i++) {
             amountTotal += amounts[i];
-            emit Bid(msg.sender, amounts[i], names[i]);
+            emit Bid(from, amounts[i], names[i]);
         }
         if (amountTotal != msg.value) revert BadBatch();
     }
