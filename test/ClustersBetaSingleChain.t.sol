@@ -4,7 +4,7 @@ pragma solidity ^0.8.23;
 import {ClustersBeta} from "../src/ClustersBeta.sol";
 import {Base_Test} from "./Base.t.sol";
 
-contract ClustersBetaTest is Base_Test {
+contract ClustersBetaSingleChainTest is Base_Test {
     ClustersBeta beta = new ClustersBeta();
 
     function setUp() public virtual override {

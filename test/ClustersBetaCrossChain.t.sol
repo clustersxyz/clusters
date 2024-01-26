@@ -13,7 +13,11 @@ import {Constants} from "./utils/Constants.sol";
 import {Users} from "./utils/Types.sol";
 import {console2} from "forge-std/Test.sol";
 
-contract Beta_Test is TestHelper, Utils {
+import {Endpoint} from "./Base.t.sol";
+
+contract ClustersBetaCrossChainTest is TestHelper, Utils {
+    using OptionsBuilder for bytes;
+
     /// VARIABLES ///
 
     Users internal users;
@@ -72,8 +76,8 @@ contract Beta_Test is TestHelper, Utils {
 
         // Configure local LayerZero environment
         setUpEndpoints(2, LibraryType.UltraLightNode);
-        vm.label(endpoints[1], "L0 Endpoint EID-1");
-        vm.label(endpoints[2], "L0 Endpoint EID-2");
+        vm.label(endpoints[1], "LZ Endpoint EID-1");
+        vm.label(endpoints[2], "LZ Endpoint EID-2");
 
         // Deploy and initialize contracts
         vm.startPrank(users.clustersAdmin);
@@ -95,5 +99,23 @@ contract Beta_Test is TestHelper, Utils {
         vm.stopPrank();
     }
 
-    function testSetup() public {}
+    function testSetup() public {
+        vm.startPrank(users.alicePrimary);
+        clustersProxy.placeBid{value: 0.1 ether}("foobar");
+
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 0.1 ether;
+        amounts[1] = 0.1 ether;
+        bytes32[] memory names = new bytes32[](2);
+        names[0] = "foobar2";
+        names[1] = "foobar3";
+        clustersProxy.placeBids{value: 0.2 ether}(amounts, names);
+
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(99_000 gwei, 0.1 ether);
+        bytes memory message = abi.encodeWithSignature("placeBid(bytes32)", "foobarCrosschain");
+        uint256 nativeFee = initiatorProxy.quote(message, options);
+        initiatorProxy.lzSend{value: nativeFee}(message, options);
+        verifyPackets(1, endpoints[1]);
+        vm.stopPrank();
+    }
 }

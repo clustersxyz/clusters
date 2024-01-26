@@ -19,15 +19,15 @@ contract InitiatorBeta is UUPSUpgradeable, OAppSenderUpgradeable {
 
     /// OAPPSender Functions ///
 
-    function initialize(address endpoint_, address owner_) public initializer {
+    function initialize(address endpoint_, address owner_) external initializer {
         _initializeOAppCore(endpoint_, owner_);
     }
 
-    function setDstEid(uint32 dstEid_) public onlyOwner {
+    function setDstEid(uint32 dstEid_) external onlyOwner {
         dstEid = dstEid_;
     }
 
-    function quote(bytes memory message, bytes memory options) public view returns (uint256 nativeFee) {
+    function quote(bytes memory message, bytes memory options) external view returns (uint256 nativeFee) {
         MessagingFee memory msgQuote = _quote(dstEid, message, options, false);
         return msgQuote.nativeFee;
     }

@@ -19,7 +19,7 @@ contract ClustersBeta is UUPSUpgradeable, OAppReceiverUpgradeable {
 
     /// OAppReceiver Functions ///
 
-    function initialize(address endpoint_, address owner_) public initializer {
+    function initialize(address endpoint_, address owner_) external initializer {
         _initializeOAppCore(endpoint_, owner_);
     }
 
@@ -35,11 +35,11 @@ contract ClustersBeta is UUPSUpgradeable, OAppReceiverUpgradeable {
 
     /// Core Logic ///
 
-    function placeBid(bytes32 name) public payable {
+    function placeBid(bytes32 name) external payable {
         emit Bid(msg.sender, msg.value, name);
     }
 
-    function placeBids(uint256[] calldata amounts, bytes32[] calldata names) public payable {
+    function placeBids(uint256[] calldata amounts, bytes32[] calldata names) external payable {
         uint256 amountTotal = 0;
         if (amounts.length != names.length) revert BadBatch();
         for (uint256 i = 0; i < amounts.length; i++) {
