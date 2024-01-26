@@ -10,7 +10,6 @@ import {ClustersBeta} from "../src/ClustersBeta.sol";
 import {InitiatorBeta} from "../src/InitiatorBeta.sol";
 import {OptionsBuilder} from "layerzero-oapp/contracts/oapp/libs/OptionsBuilder.sol";
 
-
 interface Singlesig {
     function execute(address to, uint256 value, bytes memory data) external returns (bool success);
     function owner() external returns (address);
@@ -43,16 +42,14 @@ contract VanityMining is Script {
     bytes32 salt = 0x000000000000000000000000000000000000000097e5b90d2f1f6025db407f4d; // 0x19670000000A93f312163Cec8C4612Ae7a6783b4
 
     function _checkProxyExists(address addr) internal view returns (address implementationAddr) {
-        bytes32 implSlot = bytes32(
-            uint256(keccak256("eip1967.proxy.implementation")) - 1
-        );
+        bytes32 implSlot = bytes32(uint256(keccak256("eip1967.proxy.implementation")) - 1);
         bytes32 proxySlot = vm.load(proxyAddress, implSlot);
         address implAddr;
         assembly {
             mstore(0, proxySlot)
             implAddr := mload(0)
-        }    
-        require(implAddr != address(0), "proxy not deployed"); 
+        }
+        require(implAddr != address(0), "proxy not deployed");
         return implAddr;
     }
 
@@ -73,7 +70,6 @@ contract VanityMining is Script {
 
         // address implAddress = factory.safeCreate2(salt, initCode);
 
-
         // bytes32 proxyInitCodeHash = LibClone.initCodeHashERC1967(implAddress);
         // console2.logBytes32(proxyInitCodeHash);
 
@@ -86,8 +82,9 @@ contract VanityMining is Script {
 
     /// @dev Precondition is that Singlesig and Proxy are already deployed
     /// @dev Then we deploy a new logic contract and upgrade the proxy to it
-    /// @dev We call initialize separately bc initialization should only be done once, separating from upgradeToAndCall helps enforce this
-    function deployHub() external {
+    /// @dev We call initialize separately bc initialization should only be done once, separating from upgradeToAndCall
+    /// helps enforce this
+    function upgradeHub() external {
         // Sanity check singlesig exists
         console2.log(sig.owner());
 
@@ -108,8 +105,9 @@ contract VanityMining is Script {
 
     /// @dev Precondition is that Singlesig and Proxy are already deployed
     /// @dev Then we deploy a new logic contract and upgrade the proxy to it
-    /// @dev We call initialize separately bc initialization should only be done once, separating from upgradeToAndCall helps enforce this
-    function deployInitiator() external {
+    /// @dev We call initialize separately bc initialization should only be done once, separating from upgradeToAndCall
+    /// helps enforce this
+    function upgradeInitiator() external {
         // Sanity check singlesig exists
         console2.log(sig.owner());
 
@@ -123,7 +121,7 @@ contract VanityMining is Script {
         console2.log(address(logic));
         bytes memory data = abi.encodeWithSelector(proxy.upgradeToAndCall.selector, address(logic), "");
         sig.execute(proxyAddress, 0, data);
-        InitiatorBeta(proxyAddress).initialize(lzTestnetEndpoint, address(sig));
+        // InitiatorBeta(proxyAddress).initialize(lzTestnetEndpoint, address(sig));
 
         vm.stopBroadcast();
     }
@@ -133,7 +131,9 @@ contract VanityMining is Script {
 
         vm.startBroadcast();
 
-        bytes memory data = abi.encodeWithSelector(ClustersBeta(proxyAddress).setPeer.selector, HOLESKY_EID, bytes32(uint256(uint160(proxyAddress))));
+        bytes memory data = abi.encodeWithSelector(
+            ClustersBeta(proxyAddress).setPeer.selector, HOLESKY_EID, bytes32(uint256(uint160(proxyAddress)))
+        );
         sig.execute(proxyAddress, 0, data);
 
         vm.stopBroadcast();
@@ -146,9 +146,11 @@ contract VanityMining is Script {
 
         bytes memory data;
         InitiatorBeta initiatorProxy = InitiatorBeta(proxyAddress);
-        data = abi.encodeWithSelector(initiatorProxy.setPeer.selector, SEPOLIA_EID, bytes32(uint256(uint160(proxyAddress))));
+        data = abi.encodeWithSelector(
+            initiatorProxy.setPeer.selector, SEPOLIA_EID, bytes32(uint256(uint160(proxyAddress)))
+        );
         sig.execute(proxyAddress, 0, data);
-        
+
         data = abi.encodeWithSelector(initiatorProxy.setDstEid.selector, SEPOLIA_EID);
         sig.execute(proxyAddress, 0, data);
 

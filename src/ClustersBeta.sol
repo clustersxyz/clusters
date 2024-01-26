@@ -6,7 +6,7 @@ import {Origin, OAppReceiverUpgradeable} from "layerzero-oapp/contracts/oapp-upg
 
 contract ClustersBeta is UUPSUpgradeable, OAppReceiverUpgradeable {
     bytes32 internal constant PLACEHOLDER = bytes32(uint256(1)); // Cheaper to modify a nonzero slot
-    bytes32 internal tstoreSender = PLACEHOLDER;
+    bytes32 internal tstoreSender; // Cannot set initial field values in upgradeable contracts
 
     event Bid(bytes32 from, uint256 amount, bytes32 name);
 
@@ -24,6 +24,7 @@ contract ClustersBeta is UUPSUpgradeable, OAppReceiverUpgradeable {
 
     function initialize(address endpoint_, address owner_) external initializer {
         _initializeOAppCore(endpoint_, owner_);
+        tstoreSender = PLACEHOLDER;
     }
 
     function _lzReceive(
@@ -33,8 +34,9 @@ contract ClustersBeta is UUPSUpgradeable, OAppReceiverUpgradeable {
         address executor,
         bytes calldata extraData
     ) internal override {
-        tstoreSender = origin.sender;
-        address(this).delegatecall(message);
+        (bytes32 msgsender, bytes memory calldata_) = abi.decode(message, (bytes32, bytes));
+        tstoreSender = msgsender;
+        address(this).delegatecall(calldata_);
         tstoreSender = PLACEHOLDER;
     }
 

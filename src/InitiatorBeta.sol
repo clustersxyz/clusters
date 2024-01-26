@@ -34,6 +34,7 @@ contract InitiatorBeta is UUPSUpgradeable, OAppSenderUpgradeable {
 
     function lzSend(bytes memory message, bytes memory options) external payable {
         MessagingFee memory fee = MessagingFee({nativeFee: uint128(msg.value), lzTokenFee: 0});
-        _lzSend(dstEid, message, options, fee, payable(msg.sender));
+        bytes32 msgsender = bytes32(uint256(uint160(msg.sender)));
+        _lzSend(dstEid, abi.encodePacked(msgsender, message), options, fee, payable(msg.sender));
     }
 }

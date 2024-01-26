@@ -99,7 +99,7 @@ contract ClustersBetaCrossChainTest is TestHelper, Utils {
         vm.stopPrank();
     }
 
-    function testSetup() public {
+    function testCrosschain() public {
         vm.startPrank(users.alicePrimary);
         clustersProxy.placeBid{value: 0.1 ether}("foobar");
 
@@ -112,9 +112,15 @@ contract ClustersBetaCrossChainTest is TestHelper, Utils {
         clustersProxy.placeBids{value: 0.2 ether}(amounts, names);
 
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(99_000, 0.1 ether);
-        bytes memory message = abi.encodeWithSignature("placeBid(bytes32)", "foobarCrosschain");
-        uint256 nativeFee = initiatorProxy.quote(message, options);
+        bytes memory message = abi.encodeWithSignature("placeBid(bytes32)", bytes32("foobarCrosschain"));
+        uint256 nativeFee =
+            initiatorProxy.quote(abi.encodePacked(bytes32(uint256(uint160(msg.sender))), message), options);
         initiatorProxy.lzSend{value: nativeFee}(message, options);
+
+        vm.expectEmit();
+        emit ClustersBeta.Bid(
+            bytes32(uint256(uint160(address(users.alicePrimary)))), 0.1 ether, bytes32("foobarCrosschain")
+        );
         verifyPackets(1, endpoints[1]);
         vm.stopPrank();
     }
