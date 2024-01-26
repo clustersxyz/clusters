@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {Origin, OAppReceiverUpgradeable} from "layerzero-oapp/contracts/oapp-upgradeable/OAppReceiverUpgradeable.sol";
+import {UUPSUpgradeable} from "solady/utils/UUPSUpgradeable.sol";
 import {
     OAppSenderUpgradeable, MessagingFee
 } from "layerzero-oapp/contracts/oapp-upgradeable/OAppSenderUpgradeable.sol";
