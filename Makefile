@@ -7,5 +7,8 @@ sim-deploy-testnet:
 deploy-testnet:
 	forge script -vvv script/Testnet.s.sol --sig "run()" --broadcast
 
+deploy-beta-testnet-hub:
+	forge script -vvv script/VanityMining.s.sol --sig "deployInitiator()" --fork-url ${RPC_URL} --private-key ${PK}
+
 sim-vanity:
 	forge script -vvv script/VanityMining.s.sol --sig "deployAndUpgrade()" --fork-url ${RPC_URL} --private-key ${PK}  --broadcast --verify --delay 30 --etherscan-api-key ${ETHERSCAN_API_KEY}

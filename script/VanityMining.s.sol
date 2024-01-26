@@ -7,6 +7,7 @@ import {LibClone} from "solady/utils/LibClone.sol";
 import {UUPSUpgradeable} from "solady/utils/UUPSUpgradeable.sol";
 import {BasicUUPSImpl} from "../src/BasicUUPSImpl.sol";
 import {ClustersBeta} from "../src/ClustersBeta.sol";
+import {InitiatorBeta} from "../src/InitiatorBeta.sol";
 
 interface Singlesig {
     function execute(address to, uint256 value, bytes memory data) external returns (bool success);
@@ -26,28 +27,97 @@ interface ImmutableCreate2Factory {
 }
 
 contract VanityMining is Script {
+    address constant lzTestnetEndpoint = 0x6EDCE65403992e310A62460808c4b910D972f10f; // Same on all chains
+    address constant proxyAddress = 0x00000000000E1A99dDDd5610111884278BDBda1D; // Same for hub and initiator
+
     ImmutableCreate2Factory immutable factory = ImmutableCreate2Factory(0x0000000000FFe8B47B3e2130213B802212439497);
     bytes initCode = type(BasicUUPSImpl).creationCode;
     bytes32 salt = 0x000000000000000000000000000000000000000097e5b90d2f1f6025db407f4d; // 0x19670000000A93f312163Cec8C4612Ae7a6783b4
 
-    function run() external {
+    function _checkProxyExists(address addr) internal returns (address implementationAddr) {
+        bytes32 implSlot = bytes32(
+            uint256(keccak256("eip1967.proxy.implementation")) - 1
+        );
+        bytes32 proxySlot = vm.load(proxyAddress, implSlot);
+        address implAddr;
+        assembly {
+            mstore(0, proxySlot)
+            implAddr := mload(0)
+        }    
+        require(implAddr != address(0), "proxy not deployed"); 
+        return implAddr;
+    }
+
+    /// @dev Deploy a dummy logic contract and vanity address proxy contract
+    function deployVanityProxy() external {
+        address implAddress = 0x19670000000A93f312163Cec8C4612Ae7a6783b4;
+        // address implAddress = 0x19670000000A93f312163CEC8C4612Ae7a6783B5;
+        // Sanity check logic contract exists
+        console2.logBytes32(UUPSUpgradeable(implAddress).proxiableUUID());
+        console2.log(implAddress);
+
+        bytes memory proxyInitCode = LibClone.initCodeERC1967(implAddress);
+
         vm.startBroadcast();
 
         // bytes32 initCodeHash = keccak256(initCode);
         // console2.logBytes32(initCodeHash);
 
         // address implAddress = factory.safeCreate2(salt, initCode);
-        address implAddress = 0x19670000000A93f312163Cec8C4612Ae7a6783b4;
-        console2.log(implAddress);
 
-        // address proxyAddress = LibClone.deployERC1967(implAddress);
-        bytes memory proxyInitCode = LibClone.initCodeERC1967(implAddress);
-        bytes32 proxyInitCodeHash = LibClone.initCodeHashERC1967(implAddress);
-        console2.logBytes32(proxyInitCodeHash);
+
+        // bytes32 proxyInitCodeHash = LibClone.initCodeHashERC1967(implAddress);
+        // console2.logBytes32(proxyInitCodeHash);
 
         address proxyAddress =
             factory.safeCreate2(0x00000000000000000000000000000000000000001d210f3224b0fe09a30c6ddc, proxyInitCode);
         console2.log(proxyAddress);
+
+        vm.stopBroadcast();
+    }
+
+    /// @dev Precondition is that Singlesig and Proxy are already deployed
+    /// @dev Then we deploy a new logic contract and upgrade the proxy to it
+    /// @dev We call initialize separately bc initialization should only be done once, separating from upgradeToAndCall helps enforce this
+    function deployHub() external {
+        // Sanity check singlesig exists
+        Singlesig sig = Singlesig(0x000000dE1E80ea5a234FB5488fee2584251BC7e8);
+        console2.log(sig.owner());
+
+        // Sanity check proxy exists
+        UUPSUpgradeable proxy = UUPSUpgradeable(proxyAddress);
+        console2.log(_checkProxyExists(proxyAddress));
+
+        vm.startBroadcast();
+
+        ClustersBeta logic = new ClustersBeta();
+        console2.log(address(logic));
+        bytes memory data = abi.encodeWithSelector(proxy.upgradeToAndCall.selector, address(logic), "");
+        sig.execute(proxyAddress, 0, data);
+        ClustersBeta(proxyAddress).initialize(lzTestnetEndpoint, address(sig));
+
+        vm.stopBroadcast();
+    }
+
+    /// @dev Precondition is that Singlesig and Proxy are already deployed
+    /// @dev Then we deploy a new logic contract and upgrade the proxy to it
+    /// @dev We call initialize separately bc initialization should only be done once, separating from upgradeToAndCall helps enforce this
+    function deployInitiator() external {
+        // Sanity check singlesig exists
+        Singlesig sig = Singlesig(0x000000dE1E80ea5a234FB5488fee2584251BC7e8);
+        console2.log(sig.owner());
+
+        // Sanity check proxy exists
+        UUPSUpgradeable proxy = UUPSUpgradeable(proxyAddress);
+        console2.log(_checkProxyExists(proxyAddress));
+
+        vm.startBroadcast();
+
+        InitiatorBeta logic = new InitiatorBeta();
+        console2.log(address(logic));
+        bytes memory data = abi.encodeWithSelector(proxy.upgradeToAndCall.selector, address(logic), "");
+        sig.execute(proxyAddress, 0, data);
+        InitiatorBeta(proxyAddress).initialize(lzTestnetEndpoint, address(sig));
 
         vm.stopBroadcast();
     }
