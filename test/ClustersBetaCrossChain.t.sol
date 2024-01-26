@@ -111,7 +111,7 @@ contract ClustersBetaCrossChainTest is TestHelper, Utils {
         names[1] = "foobar3";
         clustersProxy.placeBids{value: 0.2 ether}(amounts, names);
 
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(99_000 gwei, 0.1 ether);
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(99_000, 0.1 ether);
         bytes memory message = abi.encodeWithSignature("placeBid(bytes32)", "foobarCrosschain");
         uint256 nativeFee = initiatorProxy.quote(message, options);
         initiatorProxy.lzSend{value: nativeFee}(message, options);

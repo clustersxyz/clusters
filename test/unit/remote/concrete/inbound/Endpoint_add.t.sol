@@ -20,7 +20,7 @@ contract Inbound_Endpoint_add_Unit_Concrete_Test is Inbound_Harberger_Shared_Tes
         bytes memory data = abi.encodeWithSignature(
             "add(bytes32,bytes32)", _addressToBytes32(users.alicePrimary), _addressToBytes32(users.aliceSecondary)
         );
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(250_000 gwei, 0);
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(250_000, 0);
         (uint256 nativeFee,) = remoteEndpoint.quote(1, data, options, false);
         remoteEndpoint.lzSend{value: nativeFee}(data, options, payable(msg.sender));
         verifyPackets(1, address(localEndpoint));

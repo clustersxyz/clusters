@@ -32,7 +32,7 @@ contract RemoteBuyNameScript is Script {
 
         bytes memory data =
             abi.encodeWithSignature("buyName(bytes32,uint256,string)", addressToBytes32(deployer), 0.02 ether, "zodomo");
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(250_000 gwei, uint128(0.02 ether));
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(250_000, uint128(0.02 ether));
 
         vm.startBroadcast(deployerPrivateKey);
         (uint256 nativeFee,) = endpoint.quote(40121, data, options, false);

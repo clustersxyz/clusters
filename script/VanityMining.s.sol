@@ -8,6 +8,8 @@ import {UUPSUpgradeable} from "solady/utils/UUPSUpgradeable.sol";
 import {BasicUUPSImpl} from "../src/BasicUUPSImpl.sol";
 import {ClustersBeta} from "../src/ClustersBeta.sol";
 import {InitiatorBeta} from "../src/InitiatorBeta.sol";
+import {OptionsBuilder} from "layerzero-oapp/contracts/oapp/libs/OptionsBuilder.sol";
+
 
 interface Singlesig {
     function execute(address to, uint256 value, bytes memory data) external returns (bool success);
@@ -27,14 +29,20 @@ interface ImmutableCreate2Factory {
 }
 
 contract VanityMining is Script {
+    using OptionsBuilder for bytes;
+
     address constant lzTestnetEndpoint = 0x6EDCE65403992e310A62460808c4b910D972f10f; // Same on all chains
     address constant proxyAddress = 0x00000000000E1A99dDDd5610111884278BDBda1D; // Same for hub and initiator
 
-    ImmutableCreate2Factory immutable factory = ImmutableCreate2Factory(0x0000000000FFe8B47B3e2130213B802212439497);
+    uint32 constant HOLESKY_EID = 40217;
+    uint32 constant SEPOLIA_EID = 40161;
+
+    Singlesig constant sig = Singlesig(0x000000dE1E80ea5a234FB5488fee2584251BC7e8);
+    ImmutableCreate2Factory constant factory = ImmutableCreate2Factory(0x0000000000FFe8B47B3e2130213B802212439497);
     bytes initCode = type(BasicUUPSImpl).creationCode;
     bytes32 salt = 0x000000000000000000000000000000000000000097e5b90d2f1f6025db407f4d; // 0x19670000000A93f312163Cec8C4612Ae7a6783b4
 
-    function _checkProxyExists(address addr) internal returns (address implementationAddr) {
+    function _checkProxyExists(address addr) internal view returns (address implementationAddr) {
         bytes32 implSlot = bytes32(
             uint256(keccak256("eip1967.proxy.implementation")) - 1
         );
@@ -69,9 +77,9 @@ contract VanityMining is Script {
         // bytes32 proxyInitCodeHash = LibClone.initCodeHashERC1967(implAddress);
         // console2.logBytes32(proxyInitCodeHash);
 
-        address proxyAddress =
-            factory.safeCreate2(0x00000000000000000000000000000000000000001d210f3224b0fe09a30c6ddc, proxyInitCode);
-        console2.log(proxyAddress);
+        // address proxyAddress =
+        //     factory.safeCreate2(0x00000000000000000000000000000000000000001d210f3224b0fe09a30c6ddc, proxyInitCode);
+        // console2.log(proxyAddress);
 
         vm.stopBroadcast();
     }
@@ -81,7 +89,6 @@ contract VanityMining is Script {
     /// @dev We call initialize separately bc initialization should only be done once, separating from upgradeToAndCall helps enforce this
     function deployHub() external {
         // Sanity check singlesig exists
-        Singlesig sig = Singlesig(0x000000dE1E80ea5a234FB5488fee2584251BC7e8);
         console2.log(sig.owner());
 
         // Sanity check proxy exists
@@ -104,7 +111,6 @@ contract VanityMining is Script {
     /// @dev We call initialize separately bc initialization should only be done once, separating from upgradeToAndCall helps enforce this
     function deployInitiator() external {
         // Sanity check singlesig exists
-        Singlesig sig = Singlesig(0x000000dE1E80ea5a234FB5488fee2584251BC7e8);
         console2.log(sig.owner());
 
         // Sanity check proxy exists
@@ -122,22 +128,45 @@ contract VanityMining is Script {
         vm.stopBroadcast();
     }
 
-    function deployAndUpgrade() external {
-        Singlesig sig = Singlesig(0x000000dE1E80ea5a234FB5488fee2584251BC7e8);
-        console2.log(sig.owner());
+    function configureHub() external {
+        console2.log(_checkProxyExists(proxyAddress));
 
         vm.startBroadcast();
 
-        address proxyAddress = 0x00000000000E1A99dDDd5610111884278BDBda1D;
-        UUPSUpgradeable proxy = UUPSUpgradeable(proxyAddress);
-
-        // ClustersBeta beta = new ClustersBeta();
-        ClustersBeta beta = ClustersBeta(0xA22EE3E897d2Ce152410A6F178945e19816C7801);
-
-        bytes memory data = abi.encodeWithSelector(proxy.upgradeToAndCall.selector, address(beta), "");
-        console2.logBytes(data);
-
+        bytes memory data = abi.encodeWithSelector(ClustersBeta(proxyAddress).setPeer.selector, HOLESKY_EID, bytes32(uint256(uint160(proxyAddress))));
         sig.execute(proxyAddress, 0, data);
+
+        vm.stopBroadcast();
+    }
+
+    function configureInitiator() external {
+        console2.log(_checkProxyExists(proxyAddress));
+
+        vm.startBroadcast();
+
+        bytes memory data;
+        InitiatorBeta initiatorProxy = InitiatorBeta(proxyAddress);
+        data = abi.encodeWithSelector(initiatorProxy.setPeer.selector, SEPOLIA_EID, bytes32(uint256(uint160(proxyAddress))));
+        sig.execute(proxyAddress, 0, data);
+        
+        data = abi.encodeWithSelector(initiatorProxy.setDstEid.selector, SEPOLIA_EID);
+        sig.execute(proxyAddress, 0, data);
+
+        vm.stopBroadcast();
+    }
+
+    function testInitiate() external {
+        console2.log(_checkProxyExists(proxyAddress));
+
+        InitiatorBeta initiatorProxy = InitiatorBeta(proxyAddress);
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(99_000, 0.1 ether);
+        bytes memory message = abi.encodeWithSignature("placeBid(bytes32)", "testCrosschain");
+        uint256 nativeFee = initiatorProxy.quote(message, options);
+        console2.log(nativeFee);
+
+        vm.startBroadcast();
+
+        initiatorProxy.lzSend{value: nativeFee}(message, options);
 
         vm.stopBroadcast();
     }

@@ -21,7 +21,7 @@ contract Inbound_Endpoint_setDefaultClusterName_Unit_Concrete_Test is Inbound_Ha
         bytes memory data = abi.encodeWithSignature(
             "setDefaultClusterName(bytes32,string)", _addressToBytes32(users.alicePrimary), "zodomo"
         );
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(250_000 gwei, 0);
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(250_000, 0);
         (uint256 nativeFee,) = remoteEndpoint.quote(1, data, options, false);
         remoteEndpoint.lzSend{value: nativeFee}(data, options, payable(msg.sender));
         verifyPackets(1, address(localEndpoint));
