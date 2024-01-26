@@ -82,7 +82,9 @@ contract Beta_Test is TestHelper, Utils {
         clustersProxy = ClustersBeta(LibClone.deployERC1967(address(clustersImplementation)));
         clustersProxy.initialize(endpoints[1], users.clustersAdmin);
         initiatorProxy = InitiatorBeta(LibClone.deployERC1967(address(initiatorImplementation)));
-        initiatorProxy.initialize(endpoints[2], users.clustersAdmin, 1, _addressToBytes32(address(clustersProxy)));
+        initiatorProxy.initialize(endpoints[2], users.clustersAdmin);
+        initiatorProxy.setDstEid(1);
+        initiatorProxy.setPeer(1, _addressToBytes32(address(clustersProxy)));
         clustersProxy.setPeer(2, _addressToBytes32(address(initiatorProxy)));
 
         // Label deployed contracts
