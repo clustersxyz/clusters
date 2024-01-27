@@ -114,14 +114,14 @@ contract ClustersBetaCrossChainTest is TestHelper, Utils {
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(199_000, 0.1 ether);
         bytes memory message = abi.encodeWithSignature("placeBid(bytes32)", bytes32("foobarCrosschain"));
         bytes32 from = bytes32(uint256(uint160(address(users.alicePrimary))));
-        uint256 nativeFee = initiatorProxy.quote(abi.encodePacked(from, message), options);
+        uint256 nativeFee = initiatorProxy.quote(abi.encode(from, message), options);
         initiatorProxy.lzSend{value: nativeFee}(message, options);
 
         vm.stopPrank();
 
         // vm.expectEmit(true, false, false, false, address(clustersProxy));
-        vm.expectEmit();
-        emit ClustersBeta.Bid(from, 0.1 ether, bytes32("foobarCrosschain"));
+        // vm.expectEmit();
         verifyPackets(1, address(clustersProxy));
+        emit ClustersBeta.Bid(from, 0.1 ether, bytes32("foobarCrosschain"));
     }
 }

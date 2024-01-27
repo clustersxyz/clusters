@@ -163,8 +163,7 @@ contract VanityMining is Script {
         InitiatorBeta initiatorProxy = InitiatorBeta(proxyAddress);
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(199_000, 0.01 ether);
         bytes memory message = abi.encodeWithSignature("placeBid(bytes32)", bytes32("testCrosschain"));
-        uint256 nativeFee =
-            initiatorProxy.quote(abi.encodePacked(bytes32(uint256(uint160(msg.sender))), message), options);
+        uint256 nativeFee = initiatorProxy.quote(abi.encode(bytes32(uint256(uint160(msg.sender))), message), options);
         console2.log(nativeFee);
         console2.logBytes(message);
 
