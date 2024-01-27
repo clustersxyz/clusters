@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.24;
 
 interface IPricing {
     /// @notice The amount of eth that's been spent on a name since last update

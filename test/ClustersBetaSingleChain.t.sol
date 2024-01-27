@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.24;
 
 import {ClustersBeta} from "../src/ClustersBeta.sol";
 import {Base_Test} from "./Base.t.sol";

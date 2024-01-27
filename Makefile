@@ -8,7 +8,7 @@ deploy-testnet:
 	forge script -vvv script/Testnet.s.sol --sig "run()" --broadcast
 
 deploy-beta-testnet-hub:
-	forge script -vvv script/VanityMining.s.sol --sig "doInitiate()" --fork-url ${HOLESKY_RPC_URL} --private-key ${PK} --broadcast
+	forge script -vvv script/VanityMining.s.sol --sig "upgradeInitiator()" --fork-url ${HOLESKY_RPC_URL} --private-key ${PK} --broadcast --verify --delay 30 --etherscan-api-key ${ETHERSCAN_API_KEY}
 
 sim-vanity:
 	forge script -vvv script/VanityMining.s.sol --sig "deployAndUpgrade()" --fork-url ${RPC_URL} --private-key ${PK}  --broadcast --verify --delay 30 --etherscan-api-key ${ETHERSCAN_API_KEY}
