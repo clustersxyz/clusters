@@ -28,7 +28,7 @@ contract Inbound_Endpoint_transferName_Unit_Concrete_Test is Inbound_Harberger_S
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(250_000, 0);
         (uint256 nativeFee,) = remoteEndpoint.quote(1, data, options, false);
         remoteEndpoint.lzSend{value: nativeFee}(data, options, payable(msg.sender));
-        verifyPackets(1, address(localEndpoint));
+        //verifyPackets(1, address(localEndpoint));
         vm.stopPrank();
 
         bytes32[] memory unverified;

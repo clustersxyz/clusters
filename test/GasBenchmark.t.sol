@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Base_Test, IEndpoint, IClustersHub} from "./Base.t.sol";
+import "./Base.t.sol";
 
 contract GasBenchmarkTest is Base_Test {
+    using EnumerableSet for EnumerableSet.AddressSet;
+
     function setUp() public virtual override {
         Base_Test.setUp();
-        configureHarbergerEnvironment(1);
+        configureHarbergerEnvironment();
     }
 
     function testBenchmark() public {
@@ -25,7 +27,7 @@ contract GasBenchmarkTest is Base_Test {
         vm.stopPrank();
 
         vm.startPrank(users.alicePrimary);
-        endpointProxy.multicall{value: 2 * minPrice}(buyBatchData, sig1);
+        IEndpoint(endpointGroup.at(0)).multicall{value: 2 * minPrice}(buyBatchData, sig1);
         clusters.fundName{value: 0.5 ether}(0.5 ether, constants.TEST_NAME());
         clusters.add(_addressToBytes32(users.aliceSecondary));
         clusters.setDefaultClusterName("zodomo");

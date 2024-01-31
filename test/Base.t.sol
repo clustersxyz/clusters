@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "layerzero-oapp/test/TestHelper.sol";
+//import "layerzero-oapp/test/TestHelper.sol";
+import "devtools/mocks/EndpointV2Mock.sol";
+import "forge-std/Test.sol";
+import {OptionsBuilder} from "layerzero-oapp/contracts/oapp/libs/OptionsBuilder.sol";
 import {OAppUpgradeable} from "layerzero-oapp/contracts/oapp-upgradeable/OAppUpgradeable.sol";
 import {LibClone} from "solady/utils/LibClone.sol";
 import {Utils} from "./utils/Utils.sol";
@@ -22,7 +25,7 @@ import {EnumerableSet} from "openzeppelin/contracts/utils/structs/EnumerableSet.
 import {LibString} from "solady/utils/LibString.sol";
 import {console2} from "forge-std/Test.sol";
 
-abstract contract Base_Test is TestHelper, Utils {
+abstract contract Base_Test is Test, Utils {
     using EnumerableSet for EnumerableSet.Bytes32Set;
     using EnumerableSet for EnumerableSet.AddressSet;
     using LibString for uint256;
@@ -34,6 +37,9 @@ abstract contract Base_Test is TestHelper, Utils {
     mapping(uint256 clusterId => EnumerableSet.Bytes32Set vals) internal values;
 
     /// TEST CONTRACTS ///
+
+    EndpointV2Mock internal eid1;
+    EndpointV2Mock internal eid2;
 
     Constants internal constants;
     PricingFlat internal pricingFlat;
@@ -71,8 +77,10 @@ abstract contract Base_Test is TestHelper, Utils {
 
     /// SETUP ///
 
-    function setUp() public virtual override {
-        super.setUp();
+    function setUp() public virtual {
+        eid1 = new EndpointV2Mock(1);
+        eid2 = new EndpointV2Mock(2);
+
         constants = new Constants();
         uint256 fundingAmount = constants.USERS_FUNDING_AMOUNT();
         fickleReceiver = new FickleReceiver();
@@ -97,46 +105,34 @@ abstract contract Base_Test is TestHelper, Utils {
         pricingHarberger = new PricingHarbergerHarness();
         endpoint = new Endpoint();
 
+        vm.label(address(eid1), "EndpointV2Mock EID: 1");
+        vm.label(address(eid2), "EndpointV2Mock EID: 2");
         vm.label(address(pricingFlat), "PricingFlat Implementation");
         vm.label(address(pricingHarberger), "PricingHarberger Implementation");
         vm.label(address(endpoint), "Endpoint Implementation");
     }
 
-    function configureFlatEnvironment(uint8 instances) internal {
-        setUpEndpoints(instances, LibraryType.UltraLightNode);
-        for (uint8 i; i < instances; ++i) {
-            if (i == 0) {
-                vm.label(endpoints[1], LibString.concat("LZ Endpoint EID-", uint256(1).toString()));
-                deployHubFlat(endpoints[1]);
-            } else {
-                vm.label(endpoints[i + 1], LibString.concat("LZ Endpoint EID-", uint256(i + 1).toString()));
-                deploySpokeFlat(endpoints[i + 1]);
-            }
-        }
+    function configureFlatEnvironment() internal {
+        deployHubFlat(address(eid1));
+        deploySpokeFlat(address(eid2));
+        eid1.setDestLzEndpoint(endpointGroup.at(1), address(eid2));
+        eid2.setDestLzEndpoint(endpointGroup.at(0), address(eid1));
         vm.startPrank(users.clustersAdmin);
-        wireOApps(endpointGroup.values());
-        for (uint8 i = 1; i < instances; ++i) {
-            Endpoint(endpointGroup.at(i)).setDstEid(1);
-        }
+        Endpoint(endpointGroup.at(0)).setPeer(2, _addressToBytes32(endpointGroup.at(1)));
+        Endpoint(endpointGroup.at(1)).setPeer(1, _addressToBytes32(endpointGroup.at(0)));
+        Endpoint(endpointGroup.at(1)).setDstEid(1);
         vm.stopPrank();
     }
 
-    function configureHarbergerEnvironment(uint8 instances) internal {
-        setUpEndpoints(instances, LibraryType.UltraLightNode);
-        for (uint8 i; i < instances; ++i) {
-            if (i == 0) {
-                vm.label(endpoints[1], LibString.concat("LZ Endpoint EID-", uint256(1).toString()));
-                deployHubHarberger(endpoints[1]);
-            } else {
-                vm.label(endpoints[i + 1], LibString.concat("LZ Endpoint EID-", uint256(i + 1).toString()));
-                deploySpokeHarberger(endpoints[i + 1]);
-            }
-        }
+    function configureHarbergerEnvironment() internal {
+        deployHubHarberger(address(eid1));
+        deploySpokeHarberger(address(eid2));
+        eid1.setDestLzEndpoint(endpointGroup.at(1), address(eid2));
+        eid2.setDestLzEndpoint(endpointGroup.at(0), address(eid1));
         vm.startPrank(users.clustersAdmin);
-        wireOApps(endpointGroup.values());
-        for (uint8 i = 1; i < instances; ++i) {
-            Endpoint(endpointGroup.at(i)).setDstEid(1);
-        }
+        Endpoint(endpointGroup.at(0)).setPeer(2, _addressToBytes32(endpointGroup.at(1)));
+        Endpoint(endpointGroup.at(1)).setPeer(1, _addressToBytes32(endpointGroup.at(0)));
+        Endpoint(endpointGroup.at(1)).setDstEid(1);
         vm.stopPrank();
     }
 

@@ -13,7 +13,7 @@ abstract contract Inbound_Harberger_Shared_Test is Base_Test {
 
     function setUp() public virtual override {
         Base_Test.setUp();
-        configureHarbergerEnvironment(2);
+        configureHarbergerEnvironment();
         localEndpoint = Endpoint(endpointGroup.at(0));
         remoteEndpoint = Endpoint(endpointGroup.at(1));
         localClusters = ClustersHub(clustersGroup.at(0));

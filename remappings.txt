@@ -12,3 +12,4 @@ solidity-bytes-utils/=lib/LayerZero-v2/oapp/node_modules/solidity-bytes-utils/
 @layerzerolabs/lz-evm-protocol-v2/=lib/LayerZero-v2/oapp/node_modules/@layerzerolabs/lz-evm-protocol-v2/
 @layerzerolabs/lz-evm-messagelib-v2/=lib/LayerZero-v2/oapp/node_modules/@layerzerolabs/lz-evm-messagelib-v2/
 layerzero-oapp/=lib/LayerZero-v2/oapp/
+devtools/=lib/devtools/packages/test-devtools-evm-hardhat/contracts/

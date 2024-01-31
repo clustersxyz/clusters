@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "layerzero-oapp/test/TestHelper.sol";
+//import "layerzero-oapp/test/TestHelper.sol";
+import "devtools/mocks/EndpointV2Mock.sol";
+import "forge-std/Test.sol";
+import {OptionsBuilder} from "layerzero-oapp/contracts/oapp/libs/OptionsBuilder.sol";
 import {OAppUpgradeable} from "layerzero-oapp/contracts/oapp-upgradeable/OAppUpgradeable.sol";
 import {LibClone} from "solady/utils/LibClone.sol";
 import {Utils} from "./utils/Utils.sol";
@@ -15,7 +18,7 @@ import {console2} from "forge-std/Test.sol";
 
 import {Endpoint} from "./Base.t.sol";
 
-contract ClustersBetaCrossChainTest is TestHelper, Utils {
+contract ClustersBetaCrossChainTest is Test, Utils {
     using OptionsBuilder for bytes;
 
     /// VARIABLES ///
@@ -25,6 +28,9 @@ contract ClustersBetaCrossChainTest is TestHelper, Utils {
     Constants internal constants;
 
     /// CONTRACTS ///
+
+    EndpointV2Mock internal eid1;
+    EndpointV2Mock internal eid2;
 
     ClustersBeta internal clustersImplementation;
     ClustersBeta internal clustersProxy;
@@ -54,8 +60,9 @@ contract ClustersBetaCrossChainTest is TestHelper, Utils {
 
     /// SETUP ///
 
-    function setUp() public virtual override {
-        super.setUp();
+    function setUp() public virtual {
+        eid1 = new EndpointV2Mock(1);
+        eid2 = new EndpointV2Mock(2);
 
         // Set state variables
         constants = new Constants();
@@ -74,24 +81,23 @@ contract ClustersBetaCrossChainTest is TestHelper, Utils {
         });
         (users.signerPrivKey, users.signer) = createUserWithPrivKey("Signer");
 
-        // Configure local LayerZero environment
-        setUpEndpoints(2, LibraryType.UltraLightNode);
-        vm.label(endpoints[1], "LZ Endpoint EID-1");
-        vm.label(endpoints[2], "LZ Endpoint EID-2");
-
         // Deploy and initialize contracts
         vm.startPrank(users.clustersAdmin);
         clustersImplementation = new ClustersBeta();
         initiatorImplementation = new InitiatorBeta();
         clustersProxy = ClustersBeta(LibClone.deployERC1967(address(clustersImplementation)));
-        clustersProxy.initialize(endpoints[1], users.clustersAdmin);
+        clustersProxy.initialize(address(eid1), users.clustersAdmin);
         initiatorProxy = InitiatorBeta(LibClone.deployERC1967(address(initiatorImplementation)));
-        initiatorProxy.initialize(endpoints[2], users.clustersAdmin);
-        initiatorProxy.setDstEid(1);
+        initiatorProxy.initialize(address(eid2), users.clustersAdmin);
         initiatorProxy.setPeer(1, _addressToBytes32(address(clustersProxy)));
         clustersProxy.setPeer(2, _addressToBytes32(address(initiatorProxy)));
+        initiatorProxy.setDstEid(1);
+        eid1.setDestLzEndpoint(address(initiatorProxy), address(eid2));
+        eid2.setDestLzEndpoint(address(clustersProxy), address(eid1));
 
         // Label deployed contracts
+        vm.label(address(eid1), "EndpointV2Mock EID: 1");
+        vm.label(address(eid2), "EndpointV2Mock EID: 2");
         vm.label(address(clustersImplementation), "ClustersBeta Implementation");
         vm.label(address(clustersProxy), "ClustersBeta Proxy");
         vm.label(address(initiatorImplementation), "InitiatorBeta Implementation");
@@ -121,7 +127,7 @@ contract ClustersBetaCrossChainTest is TestHelper, Utils {
 
         // vm.expectEmit(true, false, false, false, address(clustersProxy));
         // vm.expectEmit();
-        verifyPackets(1, address(clustersProxy));
+        //verifyPackets(1, address(clustersProxy));
         emit ClustersBeta.Bid(from, 0.1 ether, bytes32("foobarCrosschain"));
     }
 }

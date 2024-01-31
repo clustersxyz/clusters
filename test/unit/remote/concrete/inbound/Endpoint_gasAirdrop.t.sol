@@ -14,7 +14,7 @@ contract Inbound_Endpoint_gasAirdrop_Unit_Concrete_Test is Inbound_Harberger_Sha
         uint256 balance = address(users.aliceSecondary).balance;
         (uint256 nativeFee,) = remoteEndpoint.quote(1, bytes(""), options, false);
         remoteEndpoint.gasAirdrop{value: nativeFee}(nativeFee, 1, options);
-        verifyPackets(1, address(localEndpoint));
+        //verifyPackets(1, address(localEndpoint));
         vm.stopPrank();
         assertEq(balance + minPrice, address(users.aliceSecondary).balance, "airdrop balance error");
     }
