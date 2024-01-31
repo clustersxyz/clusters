@@ -18,7 +18,7 @@ contract Endpoint_setSignerAddr_Unit_Concrete_Test is PricingHarberger_Unit_Shar
     function testSetSignerAddr_RevertUnauthorized() public {
         address testAddr = constants.TEST_ADDRESS();
         vm.prank(users.hacker);
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", users.hacker));
         endpointProxy.setSignerAddr(testAddr);
     }
 }

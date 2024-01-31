@@ -18,7 +18,7 @@ contract Endpoint_setClustersAddr_Unit_Concrete_Test is PricingHarberger_Unit_Sh
     function testSetClustersAddr_RevertUnauthorized() public {
         address testAddr = constants.TEST_ADDRESS();
         vm.prank(users.hacker);
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", users.hacker));
         endpointProxy.setClustersAddr(testAddr);
     }
 }
