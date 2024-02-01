@@ -11,7 +11,7 @@ contract InitiatorBeta is UUPSUpgradeable, OAppSenderUpgradeable {
 
     error Unauthorized();
 
-    /// UUPSUpgradeable Management ///
+    /// UUPSUpgradeable Authentication ///
 
     function _authorizeUpgrade(address newImplementation) internal override {
         if (msg.sender != 0x000000dE1E80ea5a234FB5488fee2584251BC7e8) revert Unauthorized();

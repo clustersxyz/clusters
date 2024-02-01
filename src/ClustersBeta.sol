@@ -57,4 +57,9 @@ contract ClustersBeta is UUPSUpgradeable, OAppReceiverUpgradeable {
         }
         if (amountTotal != msg.value) revert BadBatch();
     }
+
+    function withdraw(address payable to_, uint256 amount) external {
+        if (msg.sender != 0x000000dE1E80ea5a234FB5488fee2584251BC7e8) revert Unauthorized();
+        to_.call{value: amount}("");
+    }
 }
