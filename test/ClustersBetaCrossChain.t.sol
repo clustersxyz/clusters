@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.23;
 
 //import "layerzero-oapp/test/TestHelper.sol";
 import "devtools/mocks/EndpointV2Mock.sol";

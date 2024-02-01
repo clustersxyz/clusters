@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.23;
 
 // Follow https://docs.soliditylang.org/en/latest/style-guide.html for style
 

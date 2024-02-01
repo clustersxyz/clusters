@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: CC0-1.0
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.23;
 
 import {Script} from "forge-std/Script.sol";
 import {console2} from "forge-std/console2.sol";
@@ -31,10 +31,18 @@ contract VanityMining is Script {
     using OptionsBuilder for bytes;
 
     address constant lzTestnetEndpoint = 0x6EDCE65403992e310A62460808c4b910D972f10f; // Same on all chains
+    address constant lzProdEndpoint = 0x1a44076050125825900e736c501f859c50fE728c; // Same on all chains except shimmer/meter
     address constant proxyAddress = 0x00000000000E1A99dDDd5610111884278BDBda1D; // Same for hub and initiator
 
     uint32 constant HOLESKY_EID = 40217;
     uint32 constant SEPOLIA_EID = 40161;
+    uint32 constant ETHEREUM_EID = 30101;
+    uint32 constant AVALANCHE_EID = 30106;
+    uint32 constant POLYGON_EID = 30109;
+    uint32 constant BINANCE_EID = 30102;
+    uint32 constant OPTIMISM_EID = 30111;
+    uint32 constant ARBITRUM_EID = 30110;
+    uint32 constant BASE_EID = 30184;
 
     Singlesig constant sig = Singlesig(0x000000dE1E80ea5a234FB5488fee2584251BC7e8);
     ImmutableCreate2Factory constant factory = ImmutableCreate2Factory(0x0000000000FFe8B47B3e2130213B802212439497);
@@ -55,27 +63,28 @@ contract VanityMining is Script {
 
     /// @dev Deploy a dummy logic contract and vanity address proxy contract
     function deployVanityProxy() external {
-        address implAddress = 0x19670000000A93f312163Cec8C4612Ae7a6783b4;
-        // address implAddress = 0x19670000000A93f312163CEC8C4612Ae7a6783B5;
+        address implAddressCorrect = 0x19670000000A93f312163Cec8C4612Ae7a6783b4;
         // Sanity check logic contract exists
-        console2.logBytes32(UUPSUpgradeable(implAddress).proxiableUUID());
-        console2.log(implAddress);
+        // console2.logBytes32(UUPSUpgradeable(implAddress).proxiableUUID());
+        // console2.log(implAddress);
 
-        bytes memory proxyInitCode = LibClone.initCodeERC1967(implAddress);
+        bytes memory proxyInitCode = LibClone.initCodeERC1967(implAddressCorrect);
 
         vm.startBroadcast();
 
         // bytes32 initCodeHash = keccak256(initCode);
         // console2.logBytes32(initCodeHash);
 
-        // address implAddress = factory.safeCreate2(salt, initCode);
+        address implAddress = factory.safeCreate2(salt, initCode);
+        require(implAddress == implAddressCorrect, "wrong vanity logic addy");
 
-        // bytes32 proxyInitCodeHash = LibClone.initCodeHashERC1967(implAddress);
+        bytes32 proxyInitCodeHash = LibClone.initCodeHashERC1967(implAddressCorrect);
         // console2.logBytes32(proxyInitCodeHash);
 
-        // address proxyAddress =
-        //     factory.safeCreate2(0x00000000000000000000000000000000000000001d210f3224b0fe09a30c6ddc, proxyInitCode);
-        // console2.log(proxyAddress);
+        address proxyAddressDeployed =
+            factory.safeCreate2(0x00000000000000000000000000000000000000001d210f3224b0fe09a30c6ddc, proxyInitCode);
+        console2.log(proxyAddressDeployed);
+        require(proxyAddress == proxyAddressDeployed, "wrong vanity proxy addy");
 
         vm.stopBroadcast();
     }
@@ -98,7 +107,7 @@ contract VanityMining is Script {
         console2.log(address(logic));
         bytes memory data = abi.encodeWithSelector(proxy.upgradeToAndCall.selector, address(logic), "");
         sig.execute(proxyAddress, 0, data);
-        // ClustersBeta(proxyAddress).initialize(lzTestnetEndpoint, address(sig));
+        ClustersBeta(proxyAddress).initialize(lzProdEndpoint, address(sig));
 
         vm.stopBroadcast();
     }
@@ -121,7 +130,16 @@ contract VanityMining is Script {
         console2.log(address(logic));
         bytes memory data = abi.encodeWithSelector(proxy.upgradeToAndCall.selector, address(logic), "");
         sig.execute(proxyAddress, 0, data);
-        // InitiatorBeta(proxyAddress).initialize(lzTestnetEndpoint, address(sig));
+        InitiatorBeta(proxyAddress).initialize(lzProdEndpoint, address(sig));
+
+        InitiatorBeta initiatorProxy = InitiatorBeta(proxyAddress);
+        data = abi.encodeWithSelector(
+            initiatorProxy.setPeer.selector, ETHEREUM_EID, bytes32(uint256(uint160(proxyAddress)))
+        );
+        sig.execute(proxyAddress, 0, data);
+
+        data = abi.encodeWithSelector(initiatorProxy.setDstEid.selector, ETHEREUM_EID);
+        sig.execute(proxyAddress, 0, data);
 
         vm.stopBroadcast();
     }
@@ -131,8 +149,40 @@ contract VanityMining is Script {
 
         vm.startBroadcast();
 
-        bytes memory data = abi.encodeWithSelector(
-            ClustersBeta(proxyAddress).setPeer.selector, HOLESKY_EID, bytes32(uint256(uint160(proxyAddress)))
+        // ClustersBeta(proxyAddress).initialize(lzProdEndpoint, address(sig));
+
+        // bytes memory data = abi.encodeWithSelector(
+        //     ClustersBeta(proxyAddress).withdraw.selector, msg.sender, proxyAddress.balance
+        // );
+
+        bytes memory data;
+        data = abi.encodeWithSelector(
+            ClustersBeta(proxyAddress).setPeer.selector, AVALANCHE_EID, bytes32(uint256(uint160(proxyAddress)))
+        );
+        sig.execute(proxyAddress, 0, data);
+
+        data = abi.encodeWithSelector(
+            ClustersBeta(proxyAddress).setPeer.selector, POLYGON_EID, bytes32(uint256(uint160(proxyAddress)))
+        );
+        sig.execute(proxyAddress, 0, data);
+
+        data = abi.encodeWithSelector(
+            ClustersBeta(proxyAddress).setPeer.selector, BINANCE_EID, bytes32(uint256(uint160(proxyAddress)))
+        );
+        sig.execute(proxyAddress, 0, data);
+
+        data = abi.encodeWithSelector(
+            ClustersBeta(proxyAddress).setPeer.selector, OPTIMISM_EID, bytes32(uint256(uint160(proxyAddress)))
+        );
+        sig.execute(proxyAddress, 0, data);
+
+        data = abi.encodeWithSelector(
+            ClustersBeta(proxyAddress).setPeer.selector, ARBITRUM_EID, bytes32(uint256(uint160(proxyAddress)))
+        );
+        sig.execute(proxyAddress, 0, data);
+
+        data = abi.encodeWithSelector(
+            ClustersBeta(proxyAddress).setPeer.selector, BASE_EID, bytes32(uint256(uint160(proxyAddress)))
         );
         sig.execute(proxyAddress, 0, data);
 
@@ -147,11 +197,11 @@ contract VanityMining is Script {
         bytes memory data;
         InitiatorBeta initiatorProxy = InitiatorBeta(proxyAddress);
         data = abi.encodeWithSelector(
-            initiatorProxy.setPeer.selector, SEPOLIA_EID, bytes32(uint256(uint160(proxyAddress)))
+            initiatorProxy.setPeer.selector, ETHEREUM_EID, bytes32(uint256(uint160(proxyAddress)))
         );
         sig.execute(proxyAddress, 0, data);
 
-        data = abi.encodeWithSelector(initiatorProxy.setDstEid.selector, SEPOLIA_EID);
+        data = abi.encodeWithSelector(initiatorProxy.setDstEid.selector, ETHEREUM_EID);
         sig.execute(proxyAddress, 0, data);
 
         vm.stopBroadcast();
@@ -161,7 +211,7 @@ contract VanityMining is Script {
         console2.log(_checkProxyExists(proxyAddress));
 
         InitiatorBeta initiatorProxy = InitiatorBeta(proxyAddress);
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(199_000, 0.01 ether);
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(75_000, 0.00 ether);
         bytes memory message = abi.encodeWithSignature("placeBid(bytes32)", bytes32("testCrosschain"));
         uint256 nativeFee = initiatorProxy.quote(abi.encode(bytes32(uint256(uint160(msg.sender))), message), options);
         console2.log(nativeFee);

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.23;
 
 import {Base_Test, ClustersHub, Endpoint, OAppUpgradeable, EnumerableSet, console2} from "../../../Base.t.sol";
 //import {@layerzerolabs/lz-evm-protocol-v2/
