@@ -4,7 +4,11 @@ pragma solidity ^0.8.23;
 import "./Base.t.sol";
 
 contract GasBenchmarkTest is Base_Test {
+    using OptionsBuilder for bytes;
     using EnumerableSet for EnumerableSet.AddressSet;
+
+    event Bid(bytes32 from, uint256 amount, bytes32 name);
+    event Bid(bytes32 from, uint256 amount, bytes32 name, bytes32 referralAddress);
 
     function setUp() public virtual override {
         Base_Test.setUp();
@@ -12,6 +16,7 @@ contract GasBenchmarkTest is Base_Test {
     }
 
     function testBenchmark() public {
+        //// Full contract testing
         bytes[] memory buyBatchData = new bytes[](2);
         buyBatchData[0] = abi.encodeWithSignature(
             "buyName(bytes32,uint256,string)", users.alicePrimary, minPrice, constants.TEST_NAME()
@@ -65,5 +70,129 @@ contract GasBenchmarkTest is Base_Test {
         clusters.acceptBid(constants.TEST_NAME());
         clusters.transferName("zodomo", 2);
         vm.stopPrank();
+
+        //// Beta contract testing
+        bytes memory message;
+        bytes memory options;
+        bytes32 from = _addressToBytes32(users.alicePrimary);
+        uint256 nativeFee;
+        uint256[] memory amounts;
+        bytes32[] memory names;
+        vm.startPrank(users.alicePrimary);
+
+        /// Local
+        // placeBid
+        vm.expectEmit(address(clustersProxy));
+        emit Bid(from, 0.1 ether, _stringToBytes32("foobarLocal"));
+        clustersProxy.placeBid{value: 0.1 ether}(_stringToBytes32("foobarLocal"));
+
+        // placeBid with referral
+        vm.expectEmit(address(clustersProxy));
+        emit Bid(from, 0.1 ether, _stringToBytes32("zodomoLocal"), _addressToBytes32(users.bobPrimary));
+        clustersProxy.placeBid{value: 0.1 ether}(_stringToBytes32("zodomoLocal"), _addressToBytes32(users.bobPrimary));
+
+        // placeBids
+        amounts = new uint256[](4);
+        amounts[0] = 0.1 ether;
+        amounts[1] = 0.1 ether;
+        amounts[2] = 0.1 ether;
+        amounts[3] = 0.1 ether;
+        names = new bytes32[](4);
+        names[0] = _stringToBytes32("foobarLocalBatch");
+        names[1] = _stringToBytes32("ryeshrimpLocalBatch");
+        names[2] = _stringToBytes32("munamLocalBatch");
+        names[3] = _stringToBytes32("zodomoLocalBatch");
+
+        for (uint256 i; i < names.length; ++i) {
+            vm.expectEmit(address(clustersProxy));
+            emit Bid(from, amounts[i], names[i]);
+        }
+        clustersProxy.placeBids{value: 0.4 ether}(amounts, names);
+
+        // placeBids with referral
+        amounts = new uint256[](4);
+        amounts[0] = 0.1 ether;
+        amounts[1] = 0.1 ether;
+        amounts[2] = 0.1 ether;
+        amounts[3] = 0.1 ether;
+        names = new bytes32[](4);
+        names[0] = _stringToBytes32("foobarLocalRefer");
+        names[1] = _stringToBytes32("ryeshrimpLocalRefer");
+        names[2] = _stringToBytes32("munamLocalRefer");
+        names[3] = _stringToBytes32("zodomoLocalRefer");
+
+        for (uint256 i; i < names.length; ++i) {
+            vm.expectEmit(address(clustersProxy));
+            emit Bid(from, amounts[i], names[i], _addressToBytes32(users.bobPrimary));
+        }
+        clustersProxy.placeBids{value: 0.4 ether}(amounts, names, _addressToBytes32(users.bobPrimary));
+
+        /// Remote
+        // placeBid
+        message = abi.encodeWithSignature("placeBid(bytes32)", _stringToBytes32("foobarRemote"));
+        options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(199_000, 0.1 ether);
+        nativeFee = initiatorProxy.quote(abi.encode(from, message), options);
+
+        vm.expectEmit(address(clustersProxy));
+        emit Bid(from, 0.1 ether, _stringToBytes32("foobarRemote"));
+        initiatorProxy.lzSend{value: nativeFee}(message, options);
+
+        // placeBid with referral
+        message = abi.encodeWithSignature("placeBid(bytes32,bytes32)", _stringToBytes32("zodomoRemote"), _addressToBytes32(users.bobPrimary));
+        options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(199_000, 0.1 ether);
+        nativeFee = initiatorProxy.quote(abi.encode(from, message), options);
+
+        vm.expectEmit(address(clustersProxy));
+        emit Bid(from, 0.1 ether, _stringToBytes32("zodomoRemote"), _addressToBytes32(users.bobPrimary));
+        initiatorProxy.lzSend{value: nativeFee}(message, options);
+
+        // placeBids
+        amounts = new uint256[](4);
+        amounts[0] = 0.1 ether;
+        amounts[1] = 0.1 ether;
+        amounts[2] = 0.1 ether;
+        amounts[3] = 0.1 ether;
+        names = new bytes32[](4);
+        names[0] = _stringToBytes32("foobarRemoteBatch");
+        names[1] = _stringToBytes32("ryeshrimpRemoteBatch");
+        names[2] = _stringToBytes32("munamRemoteBatch");
+        names[3] = _stringToBytes32("zodomoRemoteBatch");
+
+        message = abi.encodeWithSignature("placeBids(uint256[],bytes32[])", amounts, names);
+        options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(399_000, 0.4 ether);
+        nativeFee = initiatorProxy.quote(abi.encode(from, message), options);
+
+        for (uint256 i; i < names.length; ++i) {
+            vm.expectEmit(address(clustersProxy));
+            emit Bid(from, amounts[i], names[i]);
+        }
+        initiatorProxy.lzSend{value: nativeFee}(message, options);
+
+        // placeBids with referral
+        amounts = new uint256[](4);
+        amounts[0] = 0.1 ether;
+        amounts[1] = 0.1 ether;
+        amounts[2] = 0.1 ether;
+        amounts[3] = 0.1 ether;
+        names = new bytes32[](4);
+        names[0] = _stringToBytes32("foobarRemoteRefer");
+        names[1] = _stringToBytes32("ryeshrimpRemoteRefer");
+        names[2] = _stringToBytes32("munamRemoteRefer");
+        names[3] = _stringToBytes32("zodomoRemoteRefer");
+
+        message = abi.encodeWithSignature("placeBids(uint256[],bytes32[],bytes32)", amounts, names, _addressToBytes32(users.bobPrimary));
+        options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(399_000, 0.4 ether);
+        nativeFee = initiatorProxy.quote(abi.encode(from, message), options);
+
+        for (uint256 i; i < names.length; ++i) {
+            vm.expectEmit(address(clustersProxy));
+            emit Bid(from, amounts[i], names[i], _addressToBytes32(users.bobPrimary));
+        }
+        initiatorProxy.lzSend{value: nativeFee}(message, options);
+
+        vm.stopPrank();
+
+        vm.prank(0x000000dE1E80ea5a234FB5488fee2584251BC7e8);
+        clustersProxy.withdraw(payable(0x000000dE1E80ea5a234FB5488fee2584251BC7e8), 2 ether);
     }
 }

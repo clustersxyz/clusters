@@ -18,6 +18,9 @@ import {PricingHarbergerHarness} from "./harness/PricingHarbergerHarness.sol";
 import {Endpoint} from "clusters/Endpoint.sol";
 import {ClustersHub} from "clusters/ClustersHub.sol";
 
+import {ClustersBeta} from "clusters/ClustersBeta.sol";
+import {InitiatorBeta} from "clusters/InitiatorBeta.sol";
+
 import {FickleReceiver} from "./mocks/FickleReceiver.sol";
 import {Constants} from "./utils/Constants.sol";
 import {Users} from "./utils/Types.sol";
@@ -49,6 +52,11 @@ abstract contract Base_Test is Test, Utils {
     FickleReceiver internal fickleReceiver;
     IEndpoint internal endpointProxy;
     IPricing internal pricingProxy;
+
+    ClustersBeta internal clustersImplementation;
+    ClustersBeta internal clustersProxy;
+    InitiatorBeta internal initiatorImplementation;
+    InitiatorBeta internal initiatorProxy;
 
     EnumerableSet.AddressSet internal pricingGroup;
     EnumerableSet.AddressSet internal clustersGroup;
@@ -101,6 +109,7 @@ abstract contract Base_Test is Test, Utils {
 
         vm.warp(constants.START_TIME());
 
+        /// Full deployment
         pricingFlat = new PricingFlat();
         pricingHarberger = new PricingHarbergerHarness();
         endpoint = new Endpoint();
@@ -110,6 +119,30 @@ abstract contract Base_Test is Test, Utils {
         vm.label(address(pricingFlat), "PricingFlat Implementation");
         vm.label(address(pricingHarberger), "PricingHarberger Implementation");
         vm.label(address(endpoint), "Endpoint Implementation");
+
+        /// Beta deployment
+        // Deploy and initialize contracts
+        vm.startPrank(users.clustersAdmin);
+        clustersImplementation = new ClustersBeta();
+        initiatorImplementation = new InitiatorBeta();
+        clustersProxy = ClustersBeta(LibClone.deployERC1967(address(clustersImplementation)));
+        clustersProxy.initialize(address(eid1), users.clustersAdmin);
+        initiatorProxy = InitiatorBeta(LibClone.deployERC1967(address(initiatorImplementation)));
+        initiatorProxy.initialize(address(eid2), users.clustersAdmin);
+        initiatorProxy.setPeer(1, _addressToBytes32(address(clustersProxy)));
+        clustersProxy.setPeer(2, _addressToBytes32(address(initiatorProxy)));
+        initiatorProxy.setDstEid(1);
+        eid1.setDestLzEndpoint(address(initiatorProxy), address(eid2));
+        eid2.setDestLzEndpoint(address(clustersProxy), address(eid1));
+
+        // Label deployed contracts
+        vm.label(address(eid1), "EndpointV2Mock EID: 1");
+        vm.label(address(eid2), "EndpointV2Mock EID: 2");
+        vm.label(address(clustersImplementation), "ClustersBeta Implementation");
+        vm.label(address(clustersProxy), "ClustersBeta Proxy");
+        vm.label(address(initiatorImplementation), "InitiatorBeta Implementation");
+        vm.label(address(initiatorProxy), "InitiatorBeta Proxy");
+        vm.stopPrank();
     }
 
     function configureFlatEnvironment() internal {
@@ -249,7 +282,7 @@ abstract contract Base_Test is Test, Utils {
         uint256 protocolAccrual,
         uint256 totalNameBacking,
         uint256 totalBidBacking
-    ) internal {
+    ) internal view {
         assertEq(address(clusters).balance, totalBal, "clusters total balance error");
         assertEq(clusters.protocolAccrual(), protocolAccrual, "clusters protocol accrual error");
         assertEq(clusters.totalNameBacking(), totalNameBacking, "clusters total name backing error");
@@ -263,7 +296,7 @@ abstract contract Base_Test is Test, Utils {
         uint256 protocolAccrual,
         uint256 totalNameBacking,
         uint256 totalBidBacking
-    ) internal {
+    ) internal view {
         assertFalse(eid < 1, "EID cannot be 0");
         address eidClusters = clustersGroup.at(eid - 1);
         assertEq(address(eidClusters).balance, totalBal, "clusters total balance error");
@@ -386,12 +419,12 @@ abstract contract Base_Test is Test, Utils {
         }
     }
 
-    function assertWalletName(uint256 clusterId, bytes32 addr, string memory name) internal {
+    function assertWalletName(uint256 clusterId, bytes32 addr, string memory name) internal view {
         assertEq(addr, clusters.forwardLookup(clusterId, _stringToBytes32(name)), "forwardLookup error");
         assertEq(_stringToBytes32(name), clusters.reverseLookup(addr));
     }
 
-    function assertWalletName(uint32 eid, uint256 clusterId, bytes32 addr, string memory name) internal {
+    function assertWalletName(uint32 eid, uint256 clusterId, bytes32 addr, string memory name) internal view {
         assertFalse(eid < 1, "EID cannot be 0");
         address eidClusters = clustersGroup.at(eid - 1);
 
@@ -399,18 +432,18 @@ abstract contract Base_Test is Test, Utils {
         assertEq(_stringToBytes32(name), ClustersHub(eidClusters).reverseLookup(addr));
     }
 
-    function assertNameBacking(string memory name, uint256 nameBacking) internal {
+    function assertNameBacking(string memory name, uint256 nameBacking) internal view {
         assertEq(nameBacking, clusters.nameBacking(_stringToBytes32(name)), "name backing incorrect");
     }
 
-    function assertNameBacking(uint32 eid, string memory name, uint256 nameBacking) internal {
+    function assertNameBacking(uint32 eid, string memory name, uint256 nameBacking) internal view {
         assertFalse(eid < 1, "EID cannot be 0");
         address eidClusters = clustersGroup.at(eid - 1);
 
         assertEq(nameBacking, ClustersHub(eidClusters).nameBacking(_stringToBytes32(name)), "name backing incorrect");
     }
 
-    function assertBid(string memory name, uint256 ethAmount, uint256 createdTimestamp, bytes32 bidder) internal {
+    function assertBid(string memory name, uint256 ethAmount, uint256 createdTimestamp, bytes32 bidder) internal view {
         (uint256 _ethAmount, uint256 _createdTimestamp, bytes32 _bidder) = clusters.bids(_stringToBytes32(name));
         assertEq(ethAmount, _ethAmount, "bid ethAmount error");
         assertEq(createdTimestamp, _createdTimestamp, "bid createdTimestamp error");
@@ -418,7 +451,7 @@ abstract contract Base_Test is Test, Utils {
     }
 
     function assertBid(uint32 eid, string memory name, uint256 ethAmount, uint256 createdTimestamp, bytes32 bidder)
-        internal
+        internal view
     {
         assertFalse(eid < 1, "EID cannot be 0");
         address eidClusters = clustersGroup.at(eid - 1);
@@ -430,12 +463,12 @@ abstract contract Base_Test is Test, Utils {
         assertEq(bidder, _bidder, "bid bidder error");
     }
 
-    function assertEndpointVars(address clusters_, address signer) internal {
+    function assertEndpointVars(address clusters_, address signer) internal view {
         assertEq(clusters_, endpointProxy.clusters(), "endpoint clusters address error");
         assertEq(signer, endpointProxy.signer(), "endpoint signer address error");
     }
 
-    function assertEndpointVars(uint32 eid, address clusters_, address signer) internal {
+    function assertEndpointVars(uint32 eid, address clusters_, address signer) internal view {
         assertFalse(eid < 1, "EID cannot be 0");
         address eidEndpoint = endpointGroup.at(eid - 1);
 
