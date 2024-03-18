@@ -15,4 +15,4 @@
 	url = https://github.com/openzeppelin/openzeppelin-contracts-upgradeable
 [submodule "lib/devtools"]
 	path = lib/devtools
-	url = https://github.com/LayerZero-Labs/devtools
+	url = https://github.com/Zodomo/devtools
