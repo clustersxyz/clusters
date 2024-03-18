@@ -1,17 +1,15 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.24;
 
 import {UUPSUpgradeable} from "solady/utils/UUPSUpgradeable.sol";
 import {Origin, OAppReceiverUpgradeable} from "layerzero-oapp/contracts/oapp-upgradeable/OAppReceiverUpgradeable.sol";
 
 contract ClustersBeta is UUPSUpgradeable, OAppReceiverUpgradeable {
-    bytes32 internal constant PLACEHOLDER = bytes32(uint256(1)); // Cheaper to modify a nonzero slot
-    bytes32 internal tstoreSender; // Cannot set initial field values in upgradeable contracts
-
     event Bid(bytes32 from, uint256 amount, bytes32 name);
+    event Bid(bytes32 from, uint256 amount, bytes32 name, bytes32 referralAddress);
 
     error BadBatch();
-
+    error BadDelegatecall();
     error Unauthorized();
 
     /// UUPSUpgradeable Authentication ///
@@ -24,7 +22,13 @@ contract ClustersBeta is UUPSUpgradeable, OAppReceiverUpgradeable {
 
     function initialize(address endpoint_, address owner_) external initializer {
         _initializeOAppCore(endpoint_, owner_);
-        tstoreSender = PLACEHOLDER;
+    }
+
+    function reinitialize() external reinitializer(2) {
+        // Unset placeholder 1 val from storage slot 0x2 onchain where tstoreSender used to live pre-dencun
+        assembly ("memory-safe") {
+            sstore(2, 0)
+        }
     }
 
     function _lzReceive(
@@ -35,25 +39,65 @@ contract ClustersBeta is UUPSUpgradeable, OAppReceiverUpgradeable {
         bytes calldata extraData
     ) internal override {
         (bytes32 msgsender, bytes memory calldata_) = abi.decode(message, (bytes32, bytes));
-        tstoreSender = msgsender;
-        address(this).delegatecall(calldata_);
-        tstoreSender = PLACEHOLDER;
+        assembly ("memory-safe") {
+            tstore(0, msgsender)
+        }
+        (bool success,) = address(this).delegatecall(calldata_);
+        if (!success) revert BadDelegatecall();
+        assembly ("memory-safe") {
+            tstore(0, 0)
+        }
     }
 
     /// Core Logic ///
 
     function placeBid(bytes32 name) external payable {
-        bytes32 from = tstoreSender == PLACEHOLDER ? bytes32(uint256(uint160(msg.sender))) : tstoreSender;
+        bytes32 tstoreSender;
+        assembly ("memory-safe") {
+            tstoreSender := tload(0)
+        }
+        bytes32 from = tstoreSender == 0 ? bytes32(uint256(uint160(msg.sender))) : tstoreSender;
         emit Bid(from, msg.value, name);
     }
 
     function placeBids(uint256[] calldata amounts, bytes32[] calldata names) external payable {
-        uint256 amountTotal = 0;
-        bytes32 from = tstoreSender == PLACEHOLDER ? bytes32(uint256(uint160(msg.sender))) : tstoreSender;
+        bytes32 tstoreSender;
+        assembly ("memory-safe") {
+            tstoreSender := tload(0)
+        }
+        bytes32 from = tstoreSender == 0 ? bytes32(uint256(uint160(msg.sender))) : tstoreSender;
         if (amounts.length != names.length) revert BadBatch();
+        uint256 amountTotal = 0;
         for (uint256 i = 0; i < amounts.length; i++) {
             amountTotal += amounts[i];
             emit Bid(from, amounts[i], names[i]);
+        }
+        if (amountTotal != msg.value) revert BadBatch();
+    }
+
+    function placeBid(bytes32 name, bytes32 referralAddress) external payable {
+        bytes32 tstoreSender;
+        assembly ("memory-safe") {
+            tstoreSender := tload(0)
+        }
+        bytes32 from = tstoreSender == 0 ? bytes32(uint256(uint160(msg.sender))) : tstoreSender;
+        emit Bid(from, msg.value, name, referralAddress);
+    }
+
+    function placeBids(uint256[] calldata amounts, bytes32[] calldata names, bytes32 referralAddress)
+        external
+        payable
+    {
+        bytes32 tstoreSender;
+        assembly ("memory-safe") {
+            tstoreSender := tload(0)
+        }
+        bytes32 from = tstoreSender == 0 ? bytes32(uint256(uint160(msg.sender))) : tstoreSender;
+        if (amounts.length != names.length) revert BadBatch();
+        uint256 amountTotal = 0;
+        for (uint256 i = 0; i < amounts.length; i++) {
+            amountTotal += amounts[i];
+            emit Bid(from, amounts[i], names[i], referralAddress);
         }
         if (amountTotal != msg.value) revert BadBatch();
     }
