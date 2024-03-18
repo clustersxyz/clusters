@@ -27,12 +27,14 @@ interface ImmutableCreate2Factory {
         returns (address deploymentAddress);
 }
 
-contract VanityMining is Script {
+contract DeployBetaScript is Script {
     using OptionsBuilder for bytes;
 
     address constant lzTestnetEndpoint = 0x6EDCE65403992e310A62460808c4b910D972f10f; // Same on all chains
-    address constant lzProdEndpoint = 0x1a44076050125825900e736c501f859c50fE728c; // Same on all chains except shimmer/meter
+    address constant lzProdEndpoint = 0x1a44076050125825900e736c501f859c50fE728c; // Same on all except shimmer/meter
     address constant proxyAddress = 0x00000000000E1A99dDDd5610111884278BDBda1D; // Same for hub and initiator
+    address constant refunderEoa = 0x443eDFF556D8fa8BfD69c3943D6eaf34B6a048e0;
+    address constant grossprofitEoa = 0x4352Fb89eB97c3AeD354D4D003611C7a26BDc616;
 
     uint32 constant HOLESKY_EID = 40217;
     uint32 constant SEPOLIA_EID = 40161;
@@ -107,7 +109,8 @@ contract VanityMining is Script {
         console2.log(address(logic));
         bytes memory data = abi.encodeWithSelector(proxy.upgradeToAndCall.selector, address(logic), "");
         sig.execute(proxyAddress, 0, data);
-        ClustersBeta(proxyAddress).initialize(lzProdEndpoint, address(sig));
+        // ClustersBeta(proxyAddress).initialize(lzProdEndpoint, address(sig));
+        ClustersBeta(proxyAddress).reinitialize();
 
         vm.stopBroadcast();
     }
@@ -149,42 +152,42 @@ contract VanityMining is Script {
 
         vm.startBroadcast();
 
+        bytes memory data =
+            abi.encodeWithSelector(ClustersBeta(proxyAddress).withdraw.selector, grossprofitEoa, 0.0 ether);
+        sig.execute(proxyAddress, 0, data);
+
         // ClustersBeta(proxyAddress).initialize(lzProdEndpoint, address(sig));
 
-        // bytes memory data = abi.encodeWithSelector(
-        //     ClustersBeta(proxyAddress).withdraw.selector, msg.sender, proxyAddress.balance
+        // bytes memory data;
+        // data = abi.encodeWithSelector(
+        //     ClustersBeta(proxyAddress).setPeer.selector, AVALANCHE_EID, bytes32(uint256(uint160(proxyAddress)))
         // );
+        // sig.execute(proxyAddress, 0, data);
 
-        bytes memory data;
-        data = abi.encodeWithSelector(
-            ClustersBeta(proxyAddress).setPeer.selector, AVALANCHE_EID, bytes32(uint256(uint160(proxyAddress)))
-        );
-        sig.execute(proxyAddress, 0, data);
+        // data = abi.encodeWithSelector(
+        //     ClustersBeta(proxyAddress).setPeer.selector, POLYGON_EID, bytes32(uint256(uint160(proxyAddress)))
+        // );
+        // sig.execute(proxyAddress, 0, data);
 
-        data = abi.encodeWithSelector(
-            ClustersBeta(proxyAddress).setPeer.selector, POLYGON_EID, bytes32(uint256(uint160(proxyAddress)))
-        );
-        sig.execute(proxyAddress, 0, data);
+        // data = abi.encodeWithSelector(
+        //     ClustersBeta(proxyAddress).setPeer.selector, BINANCE_EID, bytes32(uint256(uint160(proxyAddress)))
+        // );
+        // sig.execute(proxyAddress, 0, data);
 
-        data = abi.encodeWithSelector(
-            ClustersBeta(proxyAddress).setPeer.selector, BINANCE_EID, bytes32(uint256(uint160(proxyAddress)))
-        );
-        sig.execute(proxyAddress, 0, data);
+        // data = abi.encodeWithSelector(
+        //     ClustersBeta(proxyAddress).setPeer.selector, OPTIMISM_EID, bytes32(uint256(uint160(proxyAddress)))
+        // );
+        // sig.execute(proxyAddress, 0, data);
 
-        data = abi.encodeWithSelector(
-            ClustersBeta(proxyAddress).setPeer.selector, OPTIMISM_EID, bytes32(uint256(uint160(proxyAddress)))
-        );
-        sig.execute(proxyAddress, 0, data);
+        // data = abi.encodeWithSelector(
+        //     ClustersBeta(proxyAddress).setPeer.selector, ARBITRUM_EID, bytes32(uint256(uint160(proxyAddress)))
+        // );
+        // sig.execute(proxyAddress, 0, data);
 
-        data = abi.encodeWithSelector(
-            ClustersBeta(proxyAddress).setPeer.selector, ARBITRUM_EID, bytes32(uint256(uint160(proxyAddress)))
-        );
-        sig.execute(proxyAddress, 0, data);
-
-        data = abi.encodeWithSelector(
-            ClustersBeta(proxyAddress).setPeer.selector, BASE_EID, bytes32(uint256(uint160(proxyAddress)))
-        );
-        sig.execute(proxyAddress, 0, data);
+        // data = abi.encodeWithSelector(
+        //     ClustersBeta(proxyAddress).setPeer.selector, BASE_EID, bytes32(uint256(uint160(proxyAddress)))
+        // );
+        // sig.execute(proxyAddress, 0, data);
 
         vm.stopBroadcast();
     }
@@ -210,16 +213,23 @@ contract VanityMining is Script {
     function doInitiate() external {
         console2.log(_checkProxyExists(proxyAddress));
 
+        uint256 SIZE = 1;
+        uint256[] memory amounts = new uint256[](SIZE);
+        bytes32[] memory names = new bytes32[](SIZE);
+        amounts[0] = 0.01 ether;
+        names[0] = bytes32("testCrosschainPlural");
+
         InitiatorBeta initiatorProxy = InitiatorBeta(proxyAddress);
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(75_000, 0.00 ether);
-        bytes memory message = abi.encodeWithSignature("placeBid(bytes32)", bytes32("testCrosschain"));
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(99_000, 0.01 ether);
+        // bytes memory message = abi.encodeWithSignature("placeBid(bytes32)", bytes32("testCrosschain"));
+        bytes memory message = abi.encodeWithSignature("placeBids(uint256[],bytes32[])", amounts, names);
         uint256 nativeFee = initiatorProxy.quote(abi.encode(bytes32(uint256(uint160(msg.sender))), message), options);
         console2.log(nativeFee);
         console2.logBytes(message);
 
         vm.startBroadcast();
 
-        initiatorProxy.lzSend{value: nativeFee}(message, options);
+        // initiatorProxy.lzSend{value: nativeFee}(message, options);
 
         vm.stopBroadcast();
     }
