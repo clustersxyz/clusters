@@ -451,7 +451,8 @@ abstract contract Base_Test is Test, Utils {
     }
 
     function assertBid(uint32 eid, string memory name, uint256 ethAmount, uint256 createdTimestamp, bytes32 bidder)
-        internal view
+        internal
+        view
     {
         assertFalse(eid < 1, "EID cannot be 0");
         address eidClusters = clustersGroup.at(eid - 1);

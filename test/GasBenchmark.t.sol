@@ -138,7 +138,9 @@ contract GasBenchmarkTest is Base_Test {
         initiatorProxy.lzSend{value: nativeFee}(message, options);
 
         // placeBid with referral
-        message = abi.encodeWithSignature("placeBid(bytes32,bytes32)", _stringToBytes32("zodomoRemote"), _addressToBytes32(users.bobPrimary));
+        message = abi.encodeWithSignature(
+            "placeBid(bytes32,bytes32)", _stringToBytes32("zodomoRemote"), _addressToBytes32(users.bobPrimary)
+        );
         options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(199_000, 0.1 ether);
         nativeFee = initiatorProxy.quote(abi.encode(from, message), options);
 
@@ -180,7 +182,9 @@ contract GasBenchmarkTest is Base_Test {
         names[2] = _stringToBytes32("munamRemoteRefer");
         names[3] = _stringToBytes32("zodomoRemoteRefer");
 
-        message = abi.encodeWithSignature("placeBids(uint256[],bytes32[],bytes32)", amounts, names, _addressToBytes32(users.bobPrimary));
+        message = abi.encodeWithSignature(
+            "placeBids(uint256[],bytes32[],bytes32)", amounts, names, _addressToBytes32(users.bobPrimary)
+        );
         options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(399_000, 0.4 ether);
         nativeFee = initiatorProxy.quote(abi.encode(from, message), options);
 

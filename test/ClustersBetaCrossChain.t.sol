@@ -32,7 +32,7 @@ contract ClustersBetaCrossChainTest is Base_Test {
 
         vm.expectEmit(address(clustersProxy));
         emit ClustersBeta.Bid(from, 0.1 ether, bytes32("foobarCrosschain"));
-        
+
         initiatorProxy.lzSend{value: nativeFee}(message, options);
         vm.stopPrank();
     }
@@ -53,13 +53,20 @@ contract ClustersBetaCrossChainTest is Base_Test {
 
     function testRemotePlaceBidWithReferral() public {
         vm.startPrank(users.alicePrimary);
-        bytes memory message = abi.encodeWithSignature("placeBid(bytes32,bytes32)", _stringToBytes32("foobar"), _addressToBytes32(users.bobPrimary));
+        bytes memory message = abi.encodeWithSignature(
+            "placeBid(bytes32,bytes32)", _stringToBytes32("foobar"), _addressToBytes32(users.bobPrimary)
+        );
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(199_000, 0.1 ether);
         bytes32 from = _addressToBytes32(users.alicePrimary);
         uint256 nativeFee = initiatorProxy.quote(abi.encode(from, message), options);
 
         vm.expectEmit(address(clustersProxy));
-        emit Bid(_addressToBytes32(users.alicePrimary), 0.1 ether, _stringToBytes32("foobar"), _addressToBytes32(users.bobPrimary));
+        emit Bid(
+            _addressToBytes32(users.alicePrimary),
+            0.1 ether,
+            _stringToBytes32("foobar"),
+            _addressToBytes32(users.bobPrimary)
+        );
 
         initiatorProxy.lzSend{value: nativeFee}(message, options);
         vm.stopPrank();
@@ -105,7 +112,9 @@ contract ClustersBetaCrossChainTest is Base_Test {
         names[2] = _stringToBytes32("munam");
         names[3] = _stringToBytes32("zodomo");
 
-        bytes memory message = abi.encodeWithSignature("placeBids(uint256[],bytes32[],bytes32)", amounts, names, _addressToBytes32(users.bobPrimary));
+        bytes memory message = abi.encodeWithSignature(
+            "placeBids(uint256[],bytes32[],bytes32)", amounts, names, _addressToBytes32(users.bobPrimary)
+        );
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(399_000, 0.4 ether);
         bytes32 from = _addressToBytes32(users.alicePrimary);
         uint256 nativeFee = initiatorProxy.quote(abi.encode(from, message), options);
