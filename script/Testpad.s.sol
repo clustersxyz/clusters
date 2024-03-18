@@ -41,7 +41,7 @@ contract TestpadScript is Script {
         bytes memory data = abi.encodeWithSignature(
             "buyName(bytes32,uint256,string)", _addressToBytes32(deployer), 0.01 ether, "zodomo"
         );
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(300_000 gwei, uint128(0.01 ether));
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(300_000, uint128(0.01 ether));
         (uint256 nativeFee,) = endpoint.quote(40161, data, options, false);
         bytes memory results = endpoint.lzSend{value: nativeFee}(data, options, deployer);
 

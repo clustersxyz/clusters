@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {Base_Test} from "../../../Base.t.sol";
+import "../../../Base.t.sol";
 
 abstract contract PricingFlat_Unit_Shared_Test is Base_Test {
+    using EnumerableSet for EnumerableSet.AddressSet;
+
     function setUp() public virtual override {
         Base_Test.setUp();
-        configureHarbergerEnvironment(1);
+        configureHarbergerEnvironment();
+        endpointProxy = IEndpoint(endpointGroup.at(0));
     }
 }

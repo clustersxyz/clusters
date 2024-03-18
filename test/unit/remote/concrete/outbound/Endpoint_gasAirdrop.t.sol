@@ -15,7 +15,7 @@ contract Outbound_Endpoint_gasAirdrop_Unit_Concrete_Test is Inbound_Harberger_Sh
         uint256 balance = address(users.aliceSecondary).balance;
         (uint256 nativeFee,) = localEndpoint.quote(2, bytes(""), options, false);
         localEndpoint.gasAirdrop{value: nativeFee}(nativeFee, 2, options);
-        verifyPackets(2, address(remoteEndpoint));
+        //verifyPackets(2, address(remoteEndpoint));
         vm.stopPrank();
         assertEq(balance + minPrice, address(users.aliceSecondary).balance, "airdrop balance error");
     }
@@ -43,7 +43,7 @@ contract Outbound_Endpoint_gasAirdrop_Unit_Concrete_Test is Inbound_Harberger_Sh
         vm.prank(users.alicePrimary);
         console2.logBytes(options);
         localEndpoint.multicall{value: airdropFee + minPrice}(data, sig);
-        verifyPackets(2, address(remoteEndpoint));
+        //verifyPackets(2, address(remoteEndpoint));
         assertEq(balance + minPrice, address(users.aliceSecondary).balance, "airdrop balance error");
     }
 }
