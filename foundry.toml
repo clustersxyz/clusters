@@ -1,7 +1,7 @@
 [profile.default]
     auto_detect_remappings = false
     bytecode_hash = "none" # Get reproducible bytecode across machines by removing metadata hash from runtime bytecode
-    solc_version = "0.8.24"
+    solc_version = "0.8.25"
     evm_version = "cancun"
     fuzz = { runs = 256 }
     gas_reports = ["*"]
