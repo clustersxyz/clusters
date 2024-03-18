@@ -18,6 +18,7 @@ jobs:
 
       - name: Install dependencies
         run: forge install
+        # NOTE: must run `forge update` explicitly, repo uses cached deps instead of pulling fresh
       
       - name: Yarn Install and Build
         run: |
