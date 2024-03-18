@@ -33,7 +33,7 @@ jobs:
       - name: pnpm Install and Build
         run: |
           cd lib/devtools
-          pnpm install
+          pnpm install --reporter=append-only
 
       - name: Check formatting
         run: forge fmt --check

@@ -43,7 +43,7 @@ jobs:
       - name: pnpm Install and Build
         run: |
           cd lib/devtools
-          pnpm install
+          pnpm install --reporter=append-only
 
       # Add any step generating a gas report to a temporary file named gasreport.ansi. For example:
       - name: Run tests
