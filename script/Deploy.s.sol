@@ -39,11 +39,9 @@ contract DeployScript is Script {
     mapping(uint256 forkId => Deployment) internal deployments;
 
     uint32 internal constant LZ_EID_SEPOLIA = 40161;
-    uint32 internal constant LZ_EID_GOERLI = 40121;
     uint32 internal constant LZ_EID_HOLESKY = 40217;
 
     address internal constant LZ_END_SEPOLIA = 0x464570adA09869d8741132183721B4f0769a0287;
-    address internal constant LZ_END_GOERLI = 0x464570adA09869d8741132183721B4f0769a0287;
     address internal constant LZ_END_HOLESKY = 0x464570adA09869d8741132183721B4f0769a0287;
 
     function _addressToBytes32(address addr) internal pure returns (bytes32) {
@@ -130,7 +128,6 @@ contract DeployScript is Script {
 
     function run() public {
         deploy("Sepolia", vm.envString("SEPOLIA_RPC_URL"), true, true, LZ_EID_SEPOLIA, LZ_END_SEPOLIA);
-        deploy("Goerli", vm.envString("GOERLI_RPC_URL"), true, false, LZ_EID_GOERLI, LZ_END_GOERLI);
         deploy("Holesky", vm.envString("HOLESKY_RPC_URL"), true, false, LZ_EID_HOLESKY, LZ_END_HOLESKY);
         configure();
 
