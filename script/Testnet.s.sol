@@ -13,18 +13,14 @@ import {ClustersHub} from "../src/ClustersHub.sol";
 
 contract TestnetScript is Script {
     address internal constant SIGNER = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
-    address internal constant LZ_END_GOERLI = 0x464570adA09869d8741132183721B4f0769a0287;
     address internal constant LZ_END_SEPOLIA = 0x464570adA09869d8741132183721B4f0769a0287;
     address internal constant LZ_END_HOLESKY = 0x464570adA09869d8741132183721B4f0769a0287;
-    uint32 internal constant LZ_EID_GOERLI = 40121;
     uint32 internal constant LZ_EID_SEPOLIA = 40161;
     uint32 internal constant LZ_EID_HOLESKY = 40217;
 
     string internal SEPOLIA_RPC_URL = vm.envString("SEPOLIA_RPC_URL");
-    string internal GOERLI_RPC_URL = vm.envString("GOERLI_RPC_URL");
     string internal HOLESKY_RPC_URL = vm.envString("HOLESKY_RPC_URL");
     uint256 internal sepoliaFork;
-    uint256 internal goerliFork;
     uint256 internal holeskyFork;
 
     function addressToBytes32(address addr) internal pure returns (bytes32) {
@@ -33,7 +29,6 @@ contract TestnetScript is Script {
 
     function setUp() public {
         sepoliaFork = vm.createFork(SEPOLIA_RPC_URL);
-        goerliFork = vm.createFork(GOERLI_RPC_URL);
         holeskyFork = vm.createFork(HOLESKY_RPC_URL);
     }
 
@@ -60,27 +55,6 @@ contract TestnetScript is Script {
         sepoliaEndpointProxy.setClustersAddr(address(sepoliaClusters));
         vm.stopBroadcast();
 
-        // Goerli Spoke Deployment
-        vm.selectFork(goerliFork);
-        vm.startBroadcast(deployerPrivateKey);
-        //PricingHarberger goerliPricing = new PricingHarberger(block.timestamp);
-        //vm.label(address(goerliPricing), "Goerli Pricing Template");
-        //IPricing goerliPricingProxy = IPricing(LibClone.deployERC1967(address(goerliPricing)));
-        //vm.label(address(goerliPricingProxy), "Goerli Pricing Proxy");
-        //PricingHarberger(address(goerliPricingProxy)).initialize(msg.sender, block.timestamp + 7 days);
-        Endpoint goerliEndpoint = new Endpoint();
-        vm.label(address(goerliEndpoint), "Goerli Endpoint Template");
-        IEndpoint goerliEndpointProxy = IEndpoint(LibClone.deployERC1967(address(goerliEndpoint)));
-        vm.label(address(goerliEndpointProxy), "Goerli Endpoint Proxy");
-        Endpoint(address(goerliEndpointProxy)).initialize(deployer, SIGNER, LZ_END_GOERLI);
-        //ClustersHub goerliClusters = new ClustersHub(address(goerliPricingProxy), address(goerliEndpointProxy),
-        // block.timestamp);
-        //vm.label(address(goerliClusters), "Goerli Clusters Spoke");
-        //goerliEndpointProxy.setClustersAddr(address(goerliClusters));
-        IOAppCore(address(goerliEndpointProxy)).setPeer(LZ_EID_SEPOLIA, addressToBytes32(address(sepoliaEndpointProxy)));
-        goerliEndpointProxy.setDstEid(LZ_EID_SEPOLIA);
-        vm.stopBroadcast();
-
         // Holesky Spoke Deployment
         vm.selectFork(holeskyFork);
         vm.startBroadcast(deployerPrivateKey);
@@ -101,20 +75,12 @@ contract TestnetScript is Script {
         IOAppCore(address(holeskyEndpointProxy)).setPeer(
             LZ_EID_SEPOLIA, addressToBytes32(address(sepoliaEndpointProxy))
         );
-        IOAppCore(address(holeskyEndpointProxy)).setPeer(LZ_EID_GOERLI, addressToBytes32(address(goerliEndpointProxy)));
         holeskyEndpointProxy.setDstEid(LZ_EID_SEPOLIA);
-        vm.stopBroadcast();
-
-        // Post-deployment Goerli config finalization
-        vm.selectFork(goerliFork);
-        vm.startBroadcast(deployerPrivateKey);
-        IOAppCore(address(goerliEndpointProxy)).setPeer(LZ_EID_HOLESKY, addressToBytes32(address(holeskyEndpointProxy)));
         vm.stopBroadcast();
 
         // Post-deployment Sepolia config finalization
         vm.selectFork(sepoliaFork);
         vm.startBroadcast(deployerPrivateKey);
-        IOAppCore(address(sepoliaEndpointProxy)).setPeer(LZ_EID_GOERLI, addressToBytes32(address(goerliEndpointProxy)));
         IOAppCore(address(sepoliaEndpointProxy)).setPeer(
             LZ_EID_HOLESKY, addressToBytes32(address(holeskyEndpointProxy))
         );
