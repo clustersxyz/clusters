@@ -1,108 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-//import "layerzero-oapp/test/TestHelper.sol";
-import "devtools/mocks/EndpointV2Mock.sol";
-import "forge-std/Test.sol";
-import {OptionsBuilder} from "layerzero-oapp/contracts/oapp/libs/OptionsBuilder.sol";
-import {OAppUpgradeable} from "layerzero-oapp/contracts/oapp-upgradeable/OAppUpgradeable.sol";
-import {LibClone} from "solady/utils/LibClone.sol";
-import {Utils} from "./utils/Utils.sol";
+import "./Base.t.sol";
 
-import {ClustersBeta} from "clusters/ClustersBeta.sol";
-import {InitiatorBeta} from "clusters/InitiatorBeta.sol";
-
-import {Constants} from "./utils/Constants.sol";
-import {Users} from "./utils/Types.sol";
-import {console2} from "forge-std/Test.sol";
-
-import {Endpoint} from "./Base.t.sol";
-
-contract ClustersBetaCrossChainTest is Test, Utils {
+contract ClustersBetaCrossChainTest is Base_Test {
     using OptionsBuilder for bytes;
 
-    /// VARIABLES ///
+    event Bid(bytes32 from, uint256 amount, bytes32 name);
+    event Bid(bytes32 from, uint256 amount, bytes32 name, bytes32 referralAddress);
 
-    Users internal users;
-    uint256 internal minPrice;
-    Constants internal constants;
-
-    /// CONTRACTS ///
-
-    EndpointV2Mock internal eid1;
-    EndpointV2Mock internal eid2;
-
-    ClustersBeta internal clustersImplementation;
-    ClustersBeta internal clustersProxy;
-    InitiatorBeta internal initiatorImplementation;
-    InitiatorBeta internal initiatorProxy;
-
-    /// USER HELPERS ///
-
-    function createUser(string memory name) internal returns (address payable) {
-        address payable user = payable(makeAddr(name));
-        return user;
-    }
-
-    function createUserWithPrivKey(string memory name) internal returns (uint256 privKey, address payable) {
-        privKey = uint256(uint160(makeAddr("SIGNER")));
-        address payable user = payable(vm.addr(privKey));
-        vm.label({account: user, newLabel: name});
-        vm.deal(user, constants.USERS_FUNDING_AMOUNT());
-        return (privKey, user);
-    }
-
-    function createAndFundUser(string memory name, uint256 ethAmount) internal returns (address payable) {
-        address payable user = payable(makeAddr(name));
-        vm.deal({account: user, newBalance: ethAmount});
-        return user;
-    }
-
-    /// SETUP ///
-
-    function setUp() public virtual {
-        eid1 = new EndpointV2Mock(1);
-        eid2 = new EndpointV2Mock(2);
-
-        // Set state variables
-        constants = new Constants();
-        vm.warp(constants.START_TIME());
-        uint256 fundingAmount = constants.USERS_FUNDING_AMOUNT();
-        users = Users({
-            signerPrivKey: 0,
-            signer: payable(address(0)),
-            clustersAdmin: createUser("Clusters Admin"),
-            alicePrimary: createAndFundUser("Alice (Primary)", fundingAmount),
-            aliceSecondary: createAndFundUser("Alice (Secondary)", fundingAmount),
-            bobPrimary: createAndFundUser("Bob (Primary)", fundingAmount),
-            bobSecondary: createAndFundUser("Bob (Secondary)", fundingAmount),
-            bidder: createAndFundUser("Bidder", fundingAmount),
-            hacker: createAndFundUser("Malicious User", fundingAmount)
-        });
-        (users.signerPrivKey, users.signer) = createUserWithPrivKey("Signer");
-
-        // Deploy and initialize contracts
-        vm.startPrank(users.clustersAdmin);
-        clustersImplementation = new ClustersBeta();
-        initiatorImplementation = new InitiatorBeta();
-        clustersProxy = ClustersBeta(LibClone.deployERC1967(address(clustersImplementation)));
-        clustersProxy.initialize(address(eid1), users.clustersAdmin);
-        initiatorProxy = InitiatorBeta(LibClone.deployERC1967(address(initiatorImplementation)));
-        initiatorProxy.initialize(address(eid2), users.clustersAdmin);
-        initiatorProxy.setPeer(1, _addressToBytes32(address(clustersProxy)));
-        clustersProxy.setPeer(2, _addressToBytes32(address(initiatorProxy)));
-        initiatorProxy.setDstEid(1);
-        eid1.setDestLzEndpoint(address(initiatorProxy), address(eid2));
-        eid2.setDestLzEndpoint(address(clustersProxy), address(eid1));
-
-        // Label deployed contracts
-        vm.label(address(eid1), "EndpointV2Mock EID: 1");
-        vm.label(address(eid2), "EndpointV2Mock EID: 2");
-        vm.label(address(clustersImplementation), "ClustersBeta Implementation");
-        vm.label(address(clustersProxy), "ClustersBeta Proxy");
-        vm.label(address(initiatorImplementation), "InitiatorBeta Implementation");
-        vm.label(address(initiatorProxy), "InitiatorBeta Proxy");
-        vm.stopPrank();
+    function setUp() public virtual override {
+        Base_Test.setUp();
     }
 
     function testCrosschain() public {
@@ -121,13 +29,102 @@ contract ClustersBetaCrossChainTest is Test, Utils {
         bytes memory message = abi.encodeWithSignature("placeBid(bytes32)", bytes32("foobarCrosschain"));
         bytes32 from = bytes32(uint256(uint160(address(users.alicePrimary))));
         uint256 nativeFee = initiatorProxy.quote(abi.encode(from, message), options);
-        initiatorProxy.lzSend{value: nativeFee}(message, options);
 
-        vm.stopPrank();
-
-        // vm.expectEmit(true, false, false, false, address(clustersProxy));
-        // vm.expectEmit();
-        //verifyPackets(1, address(clustersProxy));
+        vm.expectEmit(address(clustersProxy));
         emit ClustersBeta.Bid(from, 0.1 ether, bytes32("foobarCrosschain"));
+
+        initiatorProxy.lzSend{value: nativeFee}(message, options);
+        vm.stopPrank();
+    }
+
+    function testRemotePlaceBid() public {
+        vm.startPrank(users.alicePrimary);
+        bytes memory message = abi.encodeWithSignature("placeBid(bytes32)", _stringToBytes32("foobar"));
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(199_000, 0.1 ether);
+        bytes32 from = _addressToBytes32(users.alicePrimary);
+        uint256 nativeFee = initiatorProxy.quote(abi.encode(from, message), options);
+
+        vm.expectEmit(address(clustersProxy));
+        emit Bid(_addressToBytes32(users.alicePrimary), 0.1 ether, _stringToBytes32("foobar"));
+
+        initiatorProxy.lzSend{value: nativeFee}(message, options);
+        vm.stopPrank();
+    }
+
+    function testRemotePlaceBidWithReferral() public {
+        vm.startPrank(users.alicePrimary);
+        bytes memory message = abi.encodeWithSignature(
+            "placeBid(bytes32,bytes32)", _stringToBytes32("foobar"), _addressToBytes32(users.bobPrimary)
+        );
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(199_000, 0.1 ether);
+        bytes32 from = _addressToBytes32(users.alicePrimary);
+        uint256 nativeFee = initiatorProxy.quote(abi.encode(from, message), options);
+
+        vm.expectEmit(address(clustersProxy));
+        emit Bid(
+            _addressToBytes32(users.alicePrimary),
+            0.1 ether,
+            _stringToBytes32("foobar"),
+            _addressToBytes32(users.bobPrimary)
+        );
+
+        initiatorProxy.lzSend{value: nativeFee}(message, options);
+        vm.stopPrank();
+    }
+
+    function testRemotePlaceBids() public {
+        vm.startPrank(users.alicePrimary);
+        uint256[] memory amounts = new uint256[](4);
+        amounts[0] = 0.1 ether;
+        amounts[1] = 0.1 ether;
+        amounts[2] = 0.1 ether;
+        amounts[3] = 0.1 ether;
+        bytes32[] memory names = new bytes32[](4);
+        names[0] = _stringToBytes32("foobar");
+        names[1] = _stringToBytes32("ryeshrimp");
+        names[2] = _stringToBytes32("munam");
+        names[3] = _stringToBytes32("zodomo");
+
+        bytes memory message = abi.encodeWithSignature("placeBids(uint256[],bytes32[])", amounts, names);
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(399_000, 0.4 ether);
+        bytes32 from = _addressToBytes32(users.alicePrimary);
+        uint256 nativeFee = initiatorProxy.quote(abi.encode(from, message), options);
+
+        for (uint256 i; i < names.length; ++i) {
+            vm.expectEmit(address(clustersProxy));
+            emit Bid(_addressToBytes32(users.alicePrimary), amounts[i], names[i]);
+        }
+
+        initiatorProxy.lzSend{value: nativeFee}(message, options);
+        vm.stopPrank();
+    }
+
+    function testRemotePlaceBidsWithReferral() public {
+        vm.startPrank(users.alicePrimary);
+        uint256[] memory amounts = new uint256[](4);
+        amounts[0] = 0.1 ether;
+        amounts[1] = 0.1 ether;
+        amounts[2] = 0.1 ether;
+        amounts[3] = 0.1 ether;
+        bytes32[] memory names = new bytes32[](4);
+        names[0] = _stringToBytes32("foobar");
+        names[1] = _stringToBytes32("ryeshrimp");
+        names[2] = _stringToBytes32("munam");
+        names[3] = _stringToBytes32("zodomo");
+
+        bytes memory message = abi.encodeWithSignature(
+            "placeBids(uint256[],bytes32[],bytes32)", amounts, names, _addressToBytes32(users.bobPrimary)
+        );
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(399_000, 0.4 ether);
+        bytes32 from = _addressToBytes32(users.alicePrimary);
+        uint256 nativeFee = initiatorProxy.quote(abi.encode(from, message), options);
+
+        for (uint256 i; i < names.length; ++i) {
+            vm.expectEmit(address(clustersProxy));
+            emit Bid(_addressToBytes32(users.alicePrimary), amounts[i], names[i], _addressToBytes32(users.bobPrimary));
+        }
+
+        initiatorProxy.lzSend{value: nativeFee}(message, options);
+        vm.stopPrank();
     }
 }
