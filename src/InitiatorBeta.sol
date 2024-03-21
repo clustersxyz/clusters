@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.25;
 
 import {UUPSUpgradeable} from "solady/utils/UUPSUpgradeable.sol";
 import {
@@ -10,6 +10,10 @@ contract InitiatorBeta is UUPSUpgradeable, OAppSenderUpgradeable {
     uint32 public dstEid;
 
     error Unauthorized();
+
+    // Intended to prevent auto-verification of the contracts
+    error StopVerification();
+    function doNothing() public view {}
 
     /// UUPSUpgradeable Authentication ///
 
