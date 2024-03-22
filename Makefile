@@ -9,7 +9,10 @@ deploy-testnet:
 
 call-beta-hub:
 	# For live deployment, add --broadcast --verify --delay 30 --etherscan-api-key ${ETHERSCAN_API_KEY}
-	forge script -vvv script/DeployBeta.s.sol --sig "upgradeHub()" --fork-url ${ETHEREUM_RPC_URL} --private-key ${PK}
+	forge script -vvv script/DeployBeta.s.sol --sig "configureHub()" --fork-url ${ETHEREUM_RPC_URL} --private-key ${PK}
+
+call-batch-refund:
+	forge script -vvv script/BatchInteraction.s.sol --sig "run()" --fork-url ${ETHEREUM_RPC_URL}
 
 call-beta-initiator:
 	forge script -vvv script/DeployBeta.s.sol --sig "upgradeInitiator()" --fork-url ${BASE_RPC_URL} --private-key ${PK}
