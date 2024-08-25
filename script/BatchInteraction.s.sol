@@ -62,18 +62,23 @@ contract BatchInteractionScript is Script {
 
         /// BATCH REFUNDING ///
 
-        uint256 SIZE = 4;
+        uint256 SIZE = 2;
         address[] memory refundAddresses = new address[](SIZE);
         uint256[] memory refundAmounts = new uint256[](SIZE);
 
-        refundAddresses[0] = address(0x0000000000000000000000004592960cf42342085c7d15afb52fcfe4c698a9b9);
+        // refundAddresses[0] = address(0x0000000000000000000000004592960cf42342085c7d15afb52fcfe4c698a9b9);
+        // refundAmounts[0] = 10000000000000000;
+        // refundAddresses[1] = address(0x0000000000000000000000002ef893e5c362ac25bef41c5a7ef2e046475c8678);
+        // refundAmounts[1] = 10000000000000000;
+        // refundAddresses[2] = address(0x0000000000000000000000001421153b3c62ae5ae038a76c940a28b0fce427e3);
+        // refundAmounts[2] = 10000000000000000;
+        // refundAddresses[3] = address(0x0000000000000000000000004dde2aadbde7031ce4ca2aa45ae0cabc0f90d242);
+        // refundAmounts[3] = 10000000000000000;
+
+        refundAddresses[0] = address(0x000000000000000000000000e6899b76a2f01de328954245947b2568a68e0f9f);
         refundAmounts[0] = 10000000000000000;
-        refundAddresses[1] = address(0x0000000000000000000000002ef893e5c362ac25bef41c5a7ef2e046475c8678);
+        refundAddresses[1] = address(0x0000000000000000000000006e105228c8c0510e5c68e04b3b92f047af56189e);
         refundAmounts[1] = 10000000000000000;
-        refundAddresses[2] = address(0x0000000000000000000000001421153b3c62ae5ae038a76c940a28b0fce427e3);
-        refundAmounts[2] = 10000000000000000;
-        refundAddresses[3] = address(0x0000000000000000000000004dde2aadbde7031ce4ca2aa45ae0cabc0f90d242);
-        refundAmounts[3] = 10000000000000000;
 
         uint256 totalRefund = 0;
         for (uint256 i = 0; i < SIZE; i++) {
@@ -81,7 +86,7 @@ contract BatchInteractionScript is Script {
         }
 
         vm.startBroadcast(deployerPrivateKey);
-        uint256 prodTotalRefund = 0.04 ether;
+        uint256 prodTotalRefund = 0.02 ether;
         require(prodTotalRefund == totalRefund, "bad total");
         drop.airdropETH{value: totalRefund}(refundAddresses, refundAmounts);
 
