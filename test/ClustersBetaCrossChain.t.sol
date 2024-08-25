@@ -3,7 +3,7 @@ pragma solidity ^0.8.23;
 
 import "./Base.t.sol";
 
-contract ClustersBetaCrossChainTest is Base_Test {
+contract ClustersHubBetaCrossChainTest is Base_Test {
     using OptionsBuilder for bytes;
 
     event Bid(bytes32 from, uint256 amount, bytes32 name);
@@ -31,7 +31,7 @@ contract ClustersBetaCrossChainTest is Base_Test {
         uint256 nativeFee = initiatorProxy.quote(abi.encode(from, message), options);
 
         vm.expectEmit(address(clustersProxy));
-        emit ClustersBeta.Bid(from, 0.1 ether, bytes32("foobarCrosschain"));
+        emit ClustersHubBeta.Bid(from, 0.1 ether, bytes32("foobarCrosschain"));
 
         initiatorProxy.lzSend{value: nativeFee}(message, options);
         vm.stopPrank();

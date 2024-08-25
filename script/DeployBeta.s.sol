@@ -6,8 +6,8 @@ import {console2} from "forge-std/console2.sol";
 import {LibClone} from "solady/utils/LibClone.sol";
 import {UUPSUpgradeable} from "solady/utils/UUPSUpgradeable.sol";
 import {BasicUUPSImpl} from "../src/BasicUUPSImpl.sol";
-import {ClustersBeta} from "../src/ClustersBeta.sol";
-import {InitiatorBeta} from "../src/InitiatorBeta.sol";
+import {ClustersHubBeta} from "../src/beta/ClustersHubBeta.sol";
+import {ClustersInitiatorBeta} from "../src/beta/ClustersInitiatorBeta.sol";
 import {OptionsBuilder} from "layerzero-oapp/contracts/oapp/libs/OptionsBuilder.sol";
 import {
     MessagingParams,
@@ -116,12 +116,12 @@ contract DeployBetaScript is Script {
 
         vm.startBroadcast();
 
-        ClustersBeta logic = new ClustersBeta();
+        ClustersHubBeta logic = new ClustersHubBeta();
         console2.log(address(logic));
         bytes memory data = abi.encodeWithSelector(proxy.upgradeToAndCall.selector, address(logic), "");
         sig.execute(proxyAddress, 0, data);
-        // ClustersBeta(proxyAddress).initialize(lzProdEndpoint, address(sig));
-        // ClustersBeta(proxyAddress).reinitialize();
+        // ClustersHubBeta(proxyAddress).initialize(lzProdEndpoint, address(sig));
+        // ClustersHubBeta(proxyAddress).reinitialize();
 
         vm.stopBroadcast();
     }
@@ -140,13 +140,13 @@ contract DeployBetaScript is Script {
 
         vm.startBroadcast();
 
-        InitiatorBeta logic = new InitiatorBeta();
+        ClustersInitiatorBeta logic = new ClustersInitiatorBeta();
         console2.log(address(logic));
         bytes memory data = abi.encodeWithSelector(proxy.upgradeToAndCall.selector, address(logic), "");
         sig.execute(proxyAddress, 0, data);
-        // InitiatorBeta(proxyAddress).initialize(lzProdEndpoint, address(sig));
+        // ClustersInitiatorBeta(proxyAddress).initialize(lzProdEndpoint, address(sig));
 
-        // InitiatorBeta initiatorProxy = InitiatorBeta(proxyAddress);
+        // ClustersInitiatorBeta initiatorProxy = ClustersInitiatorBeta(proxyAddress);
         // data = abi.encodeWithSelector(
         //     initiatorProxy.setPeer.selector, ETHEREUM_EID, bytes32(uint256(uint160(proxyAddress)))
         // );
@@ -164,51 +164,51 @@ contract DeployBetaScript is Script {
         vm.startBroadcast();
 
         bytes memory data =
-            abi.encodeWithSelector(ClustersBeta(proxyAddress).withdraw.selector, grossprofitEoa, 15.23 ether);
+            abi.encodeWithSelector(ClustersHubBeta(proxyAddress).withdraw.selector, grossprofitEoa, 15.23 ether);
         sig.execute(proxyAddress, 0, data);
 
         // sig.execute(address(0xcbe81a20f3a1AF9e4a2813c3ab1BE730165c115d), address(sig).balance, "");
 
-        // ClustersBeta(proxyAddress).initialize(lzProdEndpoint, address(sig));
+        // ClustersHubBeta(proxyAddress).initialize(lzProdEndpoint, address(sig));
 
         // bytes memory data;
         // data = abi.encodeWithSelector(
-        //     ClustersBeta(proxyAddress).setPeer.selector, AVALANCHE_EID, bytes32(uint256(uint160(proxyAddress)))
+        //     ClustersHubBeta(proxyAddress).setPeer.selector, AVALANCHE_EID, bytes32(uint256(uint160(proxyAddress)))
         // );
         // sig.execute(proxyAddress, 0, data);
 
         // data = abi.encodeWithSelector(
-        //     ClustersBeta(proxyAddress).setPeer.selector, POLYGON_EID, bytes32(uint256(uint160(proxyAddress)))
+        //     ClustersHubBeta(proxyAddress).setPeer.selector, POLYGON_EID, bytes32(uint256(uint160(proxyAddress)))
         // );
         // sig.execute(proxyAddress, 0, data);
 
         // data = abi.encodeWithSelector(
-        //     ClustersBeta(proxyAddress).setPeer.selector, BINANCE_EID, bytes32(uint256(uint160(proxyAddress)))
+        //     ClustersHubBeta(proxyAddress).setPeer.selector, BINANCE_EID, bytes32(uint256(uint160(proxyAddress)))
         // );
         // sig.execute(proxyAddress, 0, data);
 
         // data = abi.encodeWithSelector(
-        //     ClustersBeta(proxyAddress).setPeer.selector, OPTIMISM_EID, bytes32(uint256(uint160(proxyAddress)))
+        //     ClustersHubBeta(proxyAddress).setPeer.selector, OPTIMISM_EID, bytes32(uint256(uint160(proxyAddress)))
         // );
         // sig.execute(proxyAddress, 0, data);
 
         // data = abi.encodeWithSelector(
-        //     ClustersBeta(proxyAddress).setPeer.selector, ARBITRUM_EID, bytes32(uint256(uint160(proxyAddress)))
+        //     ClustersHubBeta(proxyAddress).setPeer.selector, ARBITRUM_EID, bytes32(uint256(uint160(proxyAddress)))
         // );
         // sig.execute(proxyAddress, 0, data);
 
         // data = abi.encodeWithSelector(
-        //     ClustersBeta(proxyAddress).setPeer.selector, BASE_EID, bytes32(uint256(uint160(proxyAddress)))
+        //     ClustersHubBeta(proxyAddress).setPeer.selector, BASE_EID, bytes32(uint256(uint160(proxyAddress)))
         // );
         // sig.execute(proxyAddress, 0, data);
 
         // data = abi.encodeWithSelector(
-        //     ClustersBeta(proxyAddress).setPeer.selector, BLAST_EID, bytes32(uint256(uint160(proxyAddress)))
+        //     ClustersHubBeta(proxyAddress).setPeer.selector, BLAST_EID, bytes32(uint256(uint160(proxyAddress)))
         // );
         // sig.execute(proxyAddress, 0, data);
 
         // bytes memory data = abi.encodeWithSelector(
-        //     ClustersBeta(proxyAddress).setPeer.selector, TAIKO_EID, bytes32(uint256(uint160(proxyAddress)))
+        //     ClustersHubBeta(proxyAddress).setPeer.selector, TAIKO_EID, bytes32(uint256(uint160(proxyAddress)))
         // );
         // sig.execute(proxyAddress, 0, data);
 
@@ -221,7 +221,7 @@ contract DeployBetaScript is Script {
         vm.startBroadcast();
 
         bytes memory data;
-        InitiatorBeta initiatorProxy = InitiatorBeta(proxyAddress);
+        ClustersInitiatorBeta initiatorProxy = ClustersInitiatorBeta(proxyAddress);
         data = abi.encodeWithSelector(
             initiatorProxy.setPeer.selector, ETHEREUM_EID, bytes32(uint256(uint160(proxyAddress)))
         );
@@ -242,7 +242,7 @@ contract DeployBetaScript is Script {
         // amounts[0] = 0.01 ether;
         // names[0] = bytes32("testCrosschainPlural");
 
-        InitiatorBeta initiatorProxy = InitiatorBeta(proxyAddress);
+        ClustersInitiatorBeta initiatorProxy = ClustersInitiatorBeta(proxyAddress);
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(99_000, 0.0001 ether);
         bytes memory message = abi.encodeWithSignature("placeBid(bytes32)", bytes32("testCrosschainTaiko"));
         // bytes memory message = abi.encodeWithSignature("placeBids(uint256[],bytes32[])", amounts, names);

@@ -4,7 +4,7 @@ pragma solidity ^0.8.26;
 import {UUPSUpgradeable} from "solady/utils/UUPSUpgradeable.sol";
 import {Origin, OAppReceiverUpgradeable} from "layerzero-oapp/contracts/oapp-upgradeable/OAppReceiverUpgradeable.sol";
 
-contract ClustersBeta is UUPSUpgradeable, OAppReceiverUpgradeable {
+contract ClustersHubBeta is UUPSUpgradeable, OAppReceiverUpgradeable {
     event Bid(bytes32 from, uint256 amount, bytes32 name);
     event Bid(bytes32 from, uint256 amount, bytes32 name, bytes32 referralAddress);
 

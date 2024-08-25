@@ -5,7 +5,7 @@ import {Script, console2} from "forge-std/Script.sol";
 import {OptionsBuilder} from "layerzero-oapp/contracts/oapp/libs/OptionsBuilder.sol";
 
 import {Endpoint} from "../src/Endpoint.sol";
-import {ClustersBeta} from "../src/ClustersBeta.sol";
+import {ClustersHubBeta} from "../src/beta/ClustersHubBeta.sol";
 
 interface GasliteDrop {
     function airdropETH(address[] calldata _addresses, uint256[] calldata _amounts) external payable;
@@ -16,7 +16,7 @@ contract BatchInteractionScript is Script {
 
     uint256 internal sepoliaFork;
     Endpoint internal endpoint;
-    ClustersBeta internal proxy;
+    ClustersHubBeta internal proxy;
     GasliteDrop internal drop;
 
     function addressToBytes32(address addr) internal pure returns (bytes32) {
@@ -26,7 +26,7 @@ contract BatchInteractionScript is Script {
     function setUp() public {
         uint256 mainnetFork = vm.createFork("https://eth.llamarpc.com");
         vm.selectFork(mainnetFork);
-        proxy = ClustersBeta(0x00000000000E1A99dDDd5610111884278BDBda1D);
+        proxy = ClustersHubBeta(0x00000000000E1A99dDDd5610111884278BDBda1D);
         drop = GasliteDrop(0x09350F89e2D7B6e96bA730783c2d76137B045FEF);
     }
 
