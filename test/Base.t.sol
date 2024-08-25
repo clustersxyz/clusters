@@ -18,8 +18,8 @@ import {PricingHarbergerHarness} from "./harness/PricingHarbergerHarness.sol";
 import {Endpoint} from "clusters/Endpoint.sol";
 import {ClustersHub} from "clusters/ClustersHub.sol";
 
-import {ClustersBeta} from "clusters/ClustersBeta.sol";
-import {InitiatorBeta} from "clusters/InitiatorBeta.sol";
+import {ClustersHubBeta} from "clusters/beta/ClustersHubBeta.sol";
+import {ClustersInitiatorBeta} from "clusters/beta/ClustersInitiatorBeta.sol";
 
 import {FickleReceiver} from "./mocks/FickleReceiver.sol";
 import {Constants} from "./utils/Constants.sol";
@@ -53,10 +53,10 @@ abstract contract Base_Test is Test, Utils {
     IEndpoint internal endpointProxy;
     IPricing internal pricingProxy;
 
-    ClustersBeta internal clustersImplementation;
-    ClustersBeta internal clustersProxy;
-    InitiatorBeta internal initiatorImplementation;
-    InitiatorBeta internal initiatorProxy;
+    ClustersHubBeta internal clustersImplementation;
+    ClustersHubBeta internal clustersProxy;
+    ClustersInitiatorBeta internal initiatorImplementation;
+    ClustersInitiatorBeta internal initiatorProxy;
 
     EnumerableSet.AddressSet internal pricingGroup;
     EnumerableSet.AddressSet internal clustersGroup;
@@ -123,11 +123,11 @@ abstract contract Base_Test is Test, Utils {
         /// Beta deployment
         // Deploy and initialize contracts
         vm.startPrank(users.clustersAdmin);
-        clustersImplementation = new ClustersBeta();
-        initiatorImplementation = new InitiatorBeta();
-        clustersProxy = ClustersBeta(LibClone.deployERC1967(address(clustersImplementation)));
+        clustersImplementation = new ClustersHubBeta();
+        initiatorImplementation = new ClustersInitiatorBeta();
+        clustersProxy = ClustersHubBeta(LibClone.deployERC1967(address(clustersImplementation)));
         clustersProxy.initialize(address(eid1), users.clustersAdmin);
-        initiatorProxy = InitiatorBeta(LibClone.deployERC1967(address(initiatorImplementation)));
+        initiatorProxy = ClustersInitiatorBeta(LibClone.deployERC1967(address(initiatorImplementation)));
         initiatorProxy.initialize(address(eid2), users.clustersAdmin);
         initiatorProxy.setPeer(1, _addressToBytes32(address(clustersProxy)));
         clustersProxy.setPeer(2, _addressToBytes32(address(initiatorProxy)));
@@ -138,10 +138,10 @@ abstract contract Base_Test is Test, Utils {
         // Label deployed contracts
         vm.label(address(eid1), "EndpointV2Mock EID: 1");
         vm.label(address(eid2), "EndpointV2Mock EID: 2");
-        vm.label(address(clustersImplementation), "ClustersBeta Implementation");
-        vm.label(address(clustersProxy), "ClustersBeta Proxy");
-        vm.label(address(initiatorImplementation), "InitiatorBeta Implementation");
-        vm.label(address(initiatorProxy), "InitiatorBeta Proxy");
+        vm.label(address(clustersImplementation), "ClustersHubBeta Implementation");
+        vm.label(address(clustersProxy), "ClustersHubBeta Proxy");
+        vm.label(address(initiatorImplementation), "ClustersInitiatorBeta Implementation");
+        vm.label(address(initiatorProxy), "ClustersInitiatorBeta Proxy");
         vm.stopPrank();
     }
 

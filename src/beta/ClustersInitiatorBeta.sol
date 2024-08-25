@@ -6,7 +6,7 @@ import {
     OAppSenderUpgradeable, MessagingFee
 } from "layerzero-oapp/contracts/oapp-upgradeable/OAppSenderUpgradeable.sol";
 
-contract InitiatorBeta is UUPSUpgradeable, OAppSenderUpgradeable {
+contract ClustersInitiatorBeta is UUPSUpgradeable, OAppSenderUpgradeable {
     uint32 public dstEid;
 
     error Unauthorized();

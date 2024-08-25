@@ -20,5 +20,5 @@ call-beta-initiator:
 	# forge script -vvv script/SetDVNConfig.s.sol --sig "setDestReceiveConfig()" -vvv
 
 verify:
-	forge verify-contract 0xa8a8157F4ed368F9d15468670253aC00c5661Ba9 src/InitiatorBeta.sol:InitiatorBeta --chain 167000  --etherscan-api-key ${ETHERSCAN_API_KEY} --retries 5 --delay 30 --watch
+	forge verify-contract 0xa8a8157F4ed368F9d15468670253aC00c5661Ba9 src/beta/ClustersInitiatorBeta.sol:ClustersInitiatorBeta --chain 167000  --etherscan-api-key ${ETHERSCAN_API_KEY} --retries 5 --delay 30 --watch
 

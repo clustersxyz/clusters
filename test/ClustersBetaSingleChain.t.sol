@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {ClustersBeta} from "../src/ClustersBeta.sol";
+import {ClustersHubBeta} from "../src/beta/ClustersHubBeta.sol";
 import {Base_Test} from "./Base.t.sol";
 
-contract ClustersBetaSingleChainTest is Base_Test {
+contract ClustersHubBetaSingleChainTest is Base_Test {
     event Bid(bytes32 from, uint256 amount, bytes32 name);
     event Bid(bytes32 from, uint256 amount, bytes32 name, bytes32 referralAddress);
 
-    ClustersBeta beta = new ClustersBeta();
+    ClustersHubBeta beta = new ClustersHubBeta();
 
     function setUp() public virtual override {
         Base_Test.setUp();
