@@ -164,8 +164,7 @@ contract DeployBetaScript is Script {
         vm.startBroadcast();
 
         bytes memory data =
-            abi.encodeWithSelector(ClustersBeta(proxyAddress).withdraw.selector, grossprofitEoa,
-        15.23 ether);
+            abi.encodeWithSelector(ClustersBeta(proxyAddress).withdraw.selector, grossprofitEoa, 15.23 ether);
         sig.execute(proxyAddress, 0, data);
 
         // sig.execute(address(0xcbe81a20f3a1AF9e4a2813c3ab1BE730165c115d), address(sig).balance, "");
@@ -250,7 +249,8 @@ contract DeployBetaScript is Script {
         console2.logBytes(message);
         console2.logBytes(options);
         // uint256 nativeFee = 0.10 ether;
-        // uint256 nativeFee = initiatorProxy.quote(abi.encode(bytes32(uint256(uint160(msg.sender))), message), options);
+        // uint256 nativeFee = initiatorProxy.quote(abi.encode(bytes32(uint256(uint160(msg.sender))), message),
+        // options);
         // console2.log(nativeFee);
 
         ILayerZeroEndpointV2(lzProdEndpoint).quote(

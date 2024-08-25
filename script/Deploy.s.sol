@@ -119,9 +119,8 @@ contract DeployScript is Script {
             }
             if (i == 0) {
                 // Set dstEid on hub to enable replication
-            } else {
-                IEndpoint(endpointProxy).setDstEid(deployments[forks[0]].dstEid);
             }
+            else IEndpoint(endpointProxy).setDstEid(deployments[forks[0]].dstEid);
             vm.stopBroadcast();
         }
     }
