@@ -66,22 +66,18 @@ contract SetConfigScript is Script {
         address[] memory requiredDVNs = new address[](1);
         requiredDVNs[0] = originDVN;
         address[] memory optionalDVNs = new address[](0);
-        bytes memory ulnConfig = abi.encode(IEndpointContract.UlnConfig(confirmations, requiredDVNCount, optionalDVNCount, optionalDVNThreshold, requiredDVNs, optionalDVNs));
-        
+        bytes memory ulnConfig = abi.encode(
+            IEndpointContract.UlnConfig(
+                confirmations, requiredDVNCount, optionalDVNCount, optionalDVNThreshold, requiredDVNs, optionalDVNs
+            )
+        );
+
         // Executor Configuration
         bytes memory executorConfig = abi.encode(IEndpointContract.ExecutorConfig(maxMessageSize, destExecutor));
 
         IEndpointContract.SetConfigParam[] memory params = new IEndpointContract.SetConfigParam[](2);
-        params[0] = IEndpointContract.SetConfigParam({
-            dstEid: destEid,
-            configType: 2,
-            config: ulnConfig
-        });
-        params[1] = IEndpointContract.SetConfigParam({
-            dstEid: destEid,
-            configType: 1,
-            config: executorConfig
-        });
+        params[0] = IEndpointContract.SetConfigParam({dstEid: destEid, configType: 2, config: ulnConfig});
+        params[1] = IEndpointContract.SetConfigParam({dstEid: destEid, configType: 1, config: executorConfig});
 
         vm.createSelectFork(originRpcUrl);
         vm.startBroadcast(deployerPrivateKey);
@@ -96,14 +92,14 @@ contract SetConfigScript is Script {
         address[] memory requiredDVNs = new address[](1);
         requiredDVNs[0] = originDVN;
         address[] memory optionalDVNs = new address[](0);
-        bytes memory ulnConfig = abi.encode(IEndpointContract.UlnConfig(confirmations, requiredDVNCount, optionalDVNCount, optionalDVNThreshold, requiredDVNs, optionalDVNs));
-        
+        bytes memory ulnConfig = abi.encode(
+            IEndpointContract.UlnConfig(
+                confirmations, requiredDVNCount, optionalDVNCount, optionalDVNThreshold, requiredDVNs, optionalDVNs
+            )
+        );
+
         IEndpointContract.SetConfigParam[] memory params = new IEndpointContract.SetConfigParam[](1);
-        params[0] = IEndpointContract.SetConfigParam({
-            dstEid: destEid,
-            configType: 2,
-            config: ulnConfig
-        });
+        params[0] = IEndpointContract.SetConfigParam({dstEid: destEid, configType: 2, config: ulnConfig});
 
         vm.createSelectFork(originRpcUrl);
         vm.startBroadcast(deployerPrivateKey);
@@ -118,22 +114,18 @@ contract SetConfigScript is Script {
         address[] memory requiredDVNs = new address[](1);
         requiredDVNs[0] = destDVN;
         address[] memory optionalDVNs = new address[](0);
-        bytes memory ulnConfig = abi.encode(IEndpointContract.UlnConfig(confirmations, requiredDVNCount, optionalDVNCount, optionalDVNThreshold, requiredDVNs, optionalDVNs));
-        
+        bytes memory ulnConfig = abi.encode(
+            IEndpointContract.UlnConfig(
+                confirmations, requiredDVNCount, optionalDVNCount, optionalDVNThreshold, requiredDVNs, optionalDVNs
+            )
+        );
+
         // Executor Configuration
         bytes memory executorConfig = abi.encode(IEndpointContract.ExecutorConfig(maxMessageSize, originExecutor));
 
         IEndpointContract.SetConfigParam[] memory params = new IEndpointContract.SetConfigParam[](2);
-        params[0] = IEndpointContract.SetConfigParam({
-            dstEid: originEid,
-            configType: 2,
-            config: ulnConfig
-        });
-        params[1] = IEndpointContract.SetConfigParam({
-            dstEid: originEid,
-            configType: 1,
-            config: executorConfig
-        });
+        params[0] = IEndpointContract.SetConfigParam({dstEid: originEid, configType: 2, config: ulnConfig});
+        params[1] = IEndpointContract.SetConfigParam({dstEid: originEid, configType: 1, config: executorConfig});
 
         vm.createSelectFork(destRpcUrl);
         vm.startBroadcast(deployerPrivateKey);
@@ -148,14 +140,14 @@ contract SetConfigScript is Script {
         address[] memory requiredDVNs = new address[](1);
         requiredDVNs[0] = destDVN;
         address[] memory optionalDVNs = new address[](0);
-        bytes memory ulnConfig = abi.encode(IEndpointContract.UlnConfig(confirmations, requiredDVNCount, optionalDVNCount, optionalDVNThreshold, requiredDVNs, optionalDVNs));
-        
+        bytes memory ulnConfig = abi.encode(
+            IEndpointContract.UlnConfig(
+                confirmations, requiredDVNCount, optionalDVNCount, optionalDVNThreshold, requiredDVNs, optionalDVNs
+            )
+        );
+
         IEndpointContract.SetConfigParam[] memory params = new IEndpointContract.SetConfigParam[](1);
-        params[0] = IEndpointContract.SetConfigParam({
-            dstEid: originEid,
-            configType: 2,
-            config: ulnConfig
-        });
+        params[0] = IEndpointContract.SetConfigParam({dstEid: originEid, configType: 2, config: ulnConfig});
 
         vm.createSelectFork(destRpcUrl);
         vm.startBroadcast(deployerPrivateKey);
