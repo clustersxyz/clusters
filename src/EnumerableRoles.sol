@@ -106,11 +106,20 @@ contract EnumerableRoles {
         _;
     }
 
+    /// @dev Guards a function such that the caller must be the contact owner or have `role0` or `role1`.
+    modifier onlyOwnerOrAnyRole(uint8 role0, uint8 role1) virtual {
+        _checkOwnerOrAnyRole(role0, role1);
+        _;
+    }
+
+    /// @dev Requires that the caller is the contract owner or has `role`.
+    function _checkOwnerOrAnyRole(uint8 role0, uint8 role1) internal virtual {
+        if (msg.sender != _thisOwner() && !hasRole(msg.sender, role0)) _checkRole(role1);
+    }
+
     /// @dev Requires that the caller is the contract owner or has `role`.
     function _checkOwnerOrRole(uint8 role) internal virtual {
-        if (msg.sender != _thisOwner()) {
-            if (!hasRole(msg.sender, role)) revert CheckRoleUnauthorized();
-        }
+        if (msg.sender != _thisOwner()) _checkRole(role);
     }
 
     /// @dev Requires that the caller has `role`.
