@@ -3,7 +3,7 @@ pragma solidity ^0.8.26;
 
 import {UUPSUpgradeable} from "solady/utils/UUPSUpgradeable.sol";
 import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
-import {EnumerableRoles} from "clusters/EnumerableRoles.sol";
+import {EnumerableRoles} from "solady/auth/EnumerableRoles.sol";
 
 contract ClustersCommunityBaseBeta is EnumerableRoles, UUPSUpgradeable {
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
@@ -11,13 +11,13 @@ contract ClustersCommunityBaseBeta is EnumerableRoles, UUPSUpgradeable {
     /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
 
     /// @dev Admin role.
-    uint8 public constant ADMIN_ROLE = 0;
+    uint256 public constant ADMIN_ROLE = 0;
 
     /// @dev Withdrawer role.
-    uint8 public constant WITHDRAWER_ROLE = 1;
+    uint256 public constant WITHDRAWER_ROLE = 1;
 
     /// @dev Max role.
-    uint8 public constant MAX_ROLE = 1;
+    uint256 public constant MAX_ROLE = 1;
 
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
     /*                     WITHDRAW FUNCTIONS                     */
@@ -26,13 +26,16 @@ contract ClustersCommunityBaseBeta is EnumerableRoles, UUPSUpgradeable {
     /// @dev Allows the owner to withdraw ERC20 tokens.
     function withdrawERC20(address token, address to, uint256 amount)
         public
-        onlyOwnerOrAnyRole(ADMIN_ROLE, WITHDRAWER_ROLE)
+        onlyOwnerOrRoles(abi.encode(ADMIN_ROLE, WITHDRAWER_ROLE))
     {
         SafeTransferLib.safeTransfer(token, to, amount);
     }
 
     /// @dev Allows the owner to withdraw native currency.
-    function withdrawNative(address to, uint256 amount) public onlyOwnerOrAnyRole(ADMIN_ROLE, WITHDRAWER_ROLE) {
+    function withdrawNative(address to, uint256 amount)
+        public
+        onlyOwnerOrRoles(abi.encode(ADMIN_ROLE, WITHDRAWER_ROLE))
+    {
         SafeTransferLib.safeTransferETH(to, amount);
     }
 
@@ -66,16 +69,8 @@ contract ClustersCommunityBaseBeta is EnumerableRoles, UUPSUpgradeable {
     /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
 
     /// @dev Allow admins to set roles too.
-    function setRole(address user, uint8 role, bool active)
-        public
-        payable
-        virtual
-        override
-        onlyOwnerOrRole(ADMIN_ROLE)
-    {
-        _setRole(user, role, active);
-    }
+    function _authorizeSetRole(address, uint256, bool) internal override onlyOwnerOrRoles(abi.encode(ADMIN_ROLE)) {}
 
     /// @dev For UUPSUpgradeable. Only the owner can upgrade.
-    function _authorizeUpgrade(address newImplementation) internal override onlyOwnerOrRole(ADMIN_ROLE) {}
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwnerOrRoles(abi.encode(ADMIN_ROLE)) {}
 }

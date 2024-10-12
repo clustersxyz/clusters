@@ -140,7 +140,7 @@ contract ClustersCommunityInitiatorBeta is OAppSenderUpgradeable, ReentrancyGuar
     /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
 
     /// @dev Enables the owner to set the destination endpoint ID.
-    function setDstEid(uint32 eid) public onlyOwnerOrRole(ADMIN_ROLE) {
+    function setDstEid(uint32 eid) public onlyOwnerOrRoles(abi.encode(ADMIN_ROLE)) {
         _getClustersCommunityInitiatorBetaStorage().dstEid = eid;
         emit DstEidSet(eid);
     }

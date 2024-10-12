@@ -17,9 +17,9 @@
 [submodule "lib/multicaller"]
 	path = lib/multicaller
 	url = https://github.com/vectorized/multicaller
-[submodule "lib/solady"]
-	path = lib/solady
-	url = https://github.com/vectorized/solady
 [submodule "lib/openzeppelin-contracts"]
 	path = lib/openzeppelin-contracts
 	url = https://github.com/openzeppelin/openzeppelin-contracts
+[submodule "lib/solady"]
+	path = lib/solady
+	url = https://github.com/vectorized/solady
