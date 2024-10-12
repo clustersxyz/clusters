@@ -8,7 +8,7 @@ import {LibMap} from "solady/utils/LibMap.sol";
 import {LibBit} from "solady/utils/LibBit.sol";
 import {Ownable} from "solady/auth/Ownable.sol";
 import {ERC721} from "solady/tokens/ERC721.sol";
-import {EnumerableRoles} from "clusters/EnumerableRoles.sol";
+import {EnumerableRoles} from "solady/auth/EnumerableRoles.sol";
 import {MessageHubLibV1 as MessageHubLib} from "clusters/MessageHubLibV1.sol";
 
 /// @title ClustersNFTV1
@@ -24,19 +24,19 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
 
     /// @dev Admin.
-    uint8 public constant ADMIN_ROLE = 0;
+    uint256 public constant ADMIN_ROLE = 0;
 
     /// @dev Minter.
-    uint8 public constant MINTER_ROLE = 1;
+    uint256 public constant MINTER_ROLE = 1;
 
     /// @dev Cluster additional data setter.
-    uint8 public constant CLUSTERS_ADDITIONAL_DATA_SETTER_ROLE = 2;
+    uint256 public constant CLUSTERS_ADDITIONAL_DATA_SETTER_ROLE = 2;
 
     /// @dev For marketplaces to transfer tokens.
-    uint8 public constant CLUSTERS_CONDUIT_ROLE = 3;
+    uint256 public constant CLUSTERS_CONDUIT_ROLE = 3;
 
     /// @dev The maximum role.
-    uint8 public constant MAX_ROLE = 3;
+    uint256 public constant MAX_ROLE = 3;
 
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
     /*                          STORAGE                           */
@@ -252,7 +252,7 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     function setClusterAdditionalData(uint256 id, uint208 additionalData)
         public
         virtual
-        onlyRole(CLUSTERS_ADDITIONAL_DATA_SETTER_ROLE)
+        onlyRoles(abi.encode(CLUSTERS_ADDITIONAL_DATA_SETTER_ROLE))
     {
         setClusterAdditionalData(clusterNameOf(id), additionalData);
     }
@@ -261,7 +261,7 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     function setClusterAdditionalData(bytes32 clusterName, uint208 additionalData)
         public
         virtual
-        onlyRole(CLUSTERS_ADDITIONAL_DATA_SETTER_ROLE)
+        onlyRoles(abi.encode(CLUSTERS_ADDITIONAL_DATA_SETTER_ROLE))
     {
         ClustersData storage cd = _getClustersNFTStorage().clusterData[clusterName];
         if (_getId(cd) == uint256(0)) revert TokenDoesNotExist();
@@ -273,14 +273,18 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
 
     /// @dev Mints a new NFT with the given `clusterName` and assigns it to `to`.
-    function mintNext(bytes32 clusterName, address to) public onlyOwnerOrRole(MINTER_ROLE) returns (uint256 id) {
+    function mintNext(bytes32 clusterName, address to)
+        public
+        onlyOwnerOrRoles(abi.encode(MINTER_ROLE))
+        returns (uint256 id)
+    {
         id = _mintNext(clusterName, to);
     }
 
     /// @dev Mints new NFTs with the given `clusterNames` and assigns them to `to`.
     function mintNext(bytes32[] calldata clusterNames, address[] calldata to)
         public
-        onlyOwnerOrRole(MINTER_ROLE)
+        onlyOwnerOrRoles(abi.encode(MINTER_ROLE))
         returns (uint256 startTokenId)
     {
         if (clusterNames.length != to.length) revert ArrayLengthsMismatch();
@@ -366,7 +370,7 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
 
     /// @dev Sets the token URI renderer contract.
-    function setTokenURIRenderer(address renderer) public onlyOwnerOrRole(ADMIN_ROLE) {
+    function setTokenURIRenderer(address renderer) public onlyOwnerOrRoles(abi.encode(ADMIN_ROLE)) {
         _getClustersNFTStorage().tokenURIRenderer = renderer;
         emit TokenURIRendererSet(renderer);
     }
@@ -377,7 +381,10 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
 
     /// @dev Enables the marketplace to transfer the NFT.
     ///      This is used when a NFT is outbidded.
-    function conduitSafeTransfer(address from, address to, uint256 id) public onlyRole(CLUSTERS_CONDUIT_ROLE) {
+    function conduitSafeTransfer(address from, address to, uint256 id)
+        public
+        onlyRoles(abi.encode(CLUSTERS_CONDUIT_ROLE))
+    {
         _safeTransfer(from, to, id);
     }
 
