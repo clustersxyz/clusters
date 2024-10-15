@@ -12,3 +12,7 @@ docs/
 .env
 
 .DS_Store
+
+# Create2 build files
+.tmp
+create2
