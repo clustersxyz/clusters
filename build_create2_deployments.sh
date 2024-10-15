@@ -54,3 +54,4 @@ generateDeployment() {
 # Generate the deployments.
 generateDeployment "ClustersCommunityHubBeta";
 generateDeployment "ClustersCommunityInitiatorBeta";
+generateDeployment "TestERC20";

@@ -160,6 +160,11 @@ contract ClustersCommunityInitiatorBeta is OAppSenderUpgradeable, ReentrancyGuar
         }
     }
 
+    /// @dev Override to remove the `if (msg.value != nativeFee) revert()`.
+    function _payNative(uint256 nativeFee) internal virtual override returns (uint256) {
+        return nativeFee;
+    }
+
     /// @dev Returns the default options that encodes `gas`.
     function _defaultOptions(uint256 gas) internal pure returns (bytes memory) {
         if (gas >= 1 << 128) revert();
