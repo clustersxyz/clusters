@@ -6,6 +6,8 @@ import {ReentrancyGuard} from "soledge/utils/ReentrancyGuard.sol";
 import {ClustersCommunityBaseBeta} from "clusters/beta/ClustersCommunityBaseBeta.sol";
 import {Origin, OAppReceiverUpgradeable} from "layerzero-oapp/contracts/oapp-upgradeable/OAppReceiverUpgradeable.sol";
 
+/// @title ClustersCommunityHubBeta
+/// @notice The hub contract for clusters community sales.
 contract ClustersCommunityHubBeta is OAppReceiverUpgradeable, ReentrancyGuard, ClustersCommunityBaseBeta {
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
     /*                     TRANSIENT STORAGE                      */

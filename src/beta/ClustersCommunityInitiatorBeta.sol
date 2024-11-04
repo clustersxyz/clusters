@@ -9,6 +9,8 @@ import {
     OAppSenderUpgradeable, MessagingFee
 } from "layerzero-oapp/contracts/oapp-upgradeable/OAppSenderUpgradeable.sol";
 
+/// @title ClustersCommunityHubBeta
+/// @notice The initiator contract for clusters community sales.
 contract ClustersCommunityInitiatorBeta is OAppSenderUpgradeable, ReentrancyGuard, ClustersCommunityBaseBeta {
     using OptionsBuilder for bytes;
 

@@ -6,6 +6,10 @@ import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
 import {EnumerableRoles} from "solady/auth/EnumerableRoles.sol";
 import {LibClone} from "solady/utils/LibClone.sol";
 
+/// @title ClustersCommunityBaseVaultBeta
+/// @notice A contract to hold ERC20 and native tokens for a recipient of a community bid.
+///         We'll just include this within the same file as ClustersCommunityBaseBeta,
+///         since it is so tightly coupled.
 contract ClustersCommunityBaseVaultBeta {
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
     /*                           ERRORS                           */
@@ -31,10 +35,11 @@ contract ClustersCommunityBaseVaultBeta {
     }
 
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
-    /*                         OVERRIDES                          */
+    /*                           GUARDS                           */
     /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
 
-    /// @dev Ensures that the caller is the mothership.
+    /// @dev Ensures that the caller is the mothership,
+    ///      and that the caller of the mothership is the owner of the vault.
     function _checkMothership(address mothershipCaller) internal view {
         bytes memory args = LibClone.argsOnClone(address(this));
         (address mothership, address vaultOwner) = abi.decode(args, (address, address));
@@ -43,6 +48,10 @@ contract ClustersCommunityBaseVaultBeta {
     }
 }
 
+/// @title ClustersCommunityBaseBeta
+/// @notice The base class for the ClustersCommunityHubBeta and ClustersCommunityInitiatorBeta.
+///         Having a base class helps with conciseness, since both classes share a lot of
+///         common logic.
 contract ClustersCommunityBaseBeta is EnumerableRoles, UUPSUpgradeable {
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
     /*                          STRUCTS                           */
@@ -81,7 +90,7 @@ contract ClustersCommunityBaseBeta is EnumerableRoles, UUPSUpgradeable {
     /*                         IMMUTABLES                         */
     /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
 
-    /// @dev Addres of the vault implementation.
+    /// @dev Address of the vault implementation.
     address internal immutable _vaultImplementation = address(new ClustersCommunityBaseVaultBeta());
 
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
