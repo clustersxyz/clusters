@@ -170,6 +170,8 @@ contract ClustersCommunityHubBeta is OAppReceiverUpgradeable, ReentrancyGuard, C
             if tload(_IN_LZ_RECEIVE_TRANSIENT_SLOT) {
                 sender := tload(_SENDER_TRANSIENT_SLOT)
                 chainId := tload(_CHAIN_ID_TRANSIENT_SLOT)
+                // Just for extra safety, in case some rogue L2 makes their chain ID the same.
+                if eq(chainId, chainid()) { invalid() }
             }
         }
     }
