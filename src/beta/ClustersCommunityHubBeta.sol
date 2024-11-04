@@ -26,7 +26,14 @@ contract ClustersCommunityHubBeta is OAppReceiverUpgradeable, ReentrancyGuard, C
 
     /// @dev Emitted when a bid is received.
     event Bid(
-        bytes32 from, uint256 tokenChainId, address token, uint256 amount, bytes32 communityName, bytes32 walletName
+        bytes32 from,
+        uint256 tokenChainId,
+        address token,
+        uint256 amount,
+        address paymentRecipient,
+        bytes32 communityName,
+        bytes32 walletName,
+        bytes32 referralAddress
     );
 
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
@@ -54,46 +61,55 @@ contract ClustersCommunityHubBeta is OAppReceiverUpgradeable, ReentrancyGuard, C
 
     /// @dev Places a bid.
     ///      If any token is `address(0)`, it is treated as the native token.
-    function placeBid(address token, uint256 amount, bytes32 communityName, bytes32 walletName)
-        public
-        payable
-        nonReentrant
-    {
+    function placeBid(BidConfig memory bidConfig) public payable nonReentrant {
         (bytes32 sender, uint256 chainId) = _senderAndChainId();
         if (chainId == block.chainid) {
-            if (token == address(0)) {
-                if (msg.value < amount) revert InsufficientNativePayment();
+            address vault = createVault(bidConfig.paymentRecipient);
+            if (bidConfig.token == address(0)) {
+                if (msg.value < bidConfig.amount) revert InsufficientNativePayment();
+                SafeTransferLib.safeTransferETH(vault, bidConfig.amount);
             } else {
-                SafeTransferLib.safeTransferFrom(token, msg.sender, address(this), amount);
+                SafeTransferLib.safeTransferFrom(bidConfig.token, msg.sender, vault, bidConfig.amount);
             }
         }
-        emit Bid(sender, chainId, token, amount, communityName, walletName);
+        emit Bid(
+            sender,
+            chainId,
+            bidConfig.token,
+            bidConfig.amount,
+            bidConfig.paymentRecipient,
+            bidConfig.communityName,
+            bidConfig.walletName,
+            bidConfig.referralAddress
+        );
     }
 
     /// @dev Places multiple bids.
     ///      If any token is `address(0)`, it is treated as the native token.
-    function placeBids(
-        address[] calldata tokens,
-        uint256[] calldata amounts,
-        bytes32[] calldata communityNames,
-        bytes32[] calldata walletNames
-    ) public payable nonReentrant {
+    function placeBids(BidConfig[] memory bidConfigs) public payable nonReentrant {
         (bytes32 sender, uint256 chainId) = _senderAndChainId();
         uint256 requiredNativeValue;
-        if (tokens.length != amounts.length) revert ArrayLengthsMismatch();
-        if (tokens.length != walletNames.length) revert ArrayLengthsMismatch();
-        if (tokens.length != communityNames.length) revert ArrayLengthsMismatch();
-        for (uint256 i; i < tokens.length; ++i) {
-            address token = _get(tokens, i);
-            uint256 amount = _get(amounts, i);
+        for (uint256 i; i < bidConfigs.length; ++i) {
+            BidConfig memory bidConfig = bidConfigs[i];
             if (chainId == block.chainid) {
-                if (token == address(0)) {
-                    requiredNativeValue += amount;
+                address vault = createVault(bidConfig.paymentRecipient);
+                if (bidConfig.token == address(0)) {
+                    requiredNativeValue += bidConfig.amount;
+                    SafeTransferLib.safeTransferETH(vault, bidConfig.amount);
                 } else {
-                    SafeTransferLib.safeTransferFrom(token, msg.sender, address(this), amount);
+                    SafeTransferLib.safeTransferFrom(bidConfig.token, msg.sender, vault, bidConfig.amount);
                 }
             }
-            emit Bid(sender, chainId, token, amount, _get(communityNames, i), _get(walletNames, i));
+            emit Bid(
+                sender,
+                chainId,
+                bidConfig.token,
+                bidConfig.amount,
+                bidConfig.paymentRecipient,
+                bidConfig.communityName,
+                bidConfig.walletName,
+                bidConfig.referralAddress
+            );
         }
         if (msg.value < requiredNativeValue) revert InsufficientNativePayment();
     }

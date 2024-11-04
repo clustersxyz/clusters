@@ -47,9 +47,6 @@ contract ClustersCommunityInitiatorBeta is OAppSenderUpgradeable, ReentrancyGuar
     /// @dev Insufficient native payment.
     error InsufficientNativePayment();
 
-    /// @dev The input arrays must have the same length.
-    error ArrayLengthsMismatch();
-
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
     /*                        INITIALIZER                         */
     /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
@@ -66,44 +63,34 @@ contract ClustersCommunityInitiatorBeta is OAppSenderUpgradeable, ReentrancyGuar
     /// @dev Places a bid.
     ///      If any token is `address(0)`, it is treated as the native token.
     ///      All tokens will not be bridged.
-    function placeBid(address token, uint256 amount, bytes32 communityName, bytes32 walletName, uint256 gas)
-        public
-        payable
-        nonReentrant
-    {
+    function placeBid(BidConfig memory bidConfig, uint256 gas) public payable nonReentrant {
         uint256 requiredNativeValue;
-        if (token == address(0)) {
-            requiredNativeValue = amount;
+        address vault = createVault(bidConfig.paymentRecipient);
+        if (bidConfig.token == address(0)) {
+            requiredNativeValue = bidConfig.amount;
+            SafeTransferLib.safeTransferETH(vault, bidConfig.amount);
         } else {
-            SafeTransferLib.safeTransferFrom(token, msg.sender, address(this), amount);
+            SafeTransferLib.safeTransferFrom(bidConfig.token, msg.sender, vault, bidConfig.amount);
         }
-        _sendBids(_encodeBidMessage(token, amount, communityName, walletName), requiredNativeValue, gas);
+        _sendBids(_encodeBidMessage(bidConfig), requiredNativeValue, gas);
     }
 
     /// @dev Places multiple bids.
     ///      If any token is `address(0)`, it is treated as the native token.
     ///      All tokens will not be bridged.
-    function placeBids(
-        address[] calldata tokens,
-        uint256[] calldata amounts,
-        bytes32[] calldata communityNames,
-        bytes32[] calldata walletNames,
-        uint256 gas
-    ) public payable nonReentrant {
-        if (tokens.length != amounts.length) revert ArrayLengthsMismatch();
-        if (tokens.length != walletNames.length) revert ArrayLengthsMismatch();
-        if (tokens.length != communityNames.length) revert ArrayLengthsMismatch();
+    function placeBids(BidConfig[] memory bidConfigs, uint256 gas) public payable nonReentrant {
         uint256 requiredNativeValue;
-        for (uint256 i; i < tokens.length; ++i) {
-            address token = _get(tokens, i);
-            uint256 amount = _get(amounts, i);
-            if (token == address(0)) {
-                requiredNativeValue += amount;
+        for (uint256 i; i < bidConfigs.length; ++i) {
+            BidConfig memory bidConfig = bidConfigs[i];
+            address vault = createVault(bidConfig.paymentRecipient);
+            if (bidConfig.token == address(0)) {
+                requiredNativeValue += bidConfig.amount;
+                SafeTransferLib.safeTransferETH(vault, bidConfig.amount);
             } else {
-                SafeTransferLib.safeTransferFrom(token, msg.sender, address(this), amount);
+                SafeTransferLib.safeTransferFrom(bidConfig.token, msg.sender, address(this), bidConfig.amount);
             }
         }
-        _sendBids(_encodeBidsMessage(tokens, amounts, communityNames, walletNames), requiredNativeValue, gas);
+        _sendBids(_encodeBidsMessage(bidConfigs), requiredNativeValue, gas);
     }
 
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
@@ -116,23 +103,13 @@ contract ClustersCommunityInitiatorBeta is OAppSenderUpgradeable, ReentrancyGuar
     }
 
     /// @dev Returns the amount of native gas fee required to place a bid.
-    function quoteForBid(address token, uint256 amount, bytes32 communityName, bytes32 walletName, uint256 gas)
-        public
-        view
-        returns (uint256)
-    {
-        return _quoteNativeFee(_encodeBidMessage(token, amount, communityName, walletName), gas);
+    function quoteForBid(BidConfig memory bidConfig, uint256 gas) public view returns (uint256) {
+        return _quoteNativeFee(_encodeBidMessage(bidConfig), gas);
     }
 
     /// @dev Returns the amount of native gas fee required to place the bids.
-    function quoteForBids(
-        address[] calldata tokens,
-        uint256[] calldata amounts,
-        bytes32[] calldata communityNames,
-        bytes32[] calldata walletNames,
-        uint256 gas
-    ) public view returns (uint256) {
-        return _quoteNativeFee(_encodeBidsMessage(tokens, amounts, communityNames, walletNames), gas);
+    function quoteForBids(BidConfig[] memory bidConfigs, uint256 gas) public view returns (uint256) {
+        return _quoteNativeFee(_encodeBidsMessage(bidConfigs), gas);
     }
 
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
@@ -177,33 +154,20 @@ contract ClustersCommunityInitiatorBeta is OAppSenderUpgradeable, ReentrancyGuar
     }
 
     /// @dev Encodes the bid calldata.
-    function _encodeBidMessage(address token, uint256 amount, bytes32 communityName, bytes32 walletName)
-        internal
-        view
-        returns (bytes memory)
-    {
+    function _encodeBidMessage(BidConfig memory bidConfig) internal view returns (bytes memory) {
         return abi.encode(
             block.chainid,
             msg.sender,
-            abi.encodeWithSignature(
-                "placeBid(address,uint256,bytes32,bytes32)", token, amount, communityName, walletName
-            )
+            abi.encodeWithSignature("placeBid((address,uint256,address,bytes32,bytes32,bytes32))", bidConfig)
         );
     }
 
     /// @dev Encodes the bids calldata.
-    function _encodeBidsMessage(
-        address[] calldata tokens,
-        uint256[] calldata amounts,
-        bytes32[] calldata communityNames,
-        bytes32[] calldata walletNames
-    ) internal view returns (bytes memory) {
+    function _encodeBidsMessage(BidConfig[] memory bidConfigs) internal view returns (bytes memory) {
         return abi.encode(
             block.chainid,
             msg.sender,
-            abi.encodeWithSignature(
-                "placeBids(address[],uint256[],bytes32[],bytes32[])", tokens, amounts, communityNames, walletNames
-            )
+            abi.encodeWithSignature("placeBids((address,uint256,address,bytes32,bytes32,bytes32)[])", bidConfigs)
         );
     }
 }
