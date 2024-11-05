@@ -41,8 +41,9 @@ contract ClustersCommunityBaseVaultBeta {
     /// @dev Ensures that the caller is the mothership,
     ///      and that the caller of the mothership is the owner of the vault.
     function _checkMothership(address mothershipCaller) internal view {
-        bytes memory args = LibClone.argsOnClone(address(this));
-        (address mothership, address vaultOwner) = abi.decode(args, (address, address));
+        bytes memory args = LibClone.argsOnClone(address(this), 0x00, 0x28);
+        address mothership = address(bytes20(LibClone.argLoad(args, 0x00)));
+        address vaultOwner = address(bytes20(LibClone.argLoad(args, 0x14)));
         if (mothership != msg.sender) revert Unauthorized();
         if (vaultOwner != mothershipCaller) revert Unauthorized();
     }
@@ -99,7 +100,7 @@ contract ClustersCommunityBaseBeta is EnumerableRoles, UUPSUpgradeable {
 
     /// @dev Returns the deterministic address of the vault of `vaultOwner`.
     function vaultOf(address vaultOwner) public view returns (address) {
-        bytes memory args = abi.encode(address(this), vaultOwner);
+        bytes memory args = abi.encodePacked(address(this), vaultOwner);
         bytes32 salt = keccak256(args);
         address deployer = address(this);
         return LibClone.predictDeterministicAddress(_vaultImplementation, args, salt, deployer);
@@ -107,7 +108,7 @@ contract ClustersCommunityBaseBeta is EnumerableRoles, UUPSUpgradeable {
 
     /// @dev Creates a vault for `vaultOwner` if one does not exist yet.
     function createVault(address vaultOwner) public returns (address instance) {
-        bytes memory args = abi.encode(address(this), vaultOwner);
+        bytes memory args = abi.encodePacked(address(this), vaultOwner);
         bytes32 salt = keccak256(args);
         (, instance) = LibClone.createDeterministicClone(_vaultImplementation, args, salt);
     }
