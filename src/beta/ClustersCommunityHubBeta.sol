@@ -63,7 +63,7 @@ contract ClustersCommunityHubBeta is OAppReceiverUpgradeable, ReentrancyGuard, C
 
     /// @dev Places a bid.
     ///      If any token is `address(0)`, it is treated as the native token.
-    function placeBid(BidConfig memory bidConfig) public payable nonReentrant {
+    function placeBid(BidConfig calldata bidConfig) public payable nonReentrant {
         (bytes32 sender, uint256 chainId) = _senderAndChainId();
         if (chainId == block.chainid) {
             address vault = createVault(bidConfig.paymentRecipient);
@@ -88,11 +88,11 @@ contract ClustersCommunityHubBeta is OAppReceiverUpgradeable, ReentrancyGuard, C
 
     /// @dev Places multiple bids.
     ///      If any token is `address(0)`, it is treated as the native token.
-    function placeBids(BidConfig[] memory bidConfigs) public payable nonReentrant {
+    function placeBids(BidConfig[] calldata bidConfigs) public payable nonReentrant {
         (bytes32 sender, uint256 chainId) = _senderAndChainId();
         uint256 requiredNativeValue;
         for (uint256 i; i < bidConfigs.length; ++i) {
-            BidConfig memory bidConfig = bidConfigs[i];
+            BidConfig calldata bidConfig = bidConfigs[i];
             if (chainId == block.chainid) {
                 address vault = createVault(bidConfig.paymentRecipient);
                 if (bidConfig.token == address(0)) {

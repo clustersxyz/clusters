@@ -65,7 +65,7 @@ contract ClustersCommunityInitiatorBeta is OAppSenderUpgradeable, ReentrancyGuar
     /// @dev Places a bid.
     ///      If any token is `address(0)`, it is treated as the native token.
     ///      All tokens will not be bridged.
-    function placeBid(BidConfig memory bidConfig, uint256 gas) public payable nonReentrant {
+    function placeBid(BidConfig calldata bidConfig, uint256 gas) public payable nonReentrant {
         uint256 requiredNativeValue;
         address vault = createVault(bidConfig.paymentRecipient);
         if (bidConfig.token == address(0)) {
@@ -80,10 +80,10 @@ contract ClustersCommunityInitiatorBeta is OAppSenderUpgradeable, ReentrancyGuar
     /// @dev Places multiple bids.
     ///      If any token is `address(0)`, it is treated as the native token.
     ///      All tokens will not be bridged.
-    function placeBids(BidConfig[] memory bidConfigs, uint256 gas) public payable nonReentrant {
+    function placeBids(BidConfig[] calldata bidConfigs, uint256 gas) public payable nonReentrant {
         uint256 requiredNativeValue;
         for (uint256 i; i < bidConfigs.length; ++i) {
-            BidConfig memory bidConfig = bidConfigs[i];
+            BidConfig calldata bidConfig = bidConfigs[i];
             address vault = createVault(bidConfig.paymentRecipient);
             if (bidConfig.token == address(0)) {
                 requiredNativeValue += bidConfig.amount;
@@ -105,12 +105,12 @@ contract ClustersCommunityInitiatorBeta is OAppSenderUpgradeable, ReentrancyGuar
     }
 
     /// @dev Returns the amount of native gas fee required to place a bid.
-    function quoteForBid(BidConfig memory bidConfig, uint256 gas) public view returns (uint256) {
+    function quoteForBid(BidConfig calldata bidConfig, uint256 gas) public view returns (uint256) {
         return _quoteNativeFee(_encodeBidMessage(bidConfig), gas);
     }
 
     /// @dev Returns the amount of native gas fee required to place the bids.
-    function quoteForBids(BidConfig[] memory bidConfigs, uint256 gas) public view returns (uint256) {
+    function quoteForBids(BidConfig[] calldata bidConfigs, uint256 gas) public view returns (uint256) {
         return _quoteNativeFee(_encodeBidsMessage(bidConfigs), gas);
     }
 
@@ -156,7 +156,7 @@ contract ClustersCommunityInitiatorBeta is OAppSenderUpgradeable, ReentrancyGuar
     }
 
     /// @dev Encodes the bid calldata.
-    function _encodeBidMessage(BidConfig memory bidConfig) internal view returns (bytes memory) {
+    function _encodeBidMessage(BidConfig calldata bidConfig) internal view returns (bytes memory) {
         return abi.encode(
             block.chainid,
             msg.sender,
@@ -165,7 +165,7 @@ contract ClustersCommunityInitiatorBeta is OAppSenderUpgradeable, ReentrancyGuar
     }
 
     /// @dev Encodes the bids calldata.
-    function _encodeBidsMessage(BidConfig[] memory bidConfigs) internal view returns (bytes memory) {
+    function _encodeBidsMessage(BidConfig[] calldata bidConfigs) internal view returns (bytes memory) {
         return abi.encode(
             block.chainid,
             msg.sender,
