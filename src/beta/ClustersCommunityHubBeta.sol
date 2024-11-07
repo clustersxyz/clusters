@@ -66,13 +66,7 @@ contract ClustersCommunityHubBeta is OAppReceiverUpgradeable, ReentrancyGuard, C
     function placeBid(BidConfig calldata bidConfig) public payable nonReentrant {
         (bytes32 sender, uint256 chainId) = _senderAndChainId();
         if (chainId == block.chainid) {
-            address vault = createVault(bidConfig.paymentRecipient);
-            if (bidConfig.token == address(0)) {
-                if (msg.value < bidConfig.amount) revert InsufficientNativePayment();
-                SafeTransferLib.safeTransferETH(vault, bidConfig.amount);
-            } else {
-                SafeTransferLib.safeTransferFrom(bidConfig.token, msg.sender, vault, bidConfig.amount);
-            }
+            if (msg.value < _transferBidPayment(bidConfig)) revert InsufficientNativePayment();
         }
         emit Bid(
             sender,
@@ -94,13 +88,7 @@ contract ClustersCommunityHubBeta is OAppReceiverUpgradeable, ReentrancyGuard, C
         for (uint256 i; i < bidConfigs.length; ++i) {
             BidConfig calldata bidConfig = bidConfigs[i];
             if (chainId == block.chainid) {
-                address vault = createVault(bidConfig.paymentRecipient);
-                if (bidConfig.token == address(0)) {
-                    requiredNativeValue += bidConfig.amount;
-                    SafeTransferLib.safeTransferETH(vault, bidConfig.amount);
-                } else {
-                    SafeTransferLib.safeTransferFrom(bidConfig.token, msg.sender, vault, bidConfig.amount);
-                }
+                requiredNativeValue += _transferBidPayment(bidConfig);
             }
             emit Bid(
                 sender,

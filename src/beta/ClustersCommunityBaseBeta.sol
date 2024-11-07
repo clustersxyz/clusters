@@ -5,6 +5,7 @@ import {UUPSUpgradeable} from "solady/utils/UUPSUpgradeable.sol";
 import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
 import {EnumerableRoles} from "solady/auth/EnumerableRoles.sol";
 import {LibClone} from "solady/utils/LibClone.sol";
+import {EfficientHashLib} from "solady/utils/EfficientHashLib.sol";
 
 /// @title ClustersCommunityBaseVaultBeta
 /// @notice A contract to hold ERC20 and native tokens for a recipient of a community bid.
@@ -41,11 +42,8 @@ contract ClustersCommunityBaseVaultBeta {
     /// @dev Ensures that the caller is the mothership,
     ///      and that the caller of the mothership is the owner of the vault.
     function _checkMothership(address mothershipCaller) internal view {
-        bytes memory args = LibClone.argsOnClone(address(this), 0x00, 0x28);
-        address mothership = address(bytes20(LibClone.argLoad(args, 0x00)));
-        address vaultOwner = address(bytes20(LibClone.argLoad(args, 0x14)));
-        if (mothership != msg.sender) revert Unauthorized();
-        if (vaultOwner != mothershipCaller) revert Unauthorized();
+        bytes32 h = abi.decode(LibClone.argsOnClone(address(this), 0x00, 0x20), (bytes32));
+        if (EfficientHashLib.hash(uint160(msg.sender), uint160(mothershipCaller)) != h) revert Unauthorized();
     }
 }
 
@@ -100,17 +98,14 @@ contract ClustersCommunityBaseBeta is EnumerableRoles, UUPSUpgradeable {
 
     /// @dev Returns the deterministic address of the vault of `vaultOwner`.
     function vaultOf(address vaultOwner) public view returns (address) {
-        bytes memory args = abi.encodePacked(address(this), vaultOwner);
-        bytes32 salt = keccak256(args);
-        address deployer = address(this);
-        return LibClone.predictDeterministicAddress(_vaultImplementation, args, salt, deployer);
+        bytes memory args = abi.encode(EfficientHashLib.hash(uint160(address(this)), uint160(vaultOwner)));
+        return LibClone.predictDeterministicAddress(_vaultImplementation, args, 0, address(this));
     }
 
     /// @dev Creates a vault for `vaultOwner` if one does not exist yet.
     function createVault(address vaultOwner) public returns (address instance) {
-        bytes memory args = abi.encodePacked(address(this), vaultOwner);
-        bytes32 salt = keccak256(args);
-        (, instance) = LibClone.createDeterministicClone(_vaultImplementation, args, salt);
+        bytes memory args = abi.encode(EfficientHashLib.hash(uint160(address(this)), uint160(vaultOwner)));
+        (, instance) = LibClone.createDeterministicClone(_vaultImplementation, args, 0);
     }
 
     /// @dev Allows the `vaultOwner` to withdraw ERC20 tokens.
@@ -141,6 +136,21 @@ contract ClustersCommunityBaseBeta is EnumerableRoles, UUPSUpgradeable {
         onlyOwnerOrRoles(abi.encode(ADMIN_ROLE, WITHDRAWER_ROLE))
     {
         SafeTransferLib.safeTransferETH(to, amount);
+    }
+
+    /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
+    /*                      INTERNAL HELPERS                      */
+    /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
+
+    /// @dev Transfers the native currency or ERC20 for the bid.
+    function _transferBidPayment(BidConfig calldata bidConfig) internal returns (uint256 nativeAmount) {
+        address vault = createVault(bidConfig.paymentRecipient);
+        if (bidConfig.token == address(0)) {
+            nativeAmount = bidConfig.amount;
+            SafeTransferLib.safeTransferETH(vault, nativeAmount);
+        } else {
+            SafeTransferLib.safeTransferFrom(bidConfig.token, msg.sender, vault, bidConfig.amount);
+        }
     }
 
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/

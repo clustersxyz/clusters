@@ -66,15 +66,7 @@ contract ClustersCommunityInitiatorBeta is OAppSenderUpgradeable, ReentrancyGuar
     ///      If any token is `address(0)`, it is treated as the native token.
     ///      All tokens will not be bridged.
     function placeBid(BidConfig calldata bidConfig, uint256 gas) public payable nonReentrant {
-        uint256 requiredNativeValue;
-        address vault = createVault(bidConfig.paymentRecipient);
-        if (bidConfig.token == address(0)) {
-            requiredNativeValue = bidConfig.amount;
-            SafeTransferLib.safeTransferETH(vault, bidConfig.amount);
-        } else {
-            SafeTransferLib.safeTransferFrom(bidConfig.token, msg.sender, vault, bidConfig.amount);
-        }
-        _sendBids(_encodeBidMessage(bidConfig), requiredNativeValue, gas);
+        _sendBids(_encodeBidMessage(bidConfig), _transferBidPayment(bidConfig), gas);
     }
 
     /// @dev Places multiple bids.
@@ -83,14 +75,7 @@ contract ClustersCommunityInitiatorBeta is OAppSenderUpgradeable, ReentrancyGuar
     function placeBids(BidConfig[] calldata bidConfigs, uint256 gas) public payable nonReentrant {
         uint256 requiredNativeValue;
         for (uint256 i; i < bidConfigs.length; ++i) {
-            BidConfig calldata bidConfig = bidConfigs[i];
-            address vault = createVault(bidConfig.paymentRecipient);
-            if (bidConfig.token == address(0)) {
-                requiredNativeValue += bidConfig.amount;
-                SafeTransferLib.safeTransferETH(vault, bidConfig.amount);
-            } else {
-                SafeTransferLib.safeTransferFrom(bidConfig.token, msg.sender, address(this), bidConfig.amount);
-            }
+            requiredNativeValue += _transferBidPayment(bidConfigs[i]);
         }
         _sendBids(_encodeBidsMessage(bidConfigs), requiredNativeValue, gas);
     }
