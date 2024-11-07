@@ -150,6 +150,6 @@ contract ClustersCommunityBaseBeta is EnumerableRoles, UUPSUpgradeable {
     /// @dev Allow admins to set roles too.
     function _authorizeSetRole(address, uint256, bool) internal override onlyOwnerOrRoles(abi.encode(ADMIN_ROLE)) {}
 
-    /// @dev For UUPSUpgradeable. Only the owner can upgrade.
+    /// @dev For UUPSUpgradeable.
     function _authorizeUpgrade(address newImplementation) internal override onlyOwnerOrRoles(abi.encode(ADMIN_ROLE)) {}
 }
