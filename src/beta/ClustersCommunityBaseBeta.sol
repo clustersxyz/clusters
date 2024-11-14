@@ -45,6 +45,13 @@ contract ClustersCommunityBaseVaultBeta {
         bytes32 h = abi.decode(LibClone.argsOnClone(address(this), 0x00, 0x20), (bytes32));
         if (EfficientHashLib.hash(uint160(msg.sender), uint160(mothershipCaller)) != h) revert Unauthorized();
     }
+
+    /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
+    /*                          RECEIVE                           */
+    /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
+
+    /// @dev For vault to receive native currency.
+    receive() external payable {}
 }
 
 /// @title ClustersCommunityBaseBeta
@@ -99,23 +106,25 @@ contract ClustersCommunityBaseBeta is EnumerableRoles, UUPSUpgradeable {
     /// @dev Returns the deterministic address of the vault of `vaultOwner`.
     function vaultOf(address vaultOwner) public view returns (address) {
         bytes memory args = abi.encode(EfficientHashLib.hash(uint160(address(this)), uint160(vaultOwner)));
-        return LibClone.predictDeterministicAddress(_vaultImplementation, args, 0, address(this));
+        bytes32 salt;
+        return LibClone.predictDeterministicAddress(_vaultImplementation, args, salt, address(this));
     }
 
     /// @dev Creates a vault for `vaultOwner` if one does not exist yet.
     function createVault(address vaultOwner) public returns (address instance) {
         bytes memory args = abi.encode(EfficientHashLib.hash(uint160(address(this)), uint160(vaultOwner)));
-        (, instance) = LibClone.createDeterministicClone(_vaultImplementation, args, 0);
+        bytes32 salt;
+        (, instance) = LibClone.createDeterministicClone(_vaultImplementation, args, salt);
     }
 
     /// @dev Allows the `vaultOwner` to withdraw ERC20 tokens.
     function withdrawERC20OnVault(address vaultOwner, address token, address to, uint256 amount) public {
-        ClustersCommunityBaseVaultBeta(vaultOf(vaultOwner)).withdrawERC20(msg.sender, token, to, amount);
+        ClustersCommunityBaseVaultBeta(payable(vaultOf(vaultOwner))).withdrawERC20(msg.sender, token, to, amount);
     }
 
     /// @dev Allows the owner to withdraw native currency.
     function withdrawNativeOnVault(address vaultOwner, address to, uint256 amount) public {
-        ClustersCommunityBaseVaultBeta(vaultOf(vaultOwner)).withdrawNative(msg.sender, to, amount);
+        ClustersCommunityBaseVaultBeta(payable(vaultOf(vaultOwner))).withdrawNative(msg.sender, to, amount);
     }
 
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
