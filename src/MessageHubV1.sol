@@ -4,19 +4,24 @@ pragma solidity ^0.8.23;
 import {UUPSUpgradeable} from "solady/utils/UUPSUpgradeable.sol";
 import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
 import {LibClone} from "solady/utils/LibClone.sol";
-import {Pod} from "solady/accounts/Pod.sol";
+import {ERC7821} from "solady/accounts/ERC7821.sol";
 import {Origin, OAppReceiverUpgradeable} from "layerzero-oapp/contracts/oapp-upgradeable/OAppReceiverUpgradeable.sol";
 
 /// @title MessageHubPodV1
 /// @notice A hyper minimal smart account that is controlled by the MessageHubV1
 ///         This is used when the message comes from a non-Ethereum chain.
-contract MessageHubPodV1 is Pod {
+contract MessageHubPodV1 is ERC7821 {
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
     /*                         OVERRIDES                          */
     /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
 
-    /// @dev Guards the `execute` and `executeBatch` functions
-    function _checkMothership() internal view override {
+    /// @dev For ERC7821.
+    function _execute(bytes32, bytes calldata, Call[] calldata calls, bytes calldata)
+        internal
+        virtual
+        override
+        returns (bytes[] memory)
+    {
         bytes memory args = LibClone.argsOnClone(address(this), 0x00, 0x34);
         assembly ("memory-safe") {
             let requiredCaller := shr(96, mload(add(args, 0x40))) // `mothership`.
@@ -40,6 +45,7 @@ contract MessageHubPodV1 is Pod {
             }
             mstore(0x40, m) // Restore the free memory pointer.
         }
+        return _execute(calls, bytes32(0));
     }
 }
 
