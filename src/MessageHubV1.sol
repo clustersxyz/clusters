@@ -16,12 +16,7 @@ contract MessageHubPodV1 is ERC7821 {
     /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
 
     /// @dev For ERC7821.
-    function _execute(bytes32, bytes calldata, Call[] calldata calls, bytes calldata)
-        internal
-        virtual
-        override
-        returns (bytes[] memory)
-    {
+    function _execute(bytes32, bytes calldata, Call[] calldata calls, bytes calldata) internal virtual override {
         bytes memory args = LibClone.argsOnClone(address(this), 0x00, 0x34);
         assembly ("memory-safe") {
             let requiredCaller := shr(96, mload(add(args, 0x40))) // `mothership`.
@@ -45,7 +40,7 @@ contract MessageHubPodV1 is ERC7821 {
             }
             mstore(0x40, m) // Restore the free memory pointer.
         }
-        return _execute(calls, bytes32(0));
+        _execute(calls, bytes32(0));
     }
 }
 
