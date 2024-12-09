@@ -13,8 +13,8 @@ import {MessageHubLibV1 as MessageHubLib} from "clusters/MessageHubLibV1.sol";
 
 /// @title ClustersNFTV1
 /// @notice Each cluster name is represented by a unique NFT.
-///         Once a cluster name is minted, it cannot be changed.
-///         For simplicity, this contract does not support burning.
+/// Once a cluster name is minted, it cannot be changed.
+/// For simplicity, this contract does not support burning.
 contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, EnumerableRoles {
     using LibMap for LibMap.Uint40Map;
     using DynamicArrayLib for uint256[];
@@ -30,10 +30,10 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     uint256 public constant MINTER_ROLE = 1;
 
     /// @dev Cluster additional data setter.
-    uint256 public constant CLUSTERS_ADDITIONAL_DATA_SETTER_ROLE = 2;
+    uint256 public constant ADDITIONAL_DATA_SETTER_ROLE = 2;
 
     /// @dev For marketplaces to transfer tokens.
-    uint256 public constant CLUSTERS_CONDUIT_ROLE = 3;
+    uint256 public constant CONDUIT_ROLE = 3;
 
     /// @dev The maximum role.
     uint256 public constant MAX_ROLE = 3;
@@ -180,9 +180,9 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     }
 
     /// @dev Returns the token IDs of `owner`.
-    ///      This method may exceed the block gas limit if the owner has too many tokens.
-    ///      This method performs a direct return via inline assembly for efficiency,
-    ///      and is thus marked as external.
+    /// This method may exceed the block gas limit if the owner has too many tokens.
+    /// This method performs a direct return via inline assembly for efficiency,
+    /// and is thus marked as external.
     function tokensOfOwner(address owner) external view returns (uint256[] memory) {
         uint256 n = balanceOf(owner);
         uint256[] memory result = DynamicArrayLib.malloc(n);
@@ -211,8 +211,7 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     /*                   PUBLIC VIEW FUNCTIONS                    */
     /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
 
-    /// @dev Returns the cluster name of token `id`.
-    ///      Reverts if `id` does not exist.
+    /// @dev Returns the cluster name of token `id`. Reverts if `id` does not exist.
     function clusterNameOf(uint256 id) public view returns (bytes32 result) {
         uint96 truncatedName = _getExtraData(id);
         if (truncatedName != 0) return bytes12(truncatedName);
@@ -220,8 +219,7 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
         if (result == bytes32(0)) revert TokenDoesNotExist();
     }
 
-    /// @dev Returns the token ID of `clusterName`.
-    ///      Reverts if `clusterName` does not exist.
+    /// @dev Returns the token ID of `clusterName`. Reverts if `clusterName` does not exist.
     function idOf(bytes32 clusterName) public view returns (uint256 result) {
         result = _getId(_getClustersNFTStorage().clusterData[clusterName]);
         if (result == uint256(0)) revert TokenDoesNotExist();
@@ -252,7 +250,7 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     function setClusterAdditionalData(uint256 id, uint208 additionalData)
         public
         virtual
-        onlyRoles(abi.encode(CLUSTERS_ADDITIONAL_DATA_SETTER_ROLE))
+        onlyRole(ADDITIONAL_DATA_SETTER_ROLE)
     {
         setClusterAdditionalData(clusterNameOf(id), additionalData);
     }
@@ -261,7 +259,7 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     function setClusterAdditionalData(bytes32 clusterName, uint208 additionalData)
         public
         virtual
-        onlyRoles(abi.encode(CLUSTERS_ADDITIONAL_DATA_SETTER_ROLE))
+        onlyRole(ADDITIONAL_DATA_SETTER_ROLE)
     {
         ClustersData storage cd = _getClustersNFTStorage().clusterData[clusterName];
         if (_getId(cd) == uint256(0)) revert TokenDoesNotExist();
@@ -273,18 +271,14 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
 
     /// @dev Mints a new NFT with the given `clusterName` and assigns it to `to`.
-    function mintNext(bytes32 clusterName, address to)
-        public
-        onlyOwnerOrRoles(abi.encode(MINTER_ROLE))
-        returns (uint256 id)
-    {
+    function mintNext(bytes32 clusterName, address to) public onlyOwnerOrRole(MINTER_ROLE) returns (uint256 id) {
         id = _mintNext(clusterName, to);
     }
 
     /// @dev Mints new NFTs with the given `clusterNames` and assigns them to `to`.
     function mintNext(bytes32[] calldata clusterNames, address[] calldata to)
         public
-        onlyOwnerOrRoles(abi.encode(MINTER_ROLE))
+        onlyOwnerOrRole(MINTER_ROLE)
         returns (uint256 startTokenId)
     {
         if (clusterNames.length != to.length) revert ArrayLengthsMismatch();
@@ -345,8 +339,7 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     /*                DEFAULT CLUSTER ID FUNCTIONS                */
     /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
 
-    /// @dev Sets the default cluster id of the caller.
-    ///      The caller must own the `id`.
+    /// @dev Sets the default cluster id of the caller. The caller must own the `id`.
     function setDefaultClusterId(uint256 id) public {
         address sender = MessageHubLib.senderOrSigner();
         if (ownerOf(id) != sender) revert Unauthorized();
@@ -355,9 +348,9 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     }
 
     /// @dev Returns the default cluster id of `owner`.
-    ///      If the owner does not own their default cluster id,
-    ///      returns one of the clyster ids owned by `owner`.
-    ///      If the owner does not have any cluster id, returns `0`.
+    /// If the owner does not own their default cluster id,
+    /// returns one of the cluster ids owned by `owner`.
+    /// If the owner does not have any cluster id, returns `0`.
     function defaultClusterId(address owner) public view returns (uint256) {
         if (balanceOf(owner) == 0) return 0;
         uint256 result = _getAux(owner);
@@ -370,7 +363,7 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
 
     /// @dev Sets the token URI renderer contract.
-    function setTokenURIRenderer(address renderer) public onlyOwnerOrRoles(abi.encode(ADMIN_ROLE)) {
+    function setTokenURIRenderer(address renderer) public onlyOwnerOrRole(ADMIN_ROLE) {
         _getClustersNFTStorage().tokenURIRenderer = renderer;
         emit TokenURIRendererSet(renderer);
     }
@@ -379,12 +372,8 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     /*                      CONDUIT TRANSFER                      */
     /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
 
-    /// @dev Enables the marketplace to transfer the NFT.
-    ///      This is used when a NFT is outbidded.
-    function conduitSafeTransfer(address from, address to, uint256 id)
-        public
-        onlyRoles(abi.encode(CLUSTERS_CONDUIT_ROLE))
-    {
+    /// @dev Enables the marketplace to transfer the NFT. This is used when a NFT is outbidded.
+    function conduitSafeTransfer(address from, address to, uint256 id) public onlyRole(CONDUIT_ROLE) {
         _safeTransfer(from, to, id);
     }
 
