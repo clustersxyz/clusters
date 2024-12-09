@@ -20,6 +20,12 @@ contract MessagehubV1Test is SoladyTest {
 
     address constant ALICE = address(111);
 
+    struct Call {
+        address target;
+        uint256 value;
+        bytes data;
+    }
+
     function setUp() public {
         eid1 = new EndpointV2Mock(1);
         eid2 = new EndpointV2Mock(2);
@@ -77,15 +83,23 @@ contract MessagehubV1Test is SoladyTest {
             originalSender,
             senderType,
             expected,
-            abi.encodeWithSignature(
-                "execute(address,uint256,bytes)", address(this), 1 ether, abi.encodeWithSignature("setX(uint256)", newX)
-            )
+            _encodeExecuteCalldata(address(this), 1 ether, abi.encodeWithSignature("setX(uint256)", newX))
         );
 
         hub.forward{value: 1 ether}(message);
 
         assertEq(x, newX);
         assertEq(valueDuringSetX, 1 ether);
+    }
+
+    function _encodeExecuteCalldata(address target, uint256 value, bytes memory data) internal returns (bytes memory) {
+        Call[] memory calls = new Call[](1);
+        calls[0].target = target;
+        calls[0].value = value;
+        calls[0].data = data;
+        bytes memory executionData = abi.encode(calls);
+        bytes32 mode = bytes32(bytes1(0x01));
+        return abi.encodeWithSignature("execute(bytes32,bytes)", mode, executionData);
     }
 
     function setX(uint256 value) public payable {
