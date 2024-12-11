@@ -9,12 +9,11 @@ import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
 import {LibMap} from "solady/utils/LibMap.sol";
 import {LibBit} from "solady/utils/LibBit.sol";
 import {Ownable} from "solady/auth/Ownable.sol";
-import {EnumerableRoles} from "solady/auth/EnumerableRoles.sol";
 import {MessageHubLibV1 as MessageHubLib} from "clusters/MessageHubLibV1.sol";
 
 /// @title ClustersMarketV1
 /// @notice All prices are in Ether.
-contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, EnumerableRoles {
+contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable {
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
     /*                          STORAGE                           */
     /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
@@ -37,10 +36,14 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Enumerable
 
     /// @dev The storage struct for the contract.
     struct ClustersMarketStorage {
-        // Stateless pricing contract.
-        address pricing;
-        // Clusters NFT contract.
-        address nft;
+        // The stateless pricing contract and NFT contract. Packed.
+        // They both have at least 4 leading zero bytes. Let's save a SLOAD.
+        // Bits Layout:
+        // - [0..127]   `pricing`.
+        // - [128..255] `nft`.
+        uint256 contracts;
+        // Mapping of `clusterName` to `bid`.
+        mapping(bytes32 => Bid) bids;
     }
 
     /// @dev Returns the storage struct for the contract.
@@ -51,28 +54,36 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Enumerable
         }
     }
 
-    function _availability(bytes32 clustersName) public view returns (uint256 result) {
-        // Query `infoOf`. If `id` is zero, return 0.
-        // Else if `owner` is `1..256`, return id.
-        // Else return `_UNAVAILABLE`.
-    }
+    /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
+    /*                 CONTRACT INTERNAL HELPERS                  */
+    /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
 
-    function _register(bytes32 clustersName, address to, uint256 availability) internal {
+    // Note:
+    // - `info` is an uint256 that contains the NFT `id` along with it's owner.
+    //   Bits Layout:
+    //   - [0..39]   `id`.
+    //   - [96..255] `owner`.
+    // - `contracts` is a uint256 that contains both the pricing contract and NFT contract.
+    //   By passing around packed variables, we save gas on stack ops and avoid stack-too-deep.
+
+    function _info(uint256 contracts, bytes32 clusterName) internal view returns (uint256 result) {}
+
+    function _register(uint256 contracts, bytes32 clusterName, address to, uint256 info) internal {
         // If not available, revert.
-        // If `availability == 0`, `_mintNext`.
-        // Else, `availability` is `id`. Move from `(id & 0xff) + 1` to `to`.
+        // If `info == 0`, `_mintNext`.
+        // Else, `info` is `id`. Move from `(id & 0xff) + 1` to `to`.
     }
 
-    function _unregister(bytes32 clustersName, uint256 availability) internal {
+    function _unregister(uint256 contracts, bytes32 clusterName, uint256 info) internal {
         // If available, revert.
-        // `availability` is `id`. Force move to `(id & 0xff) + 1`
+        // `info` is `id`. Force move to `(id & 0xff) + 1`
     }
 
-    function _move(bytes32 clustersName, address to, uint256 availability) internal {}
+    function _move(uint256 contracts, bytes32 clusterName, address to, uint256 info) internal {}
 
-    function _minAnnualPrice() internal view returns (uint256) {}
+    function _minAnnualPrice(uint256 contracts) internal view returns (uint256 result) {}
 
-    function _getIntegratedPrice(uint256 lastUpdatedPrice, uint256 secondsSinceUpdate)
+    function _getIntegratedPrice(uint256 contracts, uint256 lastUpdatedPrice, uint256 secondsSinceUpdate)
         internal
         view
         returns (uint256 spent, uint256 price)
