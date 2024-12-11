@@ -231,7 +231,7 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
         uint256 packed = _getClustersNFTStorage().nameData[clusterName].packed;
         id = uint40(packed);
         owner = _ownerOf(id);
-        startTimestamp = (packed >> 48) & 0xffffffffff;
+        startTimestamp = uint40(packed >> 48);
     }
 
     /// @dev Returns the token URI renderer contract.
@@ -301,7 +301,7 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
         if (uint40(p) != 0) revert NameAlreadyExists();
 
         unchecked {
-            if ((id = ++$.totalMinted) > 0xffffffffff) revert();
+            require((id = ++$.totalMinted) < 1 << 40);
         }
         uint96 truncatedName = uint96(bytes12(clusterName));
         if (bytes12(truncatedName) != clusterName) {
