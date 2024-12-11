@@ -27,34 +27,37 @@ abstract contract NameManagerHub is IClustersHub {
     IPricing internal pricing;
 
     /// @notice Which cluster an address belongs to
-    mapping(bytes32 addr => uint256 clusterId) public addressToClusterId;
+    mapping(bytes32 addr => uint256 clusterId) public addressToClusterId; // V1: Not needed. Moved to NFT.
 
     /// @notice Which cluster a name belongs to
-    mapping(bytes32 name => uint256 clusterId) public nameToClusterId;
+    mapping(bytes32 name => uint256 clusterId) public nameToClusterId; // V1: Not needed. Moved to NFT.
 
     /// @notice Display name to be shown for a cluster, like ENS reverse records
-    mapping(uint256 clusterId => bytes32 name) public defaultClusterName;
+    mapping(uint256 clusterId => bytes32 name) public defaultClusterName; // V1: Not needed. Moved to NFT.
 
     /// @notice Enumerate all names owned by a cluster
-    mapping(uint256 clusterId => EnumerableSetLib.Bytes32Set names) internal _clusterNames;
+    mapping(uint256 clusterId => EnumerableSetLib.Bytes32Set names) internal _clusterNames; // V1: Not needed. Moved to
+        // NFT.
 
     /// @notice For example lookup[17]["hot"] -> 0x123...
-    mapping(uint256 clusterId => mapping(bytes32 walletName => bytes32 addr)) public forwardLookup;
+    mapping(uint256 clusterId => mapping(bytes32 walletName => bytes32 addr)) public forwardLookup; // V1: Not needed.
+        // Moved offchain.
 
     /// @notice For example lookup[0x123...] -> "hot", then combine with cluster name in a diff method
-    mapping(bytes32 addr => bytes32 walletName) public reverseLookup;
+    mapping(bytes32 addr => bytes32 walletName) public reverseLookup; // V1: Not needed. Moved offchain.
 
     /// @notice Data required for proper harberger tax calculation when pokeName() is called
-    mapping(bytes32 name => IClustersHub.PriceIntegral integral) public priceIntegral;
+    mapping(bytes32 name => IClustersHub.PriceIntegral integral) public priceIntegral; // V1: Combine into a single
+        // BidData.
 
     /// @notice The amount of money backing each name registration
-    mapping(bytes32 name => uint256 amount) public nameBacking;
+    mapping(bytes32 name => uint256 amount) public nameBacking; // V1: Combine into a single BidData.
 
     /// @notice Bid info storage, all bidIds are incremental and are not sorted by name
-    mapping(bytes32 name => IClustersHub.Bid bidData) public bids;
+    mapping(bytes32 name => IClustersHub.Bid bidData) public bids; // V1: Combine into a single BidData.
 
     /// @notice Failed bid refunds are pooled so we don't have to revert when the highest bid is outbid
-    mapping(bytes32 bidder => uint256 refund) public bidRefunds;
+    mapping(bytes32 bidder => uint256 refund) public bidRefunds; // V1: Not needed. Just use force refund.
 
     /**
      * PROTOCOL INVARIANT TRACKING
@@ -62,13 +65,13 @@ abstract contract NameManagerHub is IClustersHub {
      */
 
     /// @notice Amount of eth that's transferred from nameBacking to the protocol
-    uint256 public protocolAccrual;
+    uint256 public protocolAccrual; // V1: Not needed. Use multicaller.
 
     /// @notice Amount of eth that's backing names
-    uint256 public totalNameBacking;
+    uint256 public totalNameBacking; // V1: Not needed. Use multicaller.
 
     /// @notice Amount of eth that's sitting in active bids and canceled but not-yet-withdrawn bids
-    uint256 public totalBidBacking;
+    uint256 public totalBidBacking; // V1: Not needed. Use multicaller.
 
     /// @dev Ensures balance invariant holds
     function _checkInvariant() internal view {

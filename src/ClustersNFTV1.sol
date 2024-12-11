@@ -12,8 +12,8 @@ import {EnumerableRoles} from "solady/auth/EnumerableRoles.sol";
 import {MessageHubLibV1 as MessageHubLib} from "clusters/MessageHubLibV1.sol";
 
 /// @title ClustersNFTV1
-/// @notice Each cluster name is represented by a unique NFT.
-/// Once a cluster name is minted, it cannot be changed.
+/// @notice Each name is represented by a unique NFT.
+/// Once a name is minted, it cannot be changed.
 /// For simplicity, this contract does not support burning.
 contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, EnumerableRoles {
     using LibMap for LibMap.Uint40Map;
@@ -29,11 +29,11 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     /// @dev Minter.
     uint256 public constant MINTER_ROLE = 1;
 
-    /// @dev Cluster additional data setter.
-    uint256 public constant ADDITIONAL_DATA_SETTER_ROLE = 2;
-
     /// @dev For marketplaces to transfer tokens.
-    uint256 public constant CONDUIT_ROLE = 3;
+    uint256 public constant CONDUIT_ROLE = 2;
+
+    /// @dev Cluster additional data setter.
+    uint256 public constant ADDITIONAL_DATA_SETTER_ROLE = 3;
 
     /// @dev The maximum role.
     uint256 public constant MAX_ROLE = 3;
@@ -45,15 +45,19 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     // Note: Solady's ERC721 has auxiliary data.
     //
     // - `_getExtraData(uint256 id) internal view virtual returns (uint96 result)`.
-    //   For cluster names of 1 to 12 bytes, we will store it in the per-token `extraData`.
-    //   Otherwise, we will store it in the `fullClusterName` mapping.
+    //   For names of 1 to 12 bytes, we will store it in the per-token `extraData`.
+    //   Otherwise, we will store it in the `fullName` mapping.
     //
     // - `_getAux(address owner) internal view virtual returns (uint224 result)`.
-    //   We will use this 224 bits to store the default cluster id.
+    //   We will use this 224 bits to store the default name id.
 
-    /// @dev The storage struct for a single cluster.
-    struct ClustersData {
-        // Stores the `id`, `ownedIndex` and `additionalData`.
+    /// @dev The storage struct for a single name.
+    struct NameData {
+        // Bits Layout:
+        // - [0..39]   `id`.
+        // - [40..47]  `ownedIndex`.
+        // - [48..87]  `startTimestamp`.
+        // - [88..255] `additionalData`.
         uint256 packed;
         // Stores the owned index if it is greater than 254.
         uint256 fullOwnedIndex;
@@ -63,12 +67,12 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     struct ClustersNFTStorage {
         // Auto-incremented and used for assigning the NFT `id`, starting from 1.
         uint256 totalMinted;
-        // Mapping of NFT `id` to the full `clusterName`.
-        mapping(uint256 => bytes32) fullClusterName;
+        // Mapping of NFT `id` to the full `name`.
+        mapping(uint256 => bytes32) fullName;
         // Mapping of NFT `owner` to the NFT `id`. For onchain enumeration.
         mapping(address => LibMap.Uint40Map) ownedIds;
-        // Mapping of `clusterName` to the `ClustersData`.
-        mapping(bytes32 => ClustersData) clusterData;
+        // Mapping of `name` to the `NameData`.
+        mapping(bytes32 => NameData) nameData;
         // Contract for rendering the token URI.
         address tokenURIRenderer;
     }
@@ -88,8 +92,8 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     /// @dev The token URI renderer is set.
     event TokenURIRendererSet(address renderer);
 
-    /// @dev The default cluster id of `owner` has been set to `id`.
-    event DefaultClusterIdSet(address indexed owner, uint256 id);
+    /// @dev The default id of `owner` has been set to `id`.
+    event DefaultIdSet(address indexed owner, uint256 id);
 
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
     /*                           ERRORS                           */
@@ -98,11 +102,11 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     /// @dev The lengths of the arrays do not match.
     error ArrayLengthsMismatch();
 
-    /// @dev The cluster name cannot be `bytes32(0)`.
-    error ClusterNameIsZero();
+    /// @dev The name cannot be `bytes32(0)`.
+    error NameIsZero();
 
-    /// @dev The cluster name already exists.
-    error ClusterNameAlreadyExists();
+    /// @dev The name already exists.
+    error NameAlreadyExists();
 
     /// @dev The query index is out of bounds.
     error IndexOutOfBounds();
@@ -143,8 +147,8 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     }
 
     /// @dev Returns the token URI for the given `id`.
-    ///      This method may perform a direct return via inline assembly
-    ///      for efficiency, and thus must not be called internally.
+    /// This method may perform a direct return via inline assembly
+    /// for efficiency, and thus must not be called internally.
     function tokenURI(uint256 id) public view override returns (string memory) {
         if (!_exists(id)) revert TokenDoesNotExist();
         address renderer = _getClustersNFTStorage().tokenURIRenderer;
@@ -211,18 +215,21 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     /*                   PUBLIC VIEW FUNCTIONS                    */
     /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
 
-    /// @dev Returns the cluster name of token `id`. Reverts if `id` does not exist.
-    function clusterNameOf(uint256 id) public view returns (bytes32 result) {
+    /// @dev Returns the name of token `id`.
+    /// Returns zero if it does not exist.
+    function nameOf(uint256 id) public view returns (bytes32) {
         uint96 truncatedName = _getExtraData(id);
         if (truncatedName != 0) return bytes12(truncatedName);
-        result = _getClustersNFTStorage().fullClusterName[id];
-        if (result == bytes32(0)) revert TokenDoesNotExist();
+        return _getClustersNFTStorage().fullName[id];
     }
 
-    /// @dev Returns the token ID of `clusterName`. Reverts if `clusterName` does not exist.
-    function idOf(bytes32 clusterName) public view returns (uint256 result) {
-        result = _getId(_getClustersNFTStorage().clusterData[clusterName]);
-        if (result == uint256(0)) revert TokenDoesNotExist();
+    /// @dev Returns the token `id`, `owner`, and `startTimestamp` of `clusterName`.
+    /// All values are zero if it does not exist.
+    function infoOf(bytes32 clusterName) public view returns (uint256 id, address owner, uint256 startTimestamp) {
+        uint256 packed = _getClustersNFTStorage().nameData[clusterName].packed;
+        id = uint40(packed);
+        owner = _ownerOf(id);
+        startTimestamp = (packed >> 48) & 0xffffffffff;
     }
 
     /// @dev Returns the token URI renderer contract.
@@ -231,39 +238,30 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     }
 
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
-    /*             CLUSTER ADDITIONAL DATA FUNCTIONS              */
+    /*                 ADDITIONAL DATA FUNCTIONS                  */
     /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
 
-    /// @dev Returns the additional data of token `id`.
-    function clusterAdditionalData(uint256 id) public view virtual returns (uint208) {
-        return clusterAdditionalData(clusterNameOf(id));
+    /// @dev Returns the additional data of `clusterName`.
+    /// Does not revert even if `clusterName` does not exist,
+    /// so that we can have the freedom to access before the name exists.
+    function additionalDataOf(bytes32 clusterName) public view virtual returns (uint168) {
+        return uint168(_getClustersNFTStorage().nameData[clusterName].packed >> 88);
     }
 
-    /// @dev Returns the additional data of cluster `clusterName`.
-    function clusterAdditionalData(bytes32 clusterName) public view virtual returns (uint208) {
-        ClustersData storage cd = _getClustersNFTStorage().clusterData[clusterName];
-        if (_getId(cd) == uint256(0)) revert TokenDoesNotExist();
-        return _getAdditionalData(cd);
-    }
-
-    /// @dev Sets the additional data of token `id`.
-    function setClusterAdditionalData(uint256 id, uint208 additionalData)
+    /// @dev Sets the additional data of `clusterName`.
+    /// Does not revert even if `clusterName` does not exist,
+    /// so that we can have the freedom to access before the name exists.
+    function setAdditionalData(bytes32 clusterName, uint168 additionalData)
         public
         virtual
         onlyRole(ADDITIONAL_DATA_SETTER_ROLE)
     {
-        setClusterAdditionalData(clusterNameOf(id), additionalData);
-    }
-
-    /// @dev Sets the additional data of cluster `clusterName`.
-    function setClusterAdditionalData(bytes32 clusterName, uint208 additionalData)
-        public
-        virtual
-        onlyRole(ADDITIONAL_DATA_SETTER_ROLE)
-    {
-        ClustersData storage cd = _getClustersNFTStorage().clusterData[clusterName];
-        if (_getId(cd) == uint256(0)) revert TokenDoesNotExist();
-        _setAdditionalData(cd, additionalData);
+        NameData storage d = _getClustersNFTStorage().nameData[clusterName];
+        assembly ("memory-safe") {
+            mstore(0x0b, sload(d.slot))
+            mstore(0x00, additionalData)
+            sstore(d.slot, mload(0x0b))
+        }
     }
 
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
@@ -293,11 +291,12 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
 
     /// @dev Mints a new NFT with the given `clusterName` and assigns it to `to`.
     function _mintNext(bytes32 clusterName, address to) internal returns (uint256 id) {
-        if (clusterName == bytes32(0)) revert ClusterNameIsZero();
+        if (clusterName == bytes32(0)) revert NameIsZero();
         ClustersNFTStorage storage $ = _getClustersNFTStorage();
 
-        ClustersData storage cd = $.clusterData[clusterName];
-        if (_getId(cd) != 0) revert ClusterNameAlreadyExists();
+        NameData storage d = $.nameData[clusterName];
+        uint256 p = d.packed;
+        if (uint40(p) != 0) revert NameAlreadyExists();
 
         unchecked {
             id = ++$.totalMinted;
@@ -305,12 +304,19 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
         }
         uint96 truncatedName = uint96(bytes12(clusterName));
         if (bytes12(truncatedName) != clusterName) {
-            $.fullClusterName[id] = clusterName;
+            $.fullName[id] = clusterName;
             truncatedName = 0;
         }
+        // Construct the new `p` with `id`, the timestamp, while keeping `additionalData`.
+        p = ((p >> 88) << 88) | id | (block.timestamp << 48);
 
         uint256 ownedIndex = balanceOf(to);
-        _initialize(cd, id, ownedIndex);
+        if (ownedIndex <= 254) {
+            d.packed = _setByte(p, 26, 0xff ^ ownedIndex);
+        } else {
+            d.packed = p;
+            d.fullOwnedIndex = ownedIndex;
+        }
         $.ownedIds[to].set(ownedIndex, uint40(id));
 
         _mintAndSetExtraDataUnchecked(to, id, truncatedName);
@@ -336,22 +342,22 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     }
 
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
-    /*                DEFAULT CLUSTER ID FUNCTIONS                */
+    /*                    DEFAULT ID FUNCTIONS                    */
     /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
 
-    /// @dev Sets the default cluster id of the caller. The caller must own the `id`.
-    function setDefaultClusterId(uint256 id) public {
+    /// @dev Sets the default id of the caller. The caller must own the `id`.
+    function setDefaultId(uint256 id) public {
         address sender = MessageHubLib.senderOrSigner();
-        if (ownerOf(id) != sender) revert Unauthorized();
+        if (_ownerOf(id) != sender) revert Unauthorized();
         _setAux(sender, uint224(id));
-        emit DefaultClusterIdSet(sender, id);
+        emit DefaultIdSet(sender, id);
     }
 
-    /// @dev Returns the default cluster id of `owner`.
-    /// If the owner does not own their default cluster id,
-    /// returns one of the cluster ids owned by `owner`.
-    /// If the owner does not have any cluster id, returns `0`.
-    function defaultClusterId(address owner) public view returns (uint256) {
+    /// @dev Returns the default id of `owner`.
+    /// If the owner does not own their default id,
+    /// returns one of the ids owned by `owner`.
+    /// If the owner does not have any id, returns `0`.
+    function defaultId(address owner) public view returns (uint256) {
         if (balanceOf(owner) == 0) return 0;
         uint256 result = _getAux(owner);
         if (result != 0) if (_ownerOf(result) == owner) return result;
@@ -395,58 +401,8 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
         }
     }
 
-    /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
-    /*                   CLUSTERS DATA HELPERS                    */
-    /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
-
-    /// @dev Initializes the data.
-    function _initialize(ClustersData storage data, uint256 id, uint256 ownedIndex) internal {
-        if (ownedIndex <= 254) {
-            data.packed = _setByte(id, 26, 0xff ^ ownedIndex);
-        } else {
-            data.packed = id;
-            data.fullOwnedIndex = ownedIndex;
-        }
-    }
-
-    /// @dev Returns the ID.
-    function _getId(ClustersData storage data) internal view returns (uint40) {
-        return uint40(data.packed);
-    }
-
-    /// @dev Returns the owned index.
-    function _getOwnedIndex(ClustersData storage data) internal view returns (uint256) {
-        uint256 ownedIndex = uint8(bytes32(data.packed)[26]);
-        if (ownedIndex != 0) return 0xff ^ ownedIndex;
-        return data.fullOwnedIndex;
-    }
-
-    /// @dev Sets the owned index.
-    function _setOwnedIndex(ClustersData storage data, uint256 ownedIndex) internal {
-        if (ownedIndex <= 254) {
-            data.packed = _setByte(data.packed, 26, 0xff ^ ownedIndex);
-        } else {
-            data.packed = _setByte(data.packed, 26, 0);
-            data.fullOwnedIndex = ownedIndex;
-        }
-    }
-
-    /// @dev Sets the additional data.
-    function _setAdditionalData(ClustersData storage data, uint208 additionalData) internal {
-        assembly ("memory-safe") {
-            mstore(0x06, sload(data.slot))
-            mstore(0x00, additionalData)
-            sstore(data.slot, mload(0x06))
-        }
-    }
-
-    /// @dev Returns the additional data.
-    function _getAdditionalData(ClustersData storage data) internal view returns (uint208) {
-        return uint208(data.packed >> 48);
-    }
-
     /// @dev Sets the `i`-th byte of `x` to `b` and returns the result.
-    function _setByte(uint256 x, uint256 i, uint256 b) private pure returns (uint256 result) {
+    function _setByte(uint256 x, uint256 i, uint256 b) internal pure returns (uint256 result) {
         assembly ("memory-safe") {
             mstore(0x00, x)
             mstore8(i, b)
@@ -460,18 +416,42 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
 
     /// @dev Used for maintaining the enumeration of owned tokens.
     function _afterTokenTransfer(address from, address to, uint256 id) internal override {
+        // If it's a mint, or self-transfer, early return.
+        // We don't need to care about the burn case.
         if (LibBit.or(from == address(0), from == to)) return;
+
         ClustersNFTStorage storage $ = _getClustersNFTStorage();
-        ClustersData storage cd = $.clusterData[clusterNameOf(id)];
-        LibMap.Uint40Map storage fromOwnedIds = $.ownedIds[from];
-        uint256 oldOwnedIndex = _getOwnedIndex(cd);
-        uint40 lastTokenId = fromOwnedIds.get(balanceOf(from));
-        fromOwnedIds.set(oldOwnedIndex, lastTokenId);
-        _setOwnedIndex($.clusterData[clusterNameOf(lastTokenId)], oldOwnedIndex);
+        NameData storage d = $.nameData[nameOf(id)];
+        uint256 p = d.packed;
+        // Update the timestamp in `p`.
+        p ^= (((p >> 48) ^ block.timestamp) & 0xffffffffff) << 48;
+
+        // Remove token from owner enumeration.
+        uint256 j = balanceOf(from); // The last token index.
+        uint256 i = uint8(bytes32(p)[26]);
+        i = i != 0 ? 0xff ^ i : d.fullOwnedIndex; // Current token index.
+        if (i != j) {
+            LibMap.Uint40Map storage fromOwnedIds = $.ownedIds[from];
+            uint40 lastTokenId = fromOwnedIds.get(j);
+            fromOwnedIds.set(i, lastTokenId);
+            NameData storage e = $.nameData[nameOf(lastTokenId)];
+            if (i <= 254) {
+                e.packed = _setByte(e.packed, 26, 0xff ^ i);
+            } else {
+                e.packed = _setByte(e.packed, 26, 0);
+                e.fullOwnedIndex = i;
+            }
+        }
+        // Add token to owner enumeration.
         unchecked {
-            uint256 ownedIndex = balanceOf(to) - 1;
-            $.ownedIds[to].set(ownedIndex, uint40(id));
-            _setOwnedIndex(cd, ownedIndex);
+            i = balanceOf(to) - 1; // The new owned index of `id`.
+            $.ownedIds[to].set(i, uint40(id));
+            if (i <= 254) {
+                d.packed = _setByte(p, 26, 0xff ^ i);
+            } else {
+                d.packed = _setByte(p, 26, 0);
+                d.fullOwnedIndex = i;
+            }
         }
     }
 

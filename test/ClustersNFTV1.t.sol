@@ -76,7 +76,7 @@ contract ClustersNFTV1Test is SoladyTest {
             if (_randomChance(2)) {
                 for (uint256 i; i != t.clusterNames.length(); ++i) {
                     assertEq(collection.ownerOf(i + 1), t.recipients.getAddress(i));
-                    assertEq(collection.clusterNameOf(i + 1), t.clusterNames.getBytes32(i));
+                    assertEq(collection.nameOf(i + 1), t.clusterNames.getBytes32(i));
                 }
             }
             uint256[] memory bobIds = collection.tokensOfOwner(BOB);
@@ -98,8 +98,9 @@ contract ClustersNFTV1Test is SoladyTest {
                 assertEq(allIds.length, collection.totalSupply());
                 for (uint256 i; i != allIds.length; ++i) {
                     uint256 id = allIds.get(i);
-                    bytes32 clusterName = collection.clusterNameOf(id);
-                    assertEq(id, collection.idOf(clusterName));
+                    bytes32 clusterName = collection.nameOf(id);
+                    (uint256 retrievedId,,) = collection.infoOf(clusterName);
+                    assertEq(id, retrievedId);
                 }
             }
         }
@@ -157,37 +158,37 @@ contract ClustersNFTV1Test is SoladyTest {
             uint40 id1 = uint40(_random());
             uint256 ownedIndex0 = _random();
             uint256 ownedIndex1 = _random();
-            uint208 additionalData0 = uint208(_random());
-            uint208 additionalData1 = uint208(_random());
+            uint168 additionalData0 = uint168(_random());
+            uint168 additionalData1 = uint168(_random());
 
-            collection.clustersDataInitialize(0, id0, ownedIndex0);
-            collection.clustersDataInitialize(1, id1, ownedIndex1);
-            assertEq(collection.clustersDataGetId(0), id0);
-            assertEq(collection.clustersDataGetId(1), id1);
-            assertEq(collection.clustersDataGetOwnedIndex(0), ownedIndex0);
-            assertEq(collection.clustersDataGetOwnedIndex(1), ownedIndex1);
+            collection.nameDataInitialize(0, id0, ownedIndex0);
+            collection.nameDataInitialize(1, id1, ownedIndex1);
+            assertEq(collection.nameDataGetId(0), id0);
+            assertEq(collection.nameDataGetId(1), id1);
+            assertEq(collection.nameDataGetOwnedIndex(0), ownedIndex0);
+            assertEq(collection.nameDataGetOwnedIndex(1), ownedIndex1);
 
-            collection.clustersDataSetAdditionalData(0, additionalData0);
-            collection.clustersDataSetAdditionalData(1, additionalData1);
-            assertEq(collection.clustersDataGetAdditionalData(0), additionalData0);
-            assertEq(collection.clustersDataGetAdditionalData(1), additionalData1);
+            collection.nameDataSetAdditionalData(0, additionalData0);
+            collection.nameDataSetAdditionalData(1, additionalData1);
+            assertEq(collection.nameDataGetAdditionalData(0), additionalData0);
+            assertEq(collection.nameDataGetAdditionalData(1), additionalData1);
 
             ownedIndex0 = _random();
             ownedIndex1 = _random();
-            additionalData0 = uint208(_random());
-            additionalData1 = uint208(_random());
+            additionalData0 = uint168(_random());
+            additionalData1 = uint168(_random());
 
-            collection.clustersDataSetOwnedIndex(0, ownedIndex0);
-            collection.clustersDataSetOwnedIndex(1, ownedIndex1);
-            assertEq(collection.clustersDataGetId(0), id0);
-            assertEq(collection.clustersDataGetId(1), id1);
-            assertEq(collection.clustersDataGetOwnedIndex(0), ownedIndex0);
-            assertEq(collection.clustersDataGetOwnedIndex(1), ownedIndex1);
+            collection.nameDataSetOwnedIndex(0, ownedIndex0);
+            collection.nameDataSetOwnedIndex(1, ownedIndex1);
+            assertEq(collection.nameDataGetId(0), id0);
+            assertEq(collection.nameDataGetId(1), id1);
+            assertEq(collection.nameDataGetOwnedIndex(0), ownedIndex0);
+            assertEq(collection.nameDataGetOwnedIndex(1), ownedIndex1);
 
-            collection.clustersDataSetAdditionalData(0, additionalData0);
-            collection.clustersDataSetAdditionalData(1, additionalData1);
-            assertEq(collection.clustersDataGetAdditionalData(0), additionalData0);
-            assertEq(collection.clustersDataGetAdditionalData(1), additionalData1);
+            collection.nameDataSetAdditionalData(0, additionalData0);
+            collection.nameDataSetAdditionalData(1, additionalData1);
+            assertEq(collection.nameDataGetAdditionalData(0), additionalData0);
+            assertEq(collection.nameDataGetAdditionalData(1), additionalData1);
         } while (_randomChance(2));
     }
 }
