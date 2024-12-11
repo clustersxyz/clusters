@@ -49,7 +49,8 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     //   Otherwise, we will store it in the `fullName` mapping.
     //
     // - `_getAux(address owner) internal view virtual returns (uint224 result)`.
-    //   We will use this 224 bits to store the default name id.
+    //   We will use this 224 bits to store the default name id, as well as
+    //   the ids of the tokens `0,1,2,3,4` of the owner.
 
     /// @dev The storage struct for a single name.
     struct NameData {
@@ -69,7 +70,9 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
         uint256 totalMinted;
         // Mapping of NFT `id` to the full `name`.
         mapping(uint256 => bytes32) fullName;
-        // Mapping of NFT `owner` to the NFT `id`. For onchain enumeration.
+        // Mapping of NFT `owner` to their full default NFT `id`.
+        mapping(address => uint256) fullDefaultId;
+        // Mapping of NFT `owner` to the NFT `id`, from 5 onwards.
         mapping(address => LibMap.Uint40Map) ownedIds;
         // Mapping of `name` to the `NameData`.
         mapping(bytes32 => NameData) nameData;
@@ -190,10 +193,9 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     function tokensOfOwner(address owner) external view returns (uint256[] memory) {
         uint256 n = balanceOf(owner);
         uint256[] memory result = DynamicArrayLib.malloc(n);
-        LibMap.Uint40Map storage ownedIds = _getClustersNFTStorage().ownedIds[owner];
         unchecked {
             for (uint256 i; i != n; ++i) {
-                result.set(i, ownedIds.get(i));
+                result.set(i, _getId(owner, i));
             }
         }
         DynamicArrayLib.directReturn(result);
@@ -202,7 +204,7 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     /// @dev Returns the token ID of `owner` at `i`.
     function tokenOfOwnerByIndex(address owner, uint256 i) public view returns (uint256) {
         if (i > balanceOf(owner)) revert IndexOutOfBounds();
-        return _getClustersNFTStorage().ownedIds[owner].get(i);
+        return _getId(owner, i);
     }
 
     /// @dev ERC-165 override.
@@ -299,8 +301,7 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
         if (uint40(p) != 0) revert NameAlreadyExists();
 
         unchecked {
-            id = ++$.totalMinted;
-            if (id > type(uint40).max) revert();
+            if ((id = ++$.totalMinted) > 0xffffffffff) revert();
         }
         uint96 truncatedName = uint96(bytes12(clusterName));
         if (bytes12(truncatedName) != clusterName) {
@@ -311,13 +312,13 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
         p = ((p >> 88) << 88) | id | (block.timestamp << 48);
 
         uint256 ownedIndex = balanceOf(to);
-        if (ownedIndex <= 254) {
-            d.packed = _setByte(p, 26, 0xff ^ ownedIndex);
-        } else {
+        if (ownedIndex >= 0xff) {
             d.packed = p;
             d.fullOwnedIndex = ownedIndex;
+        } else {
+            d.packed = _setByte(p, 26, 0xff ^ ownedIndex);
         }
-        $.ownedIds[to].set(ownedIndex, uint40(id));
+        _setId(to, ownedIndex, uint40(id));
 
         _mintAndSetExtraDataUnchecked(to, id, truncatedName);
     }
@@ -349,7 +350,13 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     function setDefaultId(uint256 id) public {
         address sender = MessageHubLib.senderOrSigner();
         if (_ownerOf(id) != sender) revert Unauthorized();
-        _setAux(sender, uint224(id));
+        uint224 aux = (_getAux(sender) >> 24) << 24;
+        if (id >= 0xffffff) {
+            _setAux(sender, aux);
+            _getClustersNFTStorage().fullDefaultId[sender] = id;
+        } else {
+            _setAux(sender, aux | uint224(id));
+        }
         emit DefaultIdSet(sender, id);
     }
 
@@ -359,9 +366,10 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     /// If the owner does not have any id, returns `0`.
     function defaultId(address owner) public view returns (uint256) {
         if (balanceOf(owner) == 0) return 0;
-        uint256 result = _getAux(owner);
+        uint256 result = _getAux(owner) & 0xffffff;
+        result = result == uint256(0) ? _getClustersNFTStorage().fullDefaultId[owner] : 0xffffff ^ result;
         if (result != 0) if (_ownerOf(result) == owner) return result;
-        return _getClustersNFTStorage().ownedIds[owner].get(0);
+        return _getId(owner, 0);
     }
 
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
@@ -410,6 +418,33 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
         }
     }
 
+    /// @dev Returns the token of `owner` at index `i`.
+    function _getId(address owner, uint256 i) internal view returns (uint40) {
+        unchecked {
+            if (i >= 5) {
+                return _getClustersNFTStorage().ownedIds[owner].get(i - 5);
+            } else {
+                return uint40(_getAux(owner) >> (24 + i * 40));
+            }
+        }
+    }
+
+    /// @dev Sets the token of `owner` at index `i`.
+    function _setId(address owner, uint256 i, uint40 id) internal {
+        unchecked {
+            if (i >= 5) {
+                _getClustersNFTStorage().ownedIds[owner].set(i - 5, id);
+            } else {
+                uint224 aux = _getAux(owner);
+                uint256 o = 24 + i * 40;
+                assembly ("memory-safe") {
+                    aux := xor(aux, shl(o, and(0xffffffffff, xor(shr(o, aux), id))))
+                }
+                _setAux(owner, aux);
+            }
+        }
+    }
+
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
     /*                         OVERRIDES                          */
     /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
@@ -429,28 +464,27 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
         // Remove token from owner enumeration.
         uint256 j = balanceOf(from); // The last token index.
         uint256 i = uint8(bytes32(p)[26]);
-        i = i != 0 ? 0xff ^ i : d.fullOwnedIndex; // Current token index.
+        i = i == uint256(0) ? d.fullOwnedIndex : 0xff ^ i; // Current token index.
         if (i != j) {
-            LibMap.Uint40Map storage fromOwnedIds = $.ownedIds[from];
-            uint40 lastTokenId = fromOwnedIds.get(j);
-            fromOwnedIds.set(i, lastTokenId);
+            uint40 lastTokenId = _getId(from, j);
+            _setId(from, i, lastTokenId);
             NameData storage e = $.nameData[nameOf(lastTokenId)];
-            if (i <= 254) {
-                e.packed = _setByte(e.packed, 26, 0xff ^ i);
-            } else {
+            if (i >= 0xff) {
                 e.packed = _setByte(e.packed, 26, 0);
                 e.fullOwnedIndex = i;
+            } else {
+                e.packed = _setByte(e.packed, 26, 0xff ^ i);
             }
         }
         // Add token to owner enumeration.
         unchecked {
             i = balanceOf(to) - 1; // The new owned index of `id`.
-            $.ownedIds[to].set(i, uint40(id));
-            if (i <= 254) {
-                d.packed = _setByte(p, 26, 0xff ^ i);
-            } else {
+            _setId(to, i, uint40(id));
+            if (i >= 0xff) {
                 d.packed = _setByte(p, 26, 0);
                 d.fullOwnedIndex = i;
+            } else {
+                d.packed = _setByte(p, 26, 0xff ^ i);
             }
         }
     }

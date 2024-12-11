@@ -52,9 +52,8 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Enumerable
     }
 
     function isAvailable(bytes32 clustersName) public view returns (bool result) {
-        // Query `idOf`. If it returns zero, return true.
-        // Query `ownerOf`. If it returns `address(this)`, return true.
-        // Return false.
+        // Query `infoOf`. If `id` is zero, or if `owner` is `address(this)`, return true.
+        // Else return false.
     }
 
     function _register(bytes32 clustersName, address to) internal {}
