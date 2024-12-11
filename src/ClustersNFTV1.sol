@@ -227,11 +227,12 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
 
     /// @dev Returns the token `id`, `owner`, and `startTimestamp` of `clusterName`.
     /// All values are zero if it does not exist.
+    /// Used by the Market.
     function infoOf(bytes32 clusterName) public view returns (uint256 id, address owner, uint256 startTimestamp) {
-        uint256 packed = _getClustersNFTStorage().nameData[clusterName].packed;
-        id = uint40(packed);
+        uint256 p = _getClustersNFTStorage().nameData[clusterName].packed;
+        id = uint40(p);
         owner = _ownerOf(id);
-        startTimestamp = uint40(packed >> 48);
+        startTimestamp = uint40(p >> 48);
     }
 
     /// @dev Returns the token URI renderer contract.
@@ -271,6 +272,7 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
 
     /// @dev Mints a new NFT with the given `clusterName` and assigns it to `to`.
+    /// Used by the Market.
     function mintNext(bytes32 clusterName, address to) public onlyOwnerOrRole(MINTER_ROLE) returns (uint256 id) {
         id = _mintNext(clusterName, to);
     }
@@ -279,11 +281,11 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     function mintNext(bytes32[] calldata clusterNames, address[] calldata to)
         public
         onlyOwnerOrRole(MINTER_ROLE)
-        returns (uint256 startTokenId)
+        returns (uint256 startId)
     {
         if (clusterNames.length != to.length) revert ArrayLengthsMismatch();
         if (clusterNames.length == uint256(0)) revert NothingToMint();
-        startTokenId = _mintNext(_get(clusterNames, 0), _get(to, 0));
+        startId = _mintNext(_get(clusterNames, 0), _get(to, 0));
         unchecked {
             for (uint256 i = 1; i != clusterNames.length; ++i) {
                 _mintNext(_get(clusterNames, i), _get(to, i));
@@ -387,8 +389,9 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
 
     /// @dev Enables the marketplace to transfer the NFT. This is used when a NFT is outbidded.
+    /// Used by the Market.
     function conduitSafeTransfer(address from, address to, uint256 id) public onlyRole(CONDUIT_ROLE) {
-        _safeTransfer(from, to, id);
+        _safeTransfer(from, to, id); // We don't need data, since this NFT doesn't use it.
     }
 
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/

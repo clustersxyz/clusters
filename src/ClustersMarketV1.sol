@@ -22,24 +22,24 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Enumerable
     /// @dev The storage struct for a bid.
     struct Bid {
         // Price integral last price.
-        uint88 integralPrice;
-        // Price integral last updated.
-        uint40 integralUpdated;
-        // The bid amount.
+        uint88 integratedPrice;
+        // Price integral last update timestamp.
+        uint40 integratedUpdated;
+        // Bid amount.
         uint88 bidAmount;
-        // The bid updated timestamp.
+        // Bid last update timestamp.
         uint40 bidUpdated;
-        // The bidder.
+        // Bidder.
         address bidder;
-        // The amount backing the name.
+        // Amount backing the name.
         uint88 backing;
     }
 
     /// @dev The storage struct for the contract.
     struct ClustersMarketStorage {
-        // The address of the current pricing contract.
+        // Stateless pricing contract.
         address pricing;
-        // The address of the Clusters NFT contract.
+        // Clusters NFT contract.
         address nft;
     }
 
@@ -51,16 +51,32 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Enumerable
         }
     }
 
-    function isAvailable(bytes32 clustersName) public view returns (bool result) {
-        // Query `infoOf`. If `id` is zero, or if `owner` is `address(this)`, return true.
-        // Else return false.
+    function _availability(bytes32 clustersName) public view returns (uint256 result) {
+        // Query `infoOf`. If `id` is zero, return 0.
+        // Else if `owner` is `1..256`, return id.
+        // Else return `_UNAVAILABLE`.
     }
 
-    function _register(bytes32 clustersName, address to) internal {}
+    function _register(bytes32 clustersName, address to, uint256 availability) internal {
+        // If not available, revert.
+        // If `availability == 0`, `_mintNext`.
+        // Else, `availability` is `id`. Move from `(id & 0xff) + 1` to `to`.
+    }
 
-    function _deregister(bytes32 clustersName) internal {}
+    function _unregister(bytes32 clustersName, uint256 availability) internal {
+        // If available, revert.
+        // `availability` is `id`. Force move to `(id & 0xff) + 1`
+    }
 
-    function _move(bytes32 clustersName, address to) internal {}
+    function _move(bytes32 clustersName, address to, uint256 availability) internal {}
+
+    function _minAnnualPrice() internal view returns (uint256) {}
+
+    function _getIntegratedPrice(uint256 lastUpdatedPrice, uint256 secondsSinceUpdate)
+        internal
+        view
+        returns (uint256 spent, uint256 price)
+    {}
 
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
     /*                         OVERRIDES                          */
