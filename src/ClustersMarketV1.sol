@@ -106,7 +106,7 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
     event Funded(bytes32 indexed clusterName, address indexed by, uint256 oldBacking, uint256 newBacking);
 
     /// @dev The `clusterName` has been poked.
-    event Poked(bytes32 indexed clusterName);
+    event Poked(bytes32 indexed clusterName, address indexed by);
 
     /// @dev A new bid has been placed by `bidder`.
     event BidPlaced(bytes32 indexed clusterName, address indexed bidder, uint256 bidAmount);
@@ -182,16 +182,18 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
 
     /// @dev Purchases the `clusterName`.
     function buy(bytes32 clusterName) public payable nonReentrant {
-        ClustersMarketStorage storage $ = _getClustersMarketStorage();
-        uint256 contracts = $.contracts;
+        uint256 contracts = _getClustersMarketStorage().contracts;
         uint256 packedInfo = _packedInfo(contracts, clusterName);
         if (_isRegistered(packedInfo)) revert NameAlreadyRegistered();
+
         uint256 minAnnualPrice = _minAnnualPrice(contracts);
         if (msg.value < minAnnualPrice) revert Insufficient();
-        Bid storage b = $.bids[clusterName];
+
+        Bid storage b = _getClustersMarketStorage().bids[clusterName];
         b.lastPrice = SafeCastLib.toUint88(minAnnualPrice);
         b.lastUpdated = uint40(block.timestamp);
         b.backing = SafeCastLib.toUint88(msg.value);
+
         address to = MessageHubLib.senderOrSigner();
         if (_id(packedInfo) == uint256(0)) {
             _mintNext(contracts, clusterName, to);
@@ -203,31 +205,26 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
 
     /// @dev Increases the backing for `clusterName`.
     function fund(bytes32 clusterName) public payable nonReentrant {
-        ClustersMarketStorage storage $ = _getClustersMarketStorage();
-        uint256 contracts = $.contracts;
-        uint256 packedInfo = _packedInfo(contracts, clusterName);
-        if (!_isRegistered(packedInfo)) revert NameNotRegistered();
-        Bid storage b = _getAndLazyInitBid(contracts, clusterName);
+        (,, Bid storage b, address sender) = _registeredCtx(clusterName);
         uint256 oldBacking = b.backing;
         uint256 newBacking = F.rawAdd(oldBacking, msg.value);
         b.backing = SafeCastLib.toUint88(newBacking);
-        emit Funded(clusterName, MessageHubLib.senderOrSigner(), oldBacking, newBacking);
+        emit Funded(clusterName, sender, oldBacking, newBacking);
     }
 
     /// @dev Flushes the ownership of `clusterName`.
     /// If `clusterName` has expired, it will be moved to the highest bidder (if any),
     /// or to a stash for reclaimmed names.
     function poke(bytes32 clusterName) public nonReentrant {
-        ClustersMarketStorage storage $ = _getClustersMarketStorage();
-        uint256 contracts = $.contracts;
-        uint256 packedInfo = _packedInfo(contracts, clusterName);
-        if (!_isRegistered(packedInfo)) revert NameNotRegistered();
-        _poke(contracts, packedInfo, clusterName);
+        (uint256 contracts, uint256 packedInfo, Bid storage b, address sender) = _registeredCtx(clusterName);
+        _poke(contracts, packedInfo, clusterName, b, sender);
     }
 
     /// @dev Internal helper for poke.
-    function _poke(uint256 contracts, uint256 packedInfo, bytes32 clusterName) internal returns (bool moved) {
-        Bid storage b = _getAndLazyInitBid(contracts, clusterName);
+    function _poke(uint256 contracts, uint256 packedInfo, bytes32 clusterName, Bid storage b, address sender)
+        internal
+        returns (bool moved)
+    {
         (uint256 spent, uint256 newPrice) =
             _getIntegratedPrice(contracts, b.lastPrice, F.rawSub(block.timestamp, b.lastUpdated));
         uint256 backing = b.backing;
@@ -251,20 +248,16 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
             b.lastUpdated = uint40(block.timestamp);
             b.backing = uint88(F.rawSub(backing, spent));
         }
-        emit Poked(clusterName);
+        emit Poked(clusterName, sender);
     }
 
     /// @dev Performs a bid on `clusterName`.
     /// If the bidder is same as the previous bidder, the previous bid amount will be
     /// incremented by the `msg.value`.
     function bid(bytes32 clusterName) public payable nonReentrant {
-        ClustersMarketStorage storage $ = _getClustersMarketStorage();
-        uint256 contracts = $.contracts;
-        uint256 packedInfo = _packedInfo(contracts, clusterName);
-        if (!_isRegistered(packedInfo)) revert NameNotRegistered();
-        Bid storage b = _getAndLazyInitBid(contracts, clusterName);
-        address sender = MessageHubLib.senderOrSigner();
+        (uint256 contracts, uint256 packedInfo, Bid storage b, address sender) = _registeredCtx(clusterName);
         if (_owner(packedInfo) == sender) revert SelfBid();
+
         (address oldBidder, uint256 oldBidAmount) = (b.bidder, b.bidAmount);
         if (sender == oldBidder) {
             uint256 newBidAmount = F.rawAdd(oldBidAmount, msg.value);
@@ -272,16 +265,16 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
             b.bidAmount = SafeCastLib.toUint88(newBidAmount);
             _incrementTotalBidBacking(msg.value);
             emit BidIncreased(clusterName, sender, oldBidAmount, newBidAmount);
-            _poke(contracts, packedInfo, clusterName);
+            _poke(contracts, packedInfo, clusterName, b, sender);
         } else {
-            uint256 thres = F.rawAdd($.minBidIncrement, oldBidAmount);
+            uint256 thres = F.rawAdd(minBidIncrement(), oldBidAmount);
             if (msg.value < F.max(_minAnnualPrice(contracts), thres)) revert Insufficient();
             b.bidUpdated = uint40(block.timestamp);
             b.bidder = sender;
             b.bidAmount = SafeCastLib.toUint88(msg.value);
             _incrementTotalBidBacking(F.rawSub(msg.value, oldBidAmount));
             emit BidPlaced(clusterName, sender, msg.value);
-            _poke(contracts, packedInfo, clusterName);
+            _poke(contracts, packedInfo, clusterName, b, sender);
             SafeTransferLib.forceSafeTransferETH(oldBidder, oldBidAmount);
             emit BidRefunded(clusterName, oldBidder, oldBidAmount);
         }
@@ -291,16 +284,11 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
     /// If `delta` is equal to to greater than the current bid, revokes the bid.
     /// Only the bidder can reduce their own bid, after `bidTimelock()` has passed.
     function reduceBid(bytes32 clusterName, uint256 delta) public nonReentrant {
-        ClustersMarketStorage storage $ = _getClustersMarketStorage();
-        uint256 contracts = $.contracts;
-        uint256 packedInfo = _packedInfo(contracts, clusterName);
-        if (!_isRegistered(packedInfo)) revert NameNotRegistered();
-        address sender = MessageHubLib.senderOrSigner();
-        Bid storage b = _getAndLazyInitBid(contracts, clusterName);
-        if (block.timestamp < F.rawAdd(b.bidUpdated, $.bidTimelock)) revert BidTimelocked();
+        (uint256 contracts, uint256 packedInfo, Bid storage b, address sender) = _registeredCtx(clusterName);
+        if (block.timestamp < F.rawAdd(b.bidUpdated, bidTimelock())) revert BidTimelocked();
         if (b.bidder != sender) revert Unauthorized();
 
-        if (!_poke(contracts, packedInfo, clusterName)) {
+        if (!_poke(contracts, packedInfo, clusterName, b, sender)) {
             uint256 oldBidAmount = b.bidAmount;
             if (delta >= oldBidAmount) {
                 b.bidUpdated = 0;
@@ -323,12 +311,7 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
 
     /// @dev Accepts the bid for `clusterName`.
     function acceptBid(bytes32 clusterName) public nonReentrant {
-        ClustersMarketStorage storage $ = _getClustersMarketStorage();
-        uint256 contracts = $.contracts;
-        uint256 packedInfo = _packedInfo(contracts, clusterName);
-        if (!_isRegistered(packedInfo)) revert NameNotRegistered();
-        address sender = MessageHubLib.senderOrSigner();
-        Bid storage b = _getAndLazyInitBid(contracts, clusterName);
+        (uint256 contracts, uint256 packedInfo, Bid storage b, address sender) = _registeredCtx(clusterName);
         (address bidder, uint256 bidAmount) = (b.bidder, b.bidAmount);
         if (bidder == address(0)) revert NoBid();
         if (bidder != sender) revert Unauthorized();
@@ -351,7 +334,8 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
     /// @dev Returns the consolidated info about the `clusterName`.
     function nameInfo(bytes32 clusterName) public view returns (NameInfo memory info) {
         ClustersMarketStorage storage $ = _getClustersMarketStorage();
-        uint256 packedInfo = _packedInfo($.contracts, clusterName);
+        uint256 contracts = $.contracts;
+        uint256 packedInfo = _packedInfo(contracts, clusterName);
         info.id = _id(packedInfo);
         info.owner = _owner(packedInfo);
         info.startTimestamp = _startTimestamp(packedInfo);
@@ -363,6 +347,12 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
         info.bidUpdated = b.bidUpdated;
         info.bidder = b.bidder;
         info.backing = b.backing;
+        if (info.lastUpdated == uint256(0)) {
+            (uint256 initialTimestamp, uint256 initialBacking) = _initialData(contracts, clusterName);
+            info.lastPrice = SafeCastLib.toUint88(_minAnnualPrice(contracts));
+            info.lastUpdated = SafeCastLib.toUint40(initialTimestamp);
+            info.backing = SafeCastLib.toUint88(initialBacking);
+        }
     }
 
     /// @dev Returns if the `clusterName` is registered.
@@ -479,17 +469,6 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
         }
     }
 
-    /// @dev Returns the storage pointer to `bids[clusterName]`, initializing it with the initial data.
-    function _getAndLazyInitBid(uint256 contracts, bytes32 clusterName) internal returns (Bid storage b) {
-        b = _getClustersMarketStorage().bids[clusterName];
-        if (b.lastUpdated == uint256(0)) {
-            (uint256 initialTimestamp, uint256 initialBacking) = _initialData(contracts, clusterName);
-            b.lastPrice = SafeCastLib.toUint88(_minAnnualPrice(contracts));
-            b.lastUpdated = SafeCastLib.toUint40(initialTimestamp);
-            b.backing = SafeCastLib.toUint88(initialBacking);
-        }
-    }
-
     /// @dev Returns the owner of `packedInfo`.
     function _owner(uint256 packedInfo) internal pure returns (address) {
         return address(uint160(packedInfo >> 96));
@@ -497,12 +476,12 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
 
     /// @dev Returns the start timestamp of `packedInfo`.
     function _startTimestamp(uint256 packedInfo) internal pure returns (uint256) {
-        return (packedInfo >> 40) & 0xffffffffff;
+        return uint40(packedInfo >> 40);
     }
 
     /// @dev Returns the id of `packedInfo`.
     function _id(uint256 packedInfo) internal pure returns (uint256) {
-        return packedInfo & 0xffffffffff;
+        return uint40(packedInfo);
     }
 
     /// @dev Returns if the name has been registered.
@@ -576,6 +555,24 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
             price := mload(0x20)
             mstore(0x38, 0) // Restore the part of the free memory pointer that was overwritten.
         }
+    }
+
+    /// @dev Helper for returning the context variables for a registered `clusterName`.
+    function _registeredCtx(bytes32 clusterName)
+        internal
+        returns (uint256 contracts, uint256 packedInfo, Bid storage b, address sender)
+    {
+        contracts = _getClustersMarketStorage().contracts;
+        packedInfo = _packedInfo(contracts, clusterName);
+        if (!_isRegistered(packedInfo)) revert NameNotRegistered();
+        b = _getClustersMarketStorage().bids[clusterName];
+        if (b.lastUpdated == uint256(0)) {
+            (uint256 initialTimestamp, uint256 initialBacking) = _initialData(contracts, clusterName);
+            b.lastPrice = SafeCastLib.toUint88(_minAnnualPrice(contracts));
+            b.lastUpdated = SafeCastLib.toUint40(initialTimestamp);
+            b.backing = SafeCastLib.toUint88(initialBacking);
+        }
+        sender = MessageHubLib.senderOrSigner();
     }
 
     /// @dev Increments the total bid backing.
