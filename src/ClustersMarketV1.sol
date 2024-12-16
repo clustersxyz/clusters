@@ -181,8 +181,8 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
         uint256 minAnnualPrice = _minAnnualPrice(contracts);
         if (msg.value < minAnnualPrice) revert Insufficient();
         Bid storage b = $.bids[clusterName];
-        b.lastUpdated = uint40(block.timestamp);
         b.lastPrice = SafeCastLib.toUint88(minAnnualPrice);
+        b.lastUpdated = uint40(block.timestamp);
         b.backing = SafeCastLib.toUint88(msg.value);
         address to = MessageHubLib.senderOrSigner();
         _mintNext(contracts, clusterName, to);
@@ -220,30 +220,24 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
         (uint256 spent, uint256 newPrice) =
             _getIntegratedPrice(contracts, b.lastPrice, F.rawSub(block.timestamp, b.lastUpdated));
         uint256 backing = b.backing;
+        $.protocolAccural = SafeCastLib.toUint88(F.rawAdd($.protocolAccural, F.min(spent, backing)));
         // If out of backing (expired), transfer to highest sufficient bidder or delete registration.
         if (spent >= backing) {
             moved = true;
-            $.protocolAccural = SafeCastLib.toUint88(F.rawAdd($.protocolAccural, backing));
-            uint88 bidAmount = b.bidAmount;
-            address bidder = b.bidder;
+            (address bidder, uint256 bidAmount) = (b.bidder, b.bidAmount);
+            bool hasBid = bidder != address(0);
+            b.lastPrice = SafeCastLib.toUint88(_minAnnualPrice(contracts));
+            b.lastUpdated = uint40(block.timestamp);
+            b.backing = uint88(F.ternary(hasBid, bidAmount, 0));
             b.bidUpdated = 0;
             b.bidder = address(0);
             b.bidAmount = 0;
-            b.lastPrice = SafeCastLib.toUint88(_minAnnualPrice(contracts));
-            b.lastUpdated = uint40(block.timestamp);
             // If there's no bid, reclaim the name.
-            if (bidAmount == uint256(0)) {
-                b.backing = 0;
-                _move(contracts, _reclaimAddress(packedInfo), packedInfo);
-            } else {
-                b.backing = bidAmount;
-                _move(contracts, bidder, packedInfo);
-            }
+            _move(contracts, hasBid ? bidder : _reclaimAddress(packedInfo), packedInfo);
         } else {
             b.lastPrice = SafeCastLib.toUint88(newPrice);
             b.lastUpdated = uint40(block.timestamp);
             b.backing = uint88(F.rawSub(backing, spent));
-            $.protocolAccural = SafeCastLib.toUint88(F.rawAdd($.protocolAccural, spent));
         }
         emit Poked(clusterName);
     }
@@ -259,20 +253,19 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
         address sender = MessageHubLib.senderOrSigner();
         if (_owner(packedInfo) == sender) revert SelfBid();
         Bid storage b = $.bids[clusterName];
-        address oldBidder = b.bidder;
-        uint256 oldBidAmount = b.bidAmount;
+        (address oldBidder, uint256 oldBidAmount) = (b.bidder, b.bidAmount);
         if (sender == oldBidder) {
             uint256 newBidAmount = F.rawAdd(oldBidAmount, msg.value);
-            b.bidAmount = SafeCastLib.toUint88(newBidAmount);
             b.bidUpdated = uint40(block.timestamp);
+            b.bidAmount = SafeCastLib.toUint88(newBidAmount);
             _poke(contracts, packedInfo, clusterName);
             emit BidIncreased(clusterName, sender, oldBidAmount, newBidAmount);
         } else {
             uint256 thres = F.rawAdd($.minBidIncrement, oldBidAmount);
             if (msg.value < F.max(_minAnnualPrice(contracts), thres)) revert Insufficient();
-            b.bidAmount = SafeCastLib.toUint88(msg.value);
             b.bidUpdated = uint40(block.timestamp);
             b.bidder = sender;
+            b.bidAmount = SafeCastLib.toUint88(msg.value);
             emit BidPlaced(clusterName, sender, msg.value);
             _poke(contracts, packedInfo, clusterName);
             SafeTransferLib.forceSafeTransferETH(oldBidder, oldBidAmount);
@@ -296,9 +289,9 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
         if (!_poke(contracts, packedInfo, clusterName)) {
             uint256 oldBidAmount = b.bidAmount;
             if (delta >= oldBidAmount) {
-                b.bidAmount = 0;
-                b.bidder = address(0);
                 b.bidUpdated = 0;
+                b.bidder = address(0);
+                b.bidAmount = 0;
                 SafeTransferLib.forceSafeTransferETH(sender, oldBidAmount);
                 emit BidRevoked(clusterName, sender, oldBidAmount);
             } else {
