@@ -56,6 +56,10 @@ contract ClustersMarketV1Test is SoladyTest {
         assertEq(price, expectedPrice);
     }
 
+    function testMinAnnualPrice() public view {
+        assertEq(market.minAnnualPrice(), market.minAnnualPrice());
+    }
+
     function testIsRegistered(bytes32) public {
         bytes32 clusterName = _randomClusterName();
         assertEq(market.isRegistered(clusterName), true);

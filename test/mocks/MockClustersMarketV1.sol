@@ -11,4 +11,8 @@ contract MockClustersMarketV1 is ClustersMarketV1 {
     {
         return _getIntegratedPrice(_getClustersMarketStorage().contracts, lastUpdatedPrice, secondsSinceUpdate);
     }
+
+    function minAnnualPrice() public view returns (uint256) {
+        return _minAnnualPrice(_getClustersMarketStorage().contracts);
+    }
 }
