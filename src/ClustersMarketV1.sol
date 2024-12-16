@@ -238,7 +238,7 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
             _poke(contracts, packedInfo, clusterName);
             emit BidIncreased(clusterName, sender, oldBidAmount, newBidAmount);
         } else {
-            uint256 thres = F.rawAdd(minBidIncrement(), oldBidAmount);
+            uint256 thres = F.rawAdd($.minBidIncrement, oldBidAmount);
             if (msg.value < F.max(_minAnnualPrice(contracts), thres)) revert Insufficient();
             b.bidAmount = SafeCastLib.toUint88(msg.value);
             b.bidUpdated = uint40(block.timestamp);
@@ -260,7 +260,7 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
         if (!_isRegistered(packedInfo)) revert NameNotRegistered();
         address sender = MessageHubLib.senderOrSigner();
         Bid storage b = $.bids[clusterName];
-        if (block.timestamp < F.rawAdd(b.bidUpdated, bidTimelock())) revert BidTimelocked();
+        if (block.timestamp < F.rawAdd(b.bidUpdated, $.bidTimelock)) revert BidTimelocked();
         if (b.bidder != sender) revert Unauthorized();
 
         if (!_poke(contracts, packedInfo, clusterName)) {
