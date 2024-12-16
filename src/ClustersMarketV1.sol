@@ -297,7 +297,7 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
             } else {
                 uint256 newBidAmount = F.rawSub(oldBidAmount, delta);
                 if (newBidAmount < _minAnnualPrice(contracts)) revert Insufficient();
-                b.bidAmount = SafeCastLib.toUint88(newBidAmount);
+                b.bidAmount = uint88(newBidAmount);
                 b.bidUpdated = uint40(block.timestamp);
                 emit BidReduced(clusterName, sender, oldBidAmount, newBidAmount);
             }
@@ -379,25 +379,24 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
 
     /// @dev Allows the owner to set the minimum bid increment.
     function setMinBidIncrement(uint256 newMinBidIncrement) public onlyOwner {
-        ClustersMarketStorage storage $ = _getClustersMarketStorage();
-        $.minBidIncrement = SafeCastLib.toUint88(newMinBidIncrement);
+        _getClustersMarketStorage().minBidIncrement = SafeCastLib.toUint88(newMinBidIncrement);
         emit MinBidIncrementSet(newMinBidIncrement);
     }
 
     /// @dev Allows the owner to set the bid timelock.
     function setBidTimelock(uint256 newBidTimelock) public onlyOwner {
-        ClustersMarketStorage storage $ = _getClustersMarketStorage();
-        $.bidTimelock = SafeCastLib.toUint32(newBidTimelock);
+        _getClustersMarketStorage().bidTimelock = SafeCastLib.toUint32(newBidTimelock);
         emit BidTimelockSet(newBidTimelock);
     }
 
     /// @dev Allows the owner to withdraw the protocol accrual.
     function withdrawProtocolAccural(address to, uint256 amount) public onlyOwner {
         ClustersMarketStorage storage $ = _getClustersMarketStorage();
-        // Will revert if `amount > $.protocolAccural`.
-        $.protocolAccural -= SafeCastLib.toUint88(amount);
-        SafeTransferLib.forceSafeTransferETH(to, amount);
-        emit ProtocolAccuralWithdrawn(to, amount);
+        uint256 accrual = $.protocolAccural;
+        uint256 clampedAmount = F.min(amount, accrual);
+        $.protocolAccural = uint88(F.rawSub(accrual, clampedAmount));
+        SafeTransferLib.forceSafeTransferETH(to, clampedAmount);
+        emit ProtocolAccuralWithdrawn(to, clampedAmount);
     }
 
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
