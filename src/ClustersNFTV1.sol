@@ -24,10 +24,15 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     /*                          STRUCTS                           */
     /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
 
+    /// @dev A struct to hold the mint information for `mintNext`.
     struct Mint {
+        // The name to be minted.
         bytes32 clusterName;
+        // The mint recipient.
         address to;
+        // The initial timestamp for the market pricing integral.
         uint256 initialTimestamp;
+        // The initial backing for the market.
         uint256 initialBacking;
     }
 
