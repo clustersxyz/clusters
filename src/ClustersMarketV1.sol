@@ -73,8 +73,8 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
         uint256 contracts;
         // Mapping of `clusterName` to `bid`.
         mapping(bytes32 => Bid) bids;
-        // The total amount that has been accrued to the protocol.
-        uint88 protocolAccural;
+        // The total amount that is locked in bids.
+        uint88 totalBidBacking;
         // The minimum bid increment (in Ether wei).
         uint88 minBidIncrement;
         // The number of seconds that must pass since the last bid update for the bid to be reduced.
@@ -123,14 +123,19 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
     /// @dev The bid has been revoked.
     event BidRevoked(bytes32 indexed clusterName, address indexed bidder, uint256 bidAmount);
 
+    /// @dev The bid has been accepted.
+    event BidAccepted(
+        bytes32 indexed clusterName, address indexed previousOwner, address indexed bidder, uint256 newBacking
+    );
+
     /// @dev The bid timelock has been updated.
     event BidTimelockSet(uint256 newBidTimelock);
 
     /// @dev The minimum bid increment has been set.
     event MinBidIncrementSet(uint256 newMinBidIncrement);
 
-    /// @dev `amount` has been withdrawn from the protocol accrual.
-    event ProtocolAccuralWithdrawn(address to, uint256 amount);
+    /// @dev `amount` has been withdrawn from.
+    event NativeWithdrawn(address to, uint256 amount);
 
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
     /*                           ERRORS                           */
@@ -153,6 +158,9 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
 
     /// @dev Cannot bid on a name owned by oneself.
     error SelfBid();
+
+    /// @dev The name has no bid.
+    error NoBid();
 
     /// @dev The bid timelock has not passed.
     error BidTimelocked();
@@ -199,7 +207,7 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
         uint256 contracts = $.contracts;
         uint256 packedInfo = _packedInfo(contracts, clusterName);
         if (!_isRegistered(packedInfo)) revert NameNotRegistered();
-        Bid storage b = $.bids[clusterName];
+        Bid storage b = _getAndLazyInitBid(contracts, clusterName);
         uint256 oldBacking = b.backing;
         uint256 newBacking = F.rawAdd(oldBacking, msg.value);
         b.backing = SafeCastLib.toUint88(newBacking);
@@ -219,12 +227,11 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
 
     /// @dev Internal helper for poke.
     function _poke(uint256 contracts, uint256 packedInfo, bytes32 clusterName) internal returns (bool moved) {
-        ClustersMarketStorage storage $ = _getClustersMarketStorage();
-        Bid storage b = $.bids[clusterName];
+        Bid storage b = _getAndLazyInitBid(contracts, clusterName);
         (uint256 spent, uint256 newPrice) =
             _getIntegratedPrice(contracts, b.lastPrice, F.rawSub(block.timestamp, b.lastUpdated));
         uint256 backing = b.backing;
-        $.protocolAccural = SafeCastLib.toUint88(F.rawAdd($.protocolAccural, F.min(spent, backing)));
+
         // If out of backing (expired), transfer to highest sufficient bidder or delete registration.
         if (spent >= backing) {
             moved = true;
@@ -236,6 +243,7 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
             b.bidUpdated = 0;
             b.bidder = address(0);
             b.bidAmount = 0;
+            _decrementTotalBidBacking(bidAmount);
             // Transfer the name to the bidder, if there's a bid, else reclaim the name.
             _move(contracts, hasBid ? bidder : _reclaimAddress(packedInfo), packedInfo);
         } else {
@@ -256,12 +264,13 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
         if (!_isRegistered(packedInfo)) revert NameNotRegistered();
         address sender = MessageHubLib.senderOrSigner();
         if (_owner(packedInfo) == sender) revert SelfBid();
-        Bid storage b = $.bids[clusterName];
+        Bid storage b = _getAndLazyInitBid(contracts, clusterName);
         (address oldBidder, uint256 oldBidAmount) = (b.bidder, b.bidAmount);
         if (sender == oldBidder) {
             uint256 newBidAmount = F.rawAdd(oldBidAmount, msg.value);
             b.bidUpdated = uint40(block.timestamp);
             b.bidAmount = SafeCastLib.toUint88(newBidAmount);
+            _incrementTotalBidBacking(msg.value);
             _poke(contracts, packedInfo, clusterName);
             emit BidIncreased(clusterName, sender, oldBidAmount, newBidAmount);
         } else {
@@ -270,6 +279,7 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
             b.bidUpdated = uint40(block.timestamp);
             b.bidder = sender;
             b.bidAmount = SafeCastLib.toUint88(msg.value);
+            _incrementTotalBidBacking(F.rawSub(msg.value, oldBidAmount));
             emit BidPlaced(clusterName, sender, msg.value);
             _poke(contracts, packedInfo, clusterName);
             SafeTransferLib.forceSafeTransferETH(oldBidder, oldBidAmount);
@@ -286,7 +296,7 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
         uint256 packedInfo = _packedInfo(contracts, clusterName);
         if (!_isRegistered(packedInfo)) revert NameNotRegistered();
         address sender = MessageHubLib.senderOrSigner();
-        Bid storage b = $.bids[clusterName];
+        Bid storage b = _getAndLazyInitBid(contracts, clusterName);
         if (block.timestamp < F.rawAdd(b.bidUpdated, $.bidTimelock)) revert BidTimelocked();
         if (b.bidder != sender) revert Unauthorized();
 
@@ -296,6 +306,7 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
                 b.bidUpdated = 0;
                 b.bidder = address(0);
                 b.bidAmount = 0;
+                _decrementTotalBidBacking(oldBidAmount);
                 SafeTransferLib.forceSafeTransferETH(sender, oldBidAmount);
                 emit BidRevoked(clusterName, sender, oldBidAmount);
             } else {
@@ -303,9 +314,34 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
                 if (newBidAmount < _minAnnualPrice(contracts)) revert Insufficient();
                 b.bidAmount = uint88(newBidAmount);
                 b.bidUpdated = uint40(block.timestamp);
+                _decrementTotalBidBacking(delta);
+                SafeTransferLib.forceSafeTransferETH(sender, delta);
                 emit BidReduced(clusterName, sender, oldBidAmount, newBidAmount);
             }
         }
+    }
+
+    /// @dev Accepts the bid for `clusterName`.
+    function acceptBid(bytes32 clusterName) public validateName(clusterName) nonReentrant {
+        ClustersMarketStorage storage $ = _getClustersMarketStorage();
+        uint256 contracts = $.contracts;
+        uint256 packedInfo = _packedInfo(contracts, clusterName);
+        if (!_isRegistered(packedInfo)) revert NameNotRegistered();
+        address sender = MessageHubLib.senderOrSigner();
+        Bid storage b = _getAndLazyInitBid(contracts, clusterName);
+        (address bidder, uint256 bidAmount) = (b.bidder, b.bidAmount);
+        if (bidder == address(0)) revert NoBid();
+        if (bidder != sender) revert Unauthorized();
+
+        b.lastPrice = SafeCastLib.toUint88(_minAnnualPrice(contracts));
+        b.lastUpdated = uint40(block.timestamp);
+        b.backing = uint88(bidAmount);
+        b.bidUpdated = 0;
+        b.bidder = address(0);
+        b.bidAmount = 0;
+        _decrementTotalBidBacking(bidAmount);
+        _move(contracts, bidder, packedInfo);
+        emit BidAccepted(clusterName, sender, bidder, bidAmount);
     }
 
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
@@ -354,9 +390,9 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
         return _getClustersMarketStorage().bidTimelock;
     }
 
-    /// @dev Returns the protocol accrual.
-    function protocolAccural() public view returns (uint256) {
-        return _getClustersMarketStorage().protocolAccural;
+    /// @dev Returns the total amount of bid backing.
+    function totalBidBacking() public view returns (uint256) {
+        return _getClustersMarketStorage().totalBidBacking;
     }
 
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
@@ -394,13 +430,12 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
     }
 
     /// @dev Allows the owner to withdraw the protocol accrual.
-    function withdrawProtocolAccural(address to, uint256 amount) public onlyOwner {
+    function withdrawNative(address to, uint256 amount) public onlyOwner {
         ClustersMarketStorage storage $ = _getClustersMarketStorage();
-        uint256 accrual = $.protocolAccural;
-        uint256 clampedAmount = F.min(amount, accrual);
-        $.protocolAccural = uint88(F.rawSub(accrual, clampedAmount));
+        uint256 withdrawable = F.zeroFloorSub(address(this).balance, $.totalBidBacking);
+        uint256 clampedAmount = F.min(amount, withdrawable);
         SafeTransferLib.forceSafeTransferETH(to, clampedAmount);
-        emit ProtocolAccuralWithdrawn(to, clampedAmount);
+        emit NativeWithdrawn(to, clampedAmount);
     }
 
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
@@ -425,6 +460,33 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
             let success := staticcall(gas(), shr(128, contracts), 0x1c, 0x24, m, 0x60)
             if iszero(and(gt(returndatasize(), 0x5f), success)) { revert(codesize(), 0x00) }
             result := or(shl(96, mload(add(m, 0x20))), or(shl(40, mload(add(m, 0x40))), mload(m)))
+        }
+    }
+
+    /// @dev Returns the `initialTimestamp` and `initialBacking` of `clusterName`.
+    function _initialData(uint256 contracts, bytes32 clusterName)
+        internal
+        view
+        returns (uint256 initialTimestamp, uint256 initialBacking)
+    {
+        assembly ("memory-safe") {
+            mstore(0x00, 0x4894cb4c) // `initialData(bytes32)`.
+            mstore(0x20, clusterName)
+            let success := staticcall(gas(), shr(128, contracts), 0x1c, 0x24, 0x00, 0x40)
+            if iszero(and(gt(returndatasize(), 0x3f), success)) { revert(codesize(), 0x00) }
+            initialTimestamp := mload(0x00)
+            initialBacking := mload(0x20)
+        }
+    }
+
+    /// @dev Returns the storage pointer to `bids[clusterName]`, initializing it with the initial data.
+    function _getAndLazyInitBid(uint256 contracts, bytes32 clusterName) internal returns (Bid storage b) {
+        b = _getClustersMarketStorage().bids[clusterName];
+        if (b.lastUpdated == uint256(0)) {
+            (uint256 initialTimestamp, uint256 initialBacking) = _initialData(contracts, clusterName);
+            b.lastPrice = SafeCastLib.toUint88(_minAnnualPrice(contracts));
+            b.lastUpdated = SafeCastLib.toUint40(initialTimestamp);
+            b.backing = SafeCastLib.toUint88(initialBacking);
         }
     }
 
@@ -514,6 +576,18 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
             price := mload(0x20)
             mstore(0x38, 0) // Restore the part of the free memory pointer that was overwritten.
         }
+    }
+
+    /// @dev Increments the total bid backing.
+    function _incrementTotalBidBacking(uint256 amount) internal {
+        ClustersMarketStorage storage $ = _getClustersMarketStorage();
+        $.totalBidBacking = SafeCastLib.toUint88(uint256($.totalBidBacking) + amount);
+    }
+
+    /// @dev Decrements the total bid backing.
+    function _decrementTotalBidBacking(uint256 amount) internal {
+        ClustersMarketStorage storage $ = _getClustersMarketStorage();
+        $.totalBidBacking = uint88(uint256($.totalBidBacking) - amount);
     }
 
     /// @dev Validates the name,

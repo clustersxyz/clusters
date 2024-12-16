@@ -5,6 +5,7 @@ import {DynamicArrayLib} from "solady/utils/DynamicArrayLib.sol";
 import {LibSort} from "solady/utils/LibSort.sol";
 import {LibClone} from "solady/utils/LibClone.sol";
 import {LibPRNG} from "solady/utils/LibPRNG.sol";
+import {LibString} from "solady/utils/LibString.sol";
 import "./utils/SoladyTest.sol";
 import "./mocks/MockClustersNFTV1.sol";
 
@@ -26,32 +27,52 @@ contract ClustersNFTV1Test is SoladyTest {
         DynamicArrayLib.DynamicArray recipients;
     }
 
+    function testInitialDataAndLinkedAddress(bytes32) public {
+        ClustersNFTV1.Mint[] memory mints = new ClustersNFTV1.Mint[](1);
+        mints[0].clusterName = _randomClusterName();
+        mints[0].to = _randomRecipient();
+        mints[0].initialTimestamp = _bound(_random(), 0, type(uint40).max);
+        mints[0].initialBacking = _bound(_random(), 0, type(uint88).max);
+        assertEq(nft.mintNext(mints), 1);
+        (uint256 initialTimestamp, uint256 initialBacking) = nft.initialData(mints[0].clusterName);
+        assertEq(initialTimestamp, mints[0].initialTimestamp);
+        assertEq(initialBacking, mints[0].initialBacking);
+        assertEq(nft.linkedAddress(mints[0].clusterName), address(0));
+        address linkedAddress = _randomAddress();
+        vm.prank(mints[0].to);
+        nft.setLinkedAddress(mints[0].clusterName, linkedAddress);
+        (initialTimestamp, initialBacking) = nft.initialData(mints[0].clusterName);
+        assertEq(initialTimestamp, mints[0].initialTimestamp);
+        assertEq(initialBacking, mints[0].initialBacking);
+        assertEq(nft.linkedAddress(mints[0].clusterName), linkedAddress);
+    }
+
     function testMintNext(bytes32) public {
         _TestTemps memory t;
-        t.clusterNames = _generateClusterNames(_randomNonZeroLength());
-        t.recipients = _generateRecipients(t.clusterNames.length());
+        t.clusterNames = _randomClusterNames(_randomNonZeroLength());
+        t.recipients = _randomRecipients(t.clusterNames.length());
 
-        assertEq(nft.mintNext(t.clusterNames.asBytes32Array(), t.recipients.asAddressArray()), 1);
+        assertEq(nft.mintNext(_toMints(t.clusterNames, t.recipients)), 1);
 
         uint256 expected = nft.totalSupply() + 1;
 
         uint256[] memory newClusterNames;
         do {
-            newClusterNames = _generateClusterNames(_randomNonZeroLength()).data;
+            newClusterNames = _randomClusterNames(_randomNonZeroLength()).data;
             newClusterNames = LibSort.difference(newClusterNames, t.clusterNames.data);
         } while (newClusterNames.length == 0);
         t.clusterNames = DynamicArrayLib.wrap(newClusterNames);
-        t.recipients = _generateRecipients(t.clusterNames.length());
+        t.recipients = _randomRecipients(t.clusterNames.length());
 
-        assertEq(nft.mintNext(t.clusterNames.asBytes32Array(), t.recipients.asAddressArray()), expected);
+        assertEq(nft.mintNext(_toMints(t.clusterNames, t.recipients)), expected);
     }
 
     function testMintAndTrasferNFTs(bytes32) public {
         _TestTemps memory t;
-        t.clusterNames = _generateClusterNames(_randomNonZeroLength());
-        t.recipients = _generateRecipients(t.clusterNames.length());
+        t.clusterNames = _randomClusterNames(_randomNonZeroLength());
+        t.recipients = _randomRecipients(t.clusterNames.length());
 
-        nft.mintNext(t.clusterNames.asBytes32Array(), t.recipients.asAddressArray());
+        nft.mintNext(_toMints(t.clusterNames, t.recipients));
 
         vm.prank(ALICE);
         nft.setApprovalForAll(address(this), true);
@@ -130,24 +151,37 @@ contract ClustersNFTV1Test is SoladyTest {
         while (result == 0) result = _randomLength();
     }
 
-    function _generateClusterNames(uint256 n) internal returns (DynamicArrayLib.DynamicArray memory a) {
-        a.resize(n);
+    function _randomClusterNames(uint256 maxLength) internal returns (DynamicArrayLib.DynamicArray memory a) {
+        a.resize(maxLength);
         unchecked {
-            for (uint256 i; i != n; ++i) {
-                uint256 r = _random();
-                if (r == 0) r = 1;
-                a.set(i, r);
+            for (uint256 i; i != maxLength; ++i) {
+                a.set(i, _randomClusterName());
             }
         }
         LibSort.sort(a.data);
         LibSort.uniquifySorted(a.data);
     }
 
-    function _generateRecipients(uint256 n) internal returns (DynamicArrayLib.DynamicArray memory a) {
+    function _randomRecipients(uint256 n) internal returns (DynamicArrayLib.DynamicArray memory a) {
         a.resize(n);
         unchecked {
             for (uint256 i; i != n; ++i) {
-                a.set(i, uint160(_randomChance(2) ? ALICE : BOB));
+                a.set(i, _randomRecipient());
+            }
+        }
+    }
+
+    function _toMints(DynamicArrayLib.DynamicArray memory names, DynamicArrayLib.DynamicArray memory recipients)
+        internal
+        pure
+        returns (ClustersNFTV1.Mint[] memory a)
+    {
+        a = new ClustersNFTV1.Mint[](names.length());
+        assertEq(names.length(), recipients.length());
+        unchecked {
+            for (uint256 i; i != names.length(); ++i) {
+                a[i].clusterName = names.getBytes32(i);
+                a[i].to = recipients.getAddress(i);
             }
         }
     }
@@ -190,5 +224,15 @@ contract ClustersNFTV1Test is SoladyTest {
             assertEq(nft.nameDataGetAdditionalData(0), additionalData0);
             assertEq(nft.nameDataGetAdditionalData(1), additionalData1);
         } while (_randomChance(2));
+    }
+
+    function _randomClusterName() internal returns (bytes32 result) {
+        do {
+            result = bytes32(_random());
+        } while (LibString.normalizeSmallString(result) != result || result == bytes32(0));
+    }
+
+    function _randomRecipient() internal returns (address) {
+        return _randomChance(2) ? ALICE : BOB;
     }
 }

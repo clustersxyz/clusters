@@ -20,6 +20,17 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     using DynamicArrayLib for uint256[];
 
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
+    /*                          STRUCTS                           */
+    /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
+
+    struct Mint {
+        bytes32 clusterName;
+        address to;
+        uint256 initialTimestamp;
+        uint256 initialBacking;
+    }
+
+    /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
     /*                         CONSTANTS                          */
     /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
 
@@ -62,6 +73,8 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
         uint256 packed;
         // Stores the owned index if it is greater than 254.
         uint256 fullOwnedIndex;
+        // The initial packed data.
+        uint256 initialPacked;
     }
 
     /// @dev The storage struct for the contract.
@@ -103,12 +116,12 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     /// @dev The paused status of the contract is updated.
     event PausedSet(bool paused);
 
+    /// @dev The linked address of `clusterName` is updated.
+    event LinkedAddressSet(bytes32 indexed clusterName, address indexed linkedAddress);
+
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
     /*                           ERRORS                           */
     /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
-
-    /// @dev The lengths of the arrays do not match.
-    error ArrayLengthsMismatch();
 
     /// @dev The name cannot be `bytes32(0)`.
     error NameIsZero();
@@ -253,31 +266,41 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
         return _getClustersNFTStorage().paused;
     }
 
-    /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
-    /*                 ADDITIONAL DATA FUNCTIONS                  */
-    /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
-
-    /// @dev Returns the additional data of `clusterName`.
-    /// Does not revert even if `clusterName` does not exist,
-    /// so that we can have the freedom to access before the name exists.
-    function additionalDataOf(bytes32 clusterName) public view virtual returns (uint168) {
-        return uint168(_getClustersNFTStorage().nameData[clusterName].packed >> 88);
+    /// @dev Returns the initial additional data of `clusterName`.
+    function initialData(bytes32 clusterName) public view returns (uint256 initialTimestamp, uint256 initialBacking) {
+        NameData memory d = _getClustersNFTStorage().nameData[clusterName];
+        uint256 p = d.packed;
+        if (p >> 248 != uint256(0)) p = d.initialPacked;
+        initialBacking = p >> (88 + 40);
+        initialTimestamp = uint40(p >> 88);
     }
+
+    /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
+    /*                  LINKED ADDRESS FUNCTIONS                  */
+    /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
 
     /// @dev Sets the additional data of `clusterName`.
     /// Does not revert even if `clusterName` does not exist,
     /// so that we can have the freedom to access before the name exists.
-    function setAdditionalData(bytes32 clusterName, uint168 additionalData)
-        public
-        virtual
-        onlyRole(ADDITIONAL_DATA_SETTER_ROLE)
-    {
+    function setLinkedAddress(bytes32 clusterName, address newLinkedAddress) public {
         NameData storage d = _getClustersNFTStorage().nameData[clusterName];
+        uint256 p = d.packed;
+        if (MessageHubLib.senderOrSigner() != _ownerOf(uint40(p))) revert Unauthorized();
+        if (p >> 248 == uint256(0)) d.initialPacked = p;
         assembly ("memory-safe") {
-            mstore(0x0b, sload(d.slot))
-            mstore(0x00, additionalData)
+            mstore(0x0b, p)
+            mstore(0x00, newLinkedAddress)
+            mstore8(0x0b, 1)
             sstore(d.slot, mload(0x0b))
         }
+        emit LinkedAddressSet(clusterName, newLinkedAddress);
+    }
+
+    /// @dev Returns the linked address of `clusterName`.
+    function linkedAddress(bytes32 clusterName) public view returns (address) {
+        NameData memory d = _getClustersNFTStorage().nameData[clusterName];
+        uint256 p = d.packed;
+        return p >> 248 == uint256(0) ? address(0) : address(uint160(p >> 88));
     }
 
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
@@ -287,44 +310,46 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     /// @dev Mints a new NFT with the given `clusterName` and assigns it to `to`.
     /// Used by the Market.
     function mintNext(bytes32 clusterName, address to) public onlyOwnerOrRole(MINTER_ROLE) returns (uint256 id) {
-        id = _mintNext(clusterName, to);
+        id = _mintNext(clusterName, to, 0, 0);
     }
 
     /// @dev Mints new NFTs with the given `clusterNames` and assigns them to `to`.
-    function mintNext(bytes32[] calldata clusterNames, address[] calldata to)
-        public
-        onlyOwnerOrRole(MINTER_ROLE)
-        returns (uint256 startId)
-    {
-        if (clusterNames.length != to.length) revert ArrayLengthsMismatch();
-        if (clusterNames.length == uint256(0)) revert NothingToMint();
-        startId = _mintNext(_get(clusterNames, 0), _get(to, 0));
+    function mintNext(Mint[] calldata mints) public onlyOwnerOrRole(MINTER_ROLE) returns (uint256 startId) {
+        if (mints.length == uint256(0)) revert NothingToMint();
         unchecked {
-            for (uint256 i = 1; i != clusterNames.length; ++i) {
-                _mintNext(_get(clusterNames, i), _get(to, i));
+            for (uint256 i; i != mints.length; ++i) {
+                Mint calldata mint = mints[i];
+                uint256 id = _mintNext(mint.clusterName, mint.to, mint.initialTimestamp, mint.initialBacking);
+                if (i == uint256(0)) startId = id;
             }
         }
     }
 
     /// @dev Mints a new NFT with the given `clusterName` and assigns it to `to`.
-    function _mintNext(bytes32 clusterName, address to) internal returns (uint256 id) {
+    function _mintNext(bytes32 clusterName, address to, uint256 initialTimestamp, uint256 initialBacking)
+        internal
+        returns (uint256 id)
+    {
         if (clusterName == bytes32(0)) revert NameIsZero();
         ClustersNFTStorage storage $ = _getClustersNFTStorage();
 
         NameData storage d = $.nameData[clusterName];
-        uint256 p = d.packed;
-        if (uint40(p) != 0) revert NameAlreadyExists();
+        if (uint40(d.packed) != 0) revert NameAlreadyExists();
 
         unchecked {
-            require((id = ++$.totalMinted) < 1 << 40);
+            id = ++$.totalMinted;
         }
         uint96 truncatedName = uint96(bytes12(clusterName));
         if (bytes12(truncatedName) != clusterName) {
             $.fullName[id] = clusterName;
             truncatedName = 0;
         }
-        // Construct the new `p` with `id`, the timestamp, while keeping `additionalData`.
-        p = ((p >> 88) << 88) | id | (block.timestamp << 48);
+
+        require((((id | initialTimestamp) >> 40) | (initialBacking >> 88)) == uint256(0));
+
+        // Construct the new `p` with `id`, the timestamp, with `additionalData`
+        // initialized with `initialTimestamp` and `initialBacking`.
+        uint256 p = (((initialBacking << 40) | initialTimestamp) << 88) | id | (block.timestamp << 48);
 
         uint256 ownedIndex = balanceOf(to);
         if (ownedIndex >= 0xff) {
@@ -416,20 +441,6 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
     /*                      INTERNAL HELPERS                      */
     /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
-
-    /// @dev Returns `a[i]` without bounds checking.
-    function _get(bytes32[] calldata a, uint256 i) internal pure returns (bytes32 result) {
-        assembly ("memory-safe") {
-            result := calldataload(add(a.offset, shl(5, i)))
-        }
-    }
-
-    /// @dev Returns `a[i]` without bounds checking.
-    function _get(address[] calldata a, uint256 i) internal pure returns (address result) {
-        assembly ("memory-safe") {
-            result := calldataload(add(a.offset, shl(5, i)))
-        }
-    }
 
     /// @dev Sets the `i`-th byte of `x` to `b` and returns the result.
     function _setByte(uint256 x, uint256 i, uint256 b) internal pure returns (uint256 result) {
