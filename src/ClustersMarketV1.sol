@@ -55,14 +55,14 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
         uint88 lastPrice;
         // Price integral last update timestamp.
         uint40 lastUpdated;
-        // Bid amount.
-        uint88 bidAmount;
+        // Amount backing the name.
+        uint88 backing;
         // Bid last update timestamp.
         uint40 bidUpdated;
         // Bidder on the name.
         address bidder;
-        // Amount backing the name.
-        uint88 backing;
+        // Bid amount.
+        uint88 bidAmount;
     }
 
     /// @dev The storage struct for the contract.
@@ -183,9 +183,9 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
         uint256 minAnnualPrice = _minAnnualPrice(contracts);
         if (msg.value < minAnnualPrice) revert Insufficient();
         Bid storage b = $.bids[clusterName];
-        b.backing = SafeCastLib.toUint88(msg.value);
         b.lastUpdated = uint40(block.timestamp);
         b.lastPrice = SafeCastLib.toUint88(minAnnualPrice);
+        b.backing = SafeCastLib.toUint88(msg.value);
         address to = MessageHubLib.senderOrSigner();
         _mintNext(contracts, clusterName, to);
         emit Bought(clusterName, to, msg.value);
@@ -228,11 +228,11 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
             $.protocolAccural = SafeCastLib.toUint88(F.rawAdd($.protocolAccural, backing));
             uint88 bidAmount = b.bidAmount;
             address bidder = b.bidder;
-            b.bidAmount = 0;
-            b.bidder = address(0);
             b.bidUpdated = 0;
-            b.lastUpdated = uint40(block.timestamp);
+            b.bidder = address(0);
+            b.bidAmount = 0;
             b.lastPrice = SafeCastLib.toUint88(_minAnnualPrice(contracts));
+            b.lastUpdated = uint40(block.timestamp);
             // If there's no bid, reclaim the name.
             if (bidAmount == uint256(0)) {
                 b.backing = 0;
