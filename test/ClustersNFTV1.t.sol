@@ -11,14 +11,14 @@ import "./mocks/MockClustersNFTV1.sol";
 contract ClustersNFTV1Test is SoladyTest {
     using DynamicArrayLib for *;
 
-    MockClustersNFTV1 internal collection;
+    MockClustersNFTV1 internal nft;
 
     address internal constant ALICE = address(111);
     address internal constant BOB = address(222);
 
     function setUp() public {
-        collection = MockClustersNFTV1(LibClone.clone(address(new MockClustersNFTV1())));
-        collection.initialize(address(this));
+        nft = MockClustersNFTV1(LibClone.clone(address(new MockClustersNFTV1())));
+        nft.initialize(address(this));
     }
 
     struct _TestTemps {
@@ -31,9 +31,9 @@ contract ClustersNFTV1Test is SoladyTest {
         t.clusterNames = _generateClusterNames(_randomNonZeroLength());
         t.recipients = _generateRecipients(t.clusterNames.length());
 
-        assertEq(collection.mintNext(t.clusterNames.asBytes32Array(), t.recipients.asAddressArray()), 1);
+        assertEq(nft.mintNext(t.clusterNames.asBytes32Array(), t.recipients.asAddressArray()), 1);
 
-        uint256 expected = collection.totalSupply() + 1;
+        uint256 expected = nft.totalSupply() + 1;
 
         uint256[] memory newClusterNames;
         do {
@@ -43,7 +43,7 @@ contract ClustersNFTV1Test is SoladyTest {
         t.clusterNames = DynamicArrayLib.wrap(newClusterNames);
         t.recipients = _generateRecipients(t.clusterNames.length());
 
-        assertEq(collection.mintNext(t.clusterNames.asBytes32Array(), t.recipients.asAddressArray()), expected);
+        assertEq(nft.mintNext(t.clusterNames.asBytes32Array(), t.recipients.asAddressArray()), expected);
     }
 
     function testMintAndTrasferNFTs(bytes32) public {
@@ -51,18 +51,18 @@ contract ClustersNFTV1Test is SoladyTest {
         t.clusterNames = _generateClusterNames(_randomNonZeroLength());
         t.recipients = _generateRecipients(t.clusterNames.length());
 
-        collection.mintNext(t.clusterNames.asBytes32Array(), t.recipients.asAddressArray());
+        nft.mintNext(t.clusterNames.asBytes32Array(), t.recipients.asAddressArray());
 
         vm.prank(ALICE);
-        collection.setApprovalForAll(address(this), true);
+        nft.setApprovalForAll(address(this), true);
         vm.prank(BOB);
-        collection.setApprovalForAll(address(this), true);
+        nft.setApprovalForAll(address(this), true);
         do {
             unchecked {
                 for (uint256 i; i != t.clusterNames.length(); ++i) {
                     if (_randomChance(2)) {
                         address recipient = _randomChance(2) ? ALICE : BOB;
-                        collection.transferFrom(collection.ownerOf(i + 1), recipient, i + 1);
+                        nft.transferFrom(nft.ownerOf(i + 1), recipient, i + 1);
                         t.recipients.set(i, recipient);
                     }
                 }
@@ -75,31 +75,31 @@ contract ClustersNFTV1Test is SoladyTest {
         unchecked {
             if (_randomChance(2)) {
                 for (uint256 i; i != t.clusterNames.length(); ++i) {
-                    assertEq(collection.ownerOf(i + 1), t.recipients.getAddress(i));
-                    assertEq(collection.nameOf(i + 1), t.clusterNames.getBytes32(i));
+                    assertEq(nft.ownerOf(i + 1), t.recipients.getAddress(i));
+                    assertEq(nft.nameOf(i + 1), t.clusterNames.getBytes32(i));
                 }
             }
-            uint256[] memory bobIds = collection.tokensOfOwner(BOB);
-            uint256[] memory aliceIds = collection.tokensOfOwner(ALICE);
+            uint256[] memory bobIds = nft.tokensOfOwner(BOB);
+            uint256[] memory aliceIds = nft.tokensOfOwner(ALICE);
             if (_randomChance(2)) {
                 for (uint256 i; i != aliceIds.length; ++i) {
-                    assertEq(collection.ownerOf(aliceIds.get(i)), ALICE);
-                    assertEq(aliceIds.get(i), collection.tokenOfOwnerByIndex(ALICE, i));
+                    assertEq(nft.ownerOf(aliceIds.get(i)), ALICE);
+                    assertEq(aliceIds.get(i), nft.tokenOfOwnerByIndex(ALICE, i));
                 }
                 for (uint256 i; i != bobIds.length; ++i) {
-                    assertEq(collection.ownerOf(bobIds.get(i)), BOB);
-                    assertEq(bobIds.get(i), collection.tokenOfOwnerByIndex(BOB, i));
+                    assertEq(nft.ownerOf(bobIds.get(i)), BOB);
+                    assertEq(bobIds.get(i), nft.tokenOfOwnerByIndex(BOB, i));
                 }
             }
             if (_randomChance(2)) {
                 LibSort.sort(aliceIds);
                 LibSort.sort(bobIds);
                 uint256[] memory allIds = LibSort.union(aliceIds, bobIds);
-                assertEq(allIds.length, collection.totalSupply());
+                assertEq(allIds.length, nft.totalSupply());
                 for (uint256 i; i != allIds.length; ++i) {
                     uint256 id = allIds.get(i);
-                    bytes32 clusterName = collection.nameOf(id);
-                    (uint256 retrievedId,,) = collection.infoOf(clusterName);
+                    bytes32 clusterName = nft.nameOf(id);
+                    (uint256 retrievedId,,) = nft.infoOf(clusterName);
                     assertEq(id, retrievedId);
                 }
             }
@@ -161,34 +161,34 @@ contract ClustersNFTV1Test is SoladyTest {
             uint168 additionalData0 = uint168(_random());
             uint168 additionalData1 = uint168(_random());
 
-            collection.nameDataInitialize(0, id0, ownedIndex0);
-            collection.nameDataInitialize(1, id1, ownedIndex1);
-            assertEq(collection.nameDataGetId(0), id0);
-            assertEq(collection.nameDataGetId(1), id1);
-            assertEq(collection.nameDataGetOwnedIndex(0), ownedIndex0);
-            assertEq(collection.nameDataGetOwnedIndex(1), ownedIndex1);
+            nft.nameDataInitialize(0, id0, ownedIndex0);
+            nft.nameDataInitialize(1, id1, ownedIndex1);
+            assertEq(nft.nameDataGetId(0), id0);
+            assertEq(nft.nameDataGetId(1), id1);
+            assertEq(nft.nameDataGetOwnedIndex(0), ownedIndex0);
+            assertEq(nft.nameDataGetOwnedIndex(1), ownedIndex1);
 
-            collection.nameDataSetAdditionalData(0, additionalData0);
-            collection.nameDataSetAdditionalData(1, additionalData1);
-            assertEq(collection.nameDataGetAdditionalData(0), additionalData0);
-            assertEq(collection.nameDataGetAdditionalData(1), additionalData1);
+            nft.nameDataSetAdditionalData(0, additionalData0);
+            nft.nameDataSetAdditionalData(1, additionalData1);
+            assertEq(nft.nameDataGetAdditionalData(0), additionalData0);
+            assertEq(nft.nameDataGetAdditionalData(1), additionalData1);
 
             ownedIndex0 = _random();
             ownedIndex1 = _random();
             additionalData0 = uint168(_random());
             additionalData1 = uint168(_random());
 
-            collection.nameDataSetOwnedIndex(0, ownedIndex0);
-            collection.nameDataSetOwnedIndex(1, ownedIndex1);
-            assertEq(collection.nameDataGetId(0), id0);
-            assertEq(collection.nameDataGetId(1), id1);
-            assertEq(collection.nameDataGetOwnedIndex(0), ownedIndex0);
-            assertEq(collection.nameDataGetOwnedIndex(1), ownedIndex1);
+            nft.nameDataSetOwnedIndex(0, ownedIndex0);
+            nft.nameDataSetOwnedIndex(1, ownedIndex1);
+            assertEq(nft.nameDataGetId(0), id0);
+            assertEq(nft.nameDataGetId(1), id1);
+            assertEq(nft.nameDataGetOwnedIndex(0), ownedIndex0);
+            assertEq(nft.nameDataGetOwnedIndex(1), ownedIndex1);
 
-            collection.nameDataSetAdditionalData(0, additionalData0);
-            collection.nameDataSetAdditionalData(1, additionalData1);
-            assertEq(collection.nameDataGetAdditionalData(0), additionalData0);
-            assertEq(collection.nameDataGetAdditionalData(1), additionalData1);
+            nft.nameDataSetAdditionalData(0, additionalData0);
+            nft.nameDataSetAdditionalData(1, additionalData1);
+            assertEq(nft.nameDataGetAdditionalData(0), additionalData0);
+            assertEq(nft.nameDataGetAdditionalData(1), additionalData1);
         } while (_randomChance(2));
     }
 }

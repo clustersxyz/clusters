@@ -3,17 +3,48 @@ pragma solidity ^0.8.23;
 
 import {UUPSUpgradeable} from "solady/utils/UUPSUpgradeable.sol";
 import {Initializable} from "solady/utils/Initializable.sol";
+import {FixedPointMathLib as F} from "solady/utils/FixedPointMathLib.sol";
+import {ReentrancyGuardTransient} from "solady/utils/ReentrancyGuardTransient.sol";
 import {DynamicArrayLib} from "solady/utils/DynamicArrayLib.sol";
-import {SafeCastLib} from "solady/utils/SafeCastLib.sol";
 import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
+import {SafeCastLib} from "solady/utils/SafeCastLib.sol";
 import {LibMap} from "solady/utils/LibMap.sol";
 import {LibBit} from "solady/utils/LibBit.sol";
+import {LibString} from "solady/utils/LibString.sol";
 import {Ownable} from "solady/auth/Ownable.sol";
 import {MessageHubLibV1 as MessageHubLib} from "clusters/MessageHubLibV1.sol";
 
 /// @title ClustersMarketV1
 /// @notice All prices are in Ether.
-contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable {
+contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, ReentrancyGuardTransient {
+    /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
+    /*                          STRUCTS                           */
+    /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
+
+    /// @dev A struct to return the information of a name.
+    struct NameInfo {
+        // The id of the name.
+        uint256 id;
+        // The current owner of the name.
+        address owner;
+        // The timestamp of the start of current ownership.
+        uint256 startTimestamp;
+        // Whether the name is registered.
+        bool isRegistered;
+        // Price integral last price.
+        uint256 lastPrice;
+        // Price integral last update timestamp.
+        uint256 lastUpdated;
+        // Bid amount.
+        uint256 bidAmount;
+        // Bid last update timestamp.
+        uint256 bidUpdated;
+        // Bidder on the name.
+        address bidder;
+        // Amount backing the name.
+        uint256 backing;
+    }
+
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
     /*                          STORAGE                           */
     /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
@@ -21,14 +52,14 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable {
     /// @dev The storage struct for a bid.
     struct Bid {
         // Price integral last price.
-        uint88 integratedPrice;
+        uint88 lastPrice;
         // Price integral last update timestamp.
-        uint40 integratedUpdated;
+        uint40 lastUpdated;
         // Bid amount.
         uint88 bidAmount;
         // Bid last update timestamp.
         uint40 bidUpdated;
-        // Bidder.
+        // Bidder on the name.
         address bidder;
         // Amount backing the name.
         uint88 backing;
@@ -44,6 +75,12 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable {
         uint256 contracts;
         // Mapping of `clusterName` to `bid`.
         mapping(bytes32 => Bid) bids;
+        // The total amount that has been accrued to the protocol.
+        uint88 protocolAccural;
+        // The minimum bid increment (in Ether wei).
+        uint88 minBidIncrement;
+        // The number of seconds that must pass since the last bid update for the bid to be reduced.
+        uint32 bidTimelock;
     }
 
     /// @dev Returns the storage struct for the contract.
@@ -55,39 +92,451 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable {
     }
 
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
+    /*                           EVENTS                           */
+    /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
+
+    /// @dev The pricing contract has been set.
+    event PricingContractSet(address newContract);
+
+    /// @dev The NFT contract has been set.
+    event NFTContractSet(address newContract);
+
+    /// @dev The name has been purchased.
+    event Bought(bytes32 indexed clusterName, address indexed by, uint256 price);
+
+    /// @dev The backing for `clusterName` has been increased.
+    event Funded(bytes32 indexed clusterName, address indexed by, uint256 oldBacking, uint256 newBacking);
+
+    /// @dev The `clusterName` has been poked.
+    event Poked(bytes32 indexed clusterName);
+
+    /// @dev A new bid has been placed by `bidder`.
+    event BidPlaced(bytes32 indexed clusterName, address indexed bidder, uint256 bidAmount);
+
+    /// @dev The bid has been refunded to the previous bidder, `to`.
+    event BidRefunded(bytes32 indexed clusterName, address indexed to, uint256 refundedAmount);
+
+    /// @dev The bid amount has been increased.
+    event BidIncreased(bytes32 indexed clusterName, address indexed bidder, uint256 oldBidAmount, uint256 newBidAmount);
+
+    /// @dev The bid amount has been reduced.
+    event BidReduced(bytes32 indexed clusterName, address indexed bidder, uint256 oldBidAmount, uint256 newBidAmount);
+
+    /// @dev The bid has been revoked.
+    event BidRevoked(bytes32 indexed clusterName, address indexed bidder, uint256 bidAmount);
+
+    /// @dev The bid timelock has been updated.
+    event BidTimelockSet(uint256 newBidTimelock);
+
+    /// @dev The minimum bid increment has been set.
+    event MinBidIncrementSet(uint256 newMinBidIncrement);
+
+    /// @dev `amount` has been withdrawn from the protocol accrual.
+    event ProtocolAccuralWithdrawn(address to, uint256 amount);
+
+    /// @dev The contract has been paused or unpaused.
+    event PausedSet(bool paused);
+
+    /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
+    /*                           ERRORS                           */
+    /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
+
+    /// @dev The contract address must have at least 4 leading zero bytes.
+    error ContractAddressOverflow();
+
+    /// @dev The name is has already been registered.
+    error NameAlreadyRegistered();
+
+    /// @dev The name is not registered.
+    error NameNotRegistered();
+
+    /// @dev The `clusterName` is invalid.
+    error InvalidName();
+
+    /// @dev The payment is insufficient.
+    error Insufficient();
+
+    /// @dev Cannot bid on a name owned by oneself.
+    error SelfBid();
+
+    /// @dev The bid timelock has not passed.
+    error BidTimelocked();
+
+    /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
+    /*                        INITIALIZER                         */
+    /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
+
+    /// @dev Initializes the contract, seting the initial owner.
+    function initialize(address initialOwner) public initializer onlyProxy {
+        _initializeOwner(initialOwner);
+        _getClustersMarketStorage().minBidIncrement = 0.0001 ether;
+        _getClustersMarketStorage().bidTimelock = 30 days;
+    }
+
+    /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
+    /*                   PUBLIC WRITE FUNCTIONS                   */
+    /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
+
+    /// @dev Purchases the `clusterName`.
+    function buy(bytes32 clusterName) public payable validateName(clusterName) nonReentrant {
+        ClustersMarketStorage storage $ = _getClustersMarketStorage();
+        uint256 contracts = $.contracts;
+        uint256 packedInfo = _packedInfo(contracts, clusterName);
+        if (_isRegistered(packedInfo)) revert NameAlreadyRegistered();
+        uint256 minAnnualPrice = _minAnnualPrice(contracts);
+        if (msg.value < minAnnualPrice) revert Insufficient();
+        Bid storage b = $.bids[clusterName];
+        b.backing = SafeCastLib.toUint88(msg.value);
+        b.lastUpdated = uint40(block.timestamp);
+        b.lastPrice = SafeCastLib.toUint88(minAnnualPrice);
+        address to = MessageHubLib.senderOrSigner();
+        _mintNext(contracts, clusterName, to);
+        emit Bought(clusterName, to, msg.value);
+    }
+
+    /// @dev Increases the backing for `clusterName`.
+    function fund(bytes32 clusterName) public payable validateName(clusterName) nonReentrant {
+        ClustersMarketStorage storage $ = _getClustersMarketStorage();
+        uint256 contracts = $.contracts;
+        uint256 packedInfo = _packedInfo(contracts, clusterName);
+        if (!_isRegistered(packedInfo)) revert NameNotRegistered();
+        Bid storage b = $.bids[clusterName];
+        uint256 oldBacking = b.backing;
+        uint256 newBacking = F.rawAdd(oldBacking, msg.value);
+        b.backing = SafeCastLib.toUint88(newBacking);
+        emit Funded(clusterName, MessageHubLib.senderOrSigner(), oldBacking, newBacking);
+    }
+
+    /// @dev Flushes the ownership of `clusterName`.
+    /// If `clusterName` has expired, it will be moved to the highest bidder (if any),
+    /// or to a stash for reclaimmed names.
+    function poke(bytes32 clusterName) public validateName(clusterName) nonReentrant {
+        ClustersMarketStorage storage $ = _getClustersMarketStorage();
+        uint256 contracts = $.contracts;
+        uint256 packedInfo = _packedInfo(contracts, clusterName);
+        if (!_isRegistered(packedInfo)) revert NameNotRegistered();
+        _poke(contracts, packedInfo, clusterName);
+    }
+
+    /// @dev Performs a bid on `clusterName`.
+    /// If the bidder is same as the previous bidder, the previous bid amount will be
+    /// incremented by the `msg.value`.
+    function bid(bytes32 clusterName) public payable validateName(clusterName) nonReentrant {
+        ClustersMarketStorage storage $ = _getClustersMarketStorage();
+        uint256 contracts = $.contracts;
+        uint256 packedInfo = _packedInfo(contracts, clusterName);
+        if (!_isRegistered(packedInfo)) revert NameNotRegistered();
+        address sender = MessageHubLib.senderOrSigner();
+        if (_owner(packedInfo) == sender) revert SelfBid();
+        Bid storage b = $.bids[clusterName];
+        address oldBidder = b.bidder;
+        uint256 oldBidAmount = b.bidAmount;
+        if (sender == oldBidder) {
+            uint256 newBidAmount = F.rawAdd(oldBidAmount, msg.value);
+            b.bidAmount = SafeCastLib.toUint88(newBidAmount);
+            b.bidUpdated = uint40(block.timestamp);
+            _poke(contracts, packedInfo, clusterName);
+            emit BidIncreased(clusterName, sender, oldBidAmount, newBidAmount);
+        } else {
+            uint256 thres = F.rawAdd(minBidIncrement(), oldBidAmount);
+            if (msg.value < F.max(_minAnnualPrice(contracts), thres)) revert Insufficient();
+            b.bidAmount = SafeCastLib.toUint88(msg.value);
+            b.bidUpdated = uint40(block.timestamp);
+            b.bidder = sender;
+            emit BidPlaced(clusterName, sender, msg.value);
+            _poke(contracts, packedInfo, clusterName);
+            SafeTransferLib.forceSafeTransferETH(oldBidder, oldBidAmount);
+            emit BidRefunded(clusterName, oldBidder, oldBidAmount);
+        }
+    }
+
+    /// @dev Reduces the bid on `clusterName` by `delta`.
+    /// If `delta` is equal to to greater than the current bid, revokes the bid.
+    /// Only the bidder can reduce their own bid, after `bidTimelock()` has passed.
+    function reduceBid(bytes32 clusterName, uint256 delta) public validateName(clusterName) nonReentrant {
+        ClustersMarketStorage storage $ = _getClustersMarketStorage();
+        uint256 contracts = $.contracts;
+        uint256 packedInfo = _packedInfo(contracts, clusterName);
+        if (!_isRegistered(packedInfo)) revert NameNotRegistered();
+        address sender = MessageHubLib.senderOrSigner();
+        Bid storage b = $.bids[clusterName];
+        if (block.timestamp < F.rawAdd(b.bidUpdated, bidTimelock())) revert BidTimelocked();
+        if (b.bidder != sender) revert Unauthorized();
+
+        if (!_poke(contracts, packedInfo, clusterName)) {
+            uint256 oldBidAmount = b.bidAmount;
+            if (delta >= oldBidAmount) {
+                b.bidAmount = 0;
+                b.bidder = address(0);
+                b.bidUpdated = 0;
+                SafeTransferLib.forceSafeTransferETH(sender, oldBidAmount);
+                emit BidRevoked(clusterName, sender, oldBidAmount);
+            } else {
+                uint256 newBidAmount = F.rawSub(oldBidAmount, delta);
+                if (newBidAmount < _minAnnualPrice(contracts)) revert Insufficient();
+                b.bidAmount = SafeCastLib.toUint88(newBidAmount);
+                b.bidUpdated = uint40(block.timestamp);
+                emit BidReduced(clusterName, sender, oldBidAmount, newBidAmount);
+            }
+        }
+    }
+
+    /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
+    /*                   PUBLIC VIEW FUNCTIONS                    */
+    /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
+
+    /// @dev Returns the consolidated info about the `clusterName`.
+    function nameInfo(bytes32 clusterName) public view validateName(clusterName) returns (NameInfo memory info) {
+        ClustersMarketStorage storage $ = _getClustersMarketStorage();
+        uint256 packedInfo = _packedInfo($.contracts, clusterName);
+        info.id = _id(packedInfo);
+        info.owner = _owner(packedInfo);
+        info.startTimestamp = _startTimestamp(packedInfo);
+        info.isRegistered = _isRegistered(packedInfo);
+        Bid memory b = $.bids[clusterName];
+        info.lastPrice = b.lastPrice;
+        info.lastUpdated = b.lastUpdated;
+        info.bidAmount = b.bidAmount;
+        info.bidUpdated = b.bidUpdated;
+        info.bidder = b.bidder;
+        info.backing = b.backing;
+    }
+
+    /// @dev Returns if the `clusterName` is registered.
+    function isRegistered(bytes32 clusterName) public view validateName(clusterName) returns (bool) {
+        return _isRegistered(_packedInfo(_getClustersMarketStorage().contracts, clusterName));
+    }
+
+    /// @dev Returns the pricing contract.
+    function pricingContract() public view returns (address) {
+        return address(uint160((_getClustersMarketStorage().contracts << 128) >> 128));
+    }
+
+    /// @dev Returns the nft contract.
+    function nftContract() public view returns (address) {
+        return address(uint160(_getClustersMarketStorage().contracts >> 128));
+    }
+
+    /// @dev Returns the minimum bid increment.
+    function minBidIncrement() public view returns (uint256) {
+        return _getClustersMarketStorage().minBidIncrement;
+    }
+
+    /// @dev Returns the bid timelock.
+    function bidTimelock() public view returns (uint256) {
+        return _getClustersMarketStorage().bidTimelock;
+    }
+
+    /// @dev Returns the protocol accrual.
+    function protocolAccural() public view returns (uint256) {
+        return _getClustersMarketStorage().protocolAccural;
+    }
+
+    /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
+    /*                      ADMIN FUNCTIONS                       */
+    /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
+
+    /// @dev Allows the owner to set the pricing contract.
+    function setPricingContract(address newContract) public onlyOwner {
+        uint256 c = uint256(uint160(newContract));
+        if (c != uint128(c)) revert ContractAddressOverflow();
+        ClustersMarketStorage storage $ = _getClustersMarketStorage();
+        $.contracts = (($.contracts >> 128) << 128) | c;
+        emit PricingContractSet(newContract);
+    }
+
+    /// @dev Allows the owner to set the NFT contract.
+    function setNFTContract(address newContract) public onlyOwner {
+        uint256 c = uint256(uint160(newContract));
+        if (c != uint128(c)) revert ContractAddressOverflow();
+        ClustersMarketStorage storage $ = _getClustersMarketStorage();
+        $.contracts = (($.contracts << 128) >> 128) | (c << 128);
+        emit NFTContractSet(newContract);
+    }
+
+    /// @dev Allows the owner to set the minimum bid increment.
+    function setMinBidIncrement(uint256 newMinBidIncrement) public onlyOwner {
+        ClustersMarketStorage storage $ = _getClustersMarketStorage();
+        $.minBidIncrement = SafeCastLib.toUint88(newMinBidIncrement);
+        emit MinBidIncrementSet(newMinBidIncrement);
+    }
+
+    /// @dev Allows the owner to set the bid timelock.
+    function setBidTimelock(uint256 newBidTimelock) public onlyOwner {
+        ClustersMarketStorage storage $ = _getClustersMarketStorage();
+        $.bidTimelock = SafeCastLib.toUint32(newBidTimelock);
+        emit BidTimelockSet(newBidTimelock);
+    }
+
+    /// @dev Allows the owner to withdraw the protocol accrual.
+    function withdrawProtocolAccural(address to, uint256 amount) public onlyOwner {
+        ClustersMarketStorage storage $ = _getClustersMarketStorage();
+        // Will revert if `amount > $.protocolAccural`.
+        $.protocolAccural -= SafeCastLib.toUint88(amount);
+        SafeTransferLib.forceSafeTransferETH(to, amount);
+        emit ProtocolAccuralWithdrawn(to, amount);
+    }
+
+    /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
     /*                 CONTRACT INTERNAL HELPERS                  */
     /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
 
     // Note:
-    // - `info` is an uint256 that contains the NFT `id` along with it's owner.
+    // - `packedInfo` is an uint256 that contains the NFT `id` along with it's owner.
     //   Bits Layout:
     //   - [0..39]   `id`.
+    //   - [40..79]  `startTimestamp`.
     //   - [96..255] `owner`.
     // - `contracts` is a uint256 that contains both the pricing contract and NFT contract.
     //   By passing around packed variables, we save gas on stack ops and avoid stack-too-deep.
 
-    function _info(uint256 contracts, bytes32 clusterName) internal view returns (uint256 result) {}
-
-    function _register(uint256 contracts, bytes32 clusterName, address to, uint256 info) internal {
-        // If not available, revert.
-        // If `info == 0`, `_mintNext`.
-        // Else, `info` is `id`. Move from `(id & 0xff) + 1` to `to`.
+    /// @dev Returns the packed info of `clusterName`.
+    function _packedInfo(uint256 contracts, bytes32 clusterName) internal view returns (uint256 result) {
+        assembly ("memory-safe") {
+            let m := mload(0x40)
+            mstore(0x00, 0xffbda1c3) // `infoOf(bytes32)`.
+            mstore(0x20, clusterName)
+            let success := staticcall(gas(), shr(128, contracts), 0x1c, 0x24, m, 0x60)
+            if iszero(and(gt(returndatasize(), 0x5f), success)) { revert(codesize(), 0x00) }
+            result := or(shl(96, mload(add(m, 0x20))), or(shl(40, mload(add(m, 0x40))), mload(m)))
+        }
     }
 
-    function _unregister(uint256 contracts, bytes32 clusterName, uint256 info) internal {
-        // If available, revert.
-        // `info` is `id`. Force move to `(id & 0xff) + 1`
+    /// @dev Returns the owner of `packedInfo`.
+    function _owner(uint256 packedInfo) internal pure returns (address) {
+        return address(uint160(packedInfo >> 96));
     }
 
-    function _move(uint256 contracts, bytes32 clusterName, address to, uint256 info) internal {}
+    /// @dev Returns the start timestamp of `packedInfo`.
+    function _startTimestamp(uint256 packedInfo) internal pure returns (uint256) {
+        return (packedInfo >> 40) & 0xffffffffff;
+    }
 
-    function _minAnnualPrice(uint256 contracts) internal view returns (uint256 result) {}
+    /// @dev Returns the id of `packedInfo`.
+    function _id(uint256 packedInfo) internal pure returns (uint256) {
+        return packedInfo & 0xffffffffff;
+    }
 
+    /// @dev Returns if the name has been registered.
+    function _isRegistered(uint256 packedInfo) internal pure returns (bool result) {
+        assembly ("memory-safe") {
+            // Returns whether the owner is any address from `0..256`, or if the id is zero.
+            result := or(lt(shr(96, packedInfo), 0x101), iszero(and(0xffffffffff, packedInfo)))
+        }
+    }
+
+    /// @dev Internal helper for poke.
+    function _poke(uint256 contracts, uint256 packedInfo, bytes32 clusterName) internal returns (bool moved) {
+        ClustersMarketStorage storage $ = _getClustersMarketStorage();
+        Bid storage b = $.bids[clusterName];
+        (uint256 spent, uint256 newPrice) =
+            _getIntegratedPrice(contracts, b.lastPrice, F.rawSub(block.timestamp, b.lastUpdated));
+        uint256 backing = b.backing;
+        // If out of backing (expired), transfer to highest sufficient bidder or delete registration.
+        if (spent >= backing) {
+            moved = true;
+            $.protocolAccural = SafeCastLib.toUint88(F.rawAdd($.protocolAccural, backing));
+            uint88 bidAmount = b.bidAmount;
+            address bidder = b.bidder;
+            b.bidAmount = 0;
+            b.bidder = address(0);
+            b.bidUpdated = 0;
+            b.lastUpdated = uint40(block.timestamp);
+            b.lastPrice = SafeCastLib.toUint88(_minAnnualPrice(contracts));
+            // If there's no bid, reclaim the name.
+            if (bidAmount == uint256(0)) {
+                b.backing = 0;
+                _move(contracts, _reclaimAddress(packedInfo), packedInfo);
+            } else {
+                b.backing = bidAmount;
+                _move(contracts, bidder, packedInfo);
+            }
+        } else {
+            uint256 delta = F.min(backing, spent);
+            b.backing = uint88(F.rawSub(backing, delta));
+            b.lastUpdated = uint40(block.timestamp);
+            b.lastPrice = SafeCastLib.toUint88(newPrice);
+            $.protocolAccural = SafeCastLib.toUint88(F.rawAdd($.protocolAccural, delta));
+        }
+        emit Poked(clusterName);
+    }
+
+    /// @dev Returns the address which the name is to be reclaimed into.
+    /// This is to allow for a world where we have more than 4294967295 cluster names.
+    function _reclaimAddress(uint256 packedInfo) internal pure returns (address result) {
+        assembly ("memory-safe") {
+            result := add(1, and(0xff, packedInfo))
+        }
+    }
+
+    /// @dev Calls `mintNext` on the nft contract.
+    function _mintNext(uint256 contracts, bytes32 clusterName, address to) internal {
+        assembly ("memory-safe") {
+            mstore(0x00, 0x5dcdcf970000000000000000) // `mintNext(bytes32,address)`.
+            mstore(0x18, clusterName)
+            mstore(0x38, shr(96, shl(96, to)))
+            if iszero(call(gas(), 0, shr(128, contracts), 0x14, 0x44, codesize(), 0x00)) {
+                returndatacopy(mload(0x40), 0x00, returndatasize())
+                revert(mload(0x40), returndatasize()) // Bubble up the revert.
+            }
+            mstore(0x38, 0) // Restore the part of the free memory pointer that was overwritten.
+        }
+    }
+
+    /// @dev Calls `conduitSafeTransfer` on the nft contract.
+    function _move(uint256 contracts, address to, uint256 packedInfo) internal {
+        assembly ("memory-safe") {
+            let m := mload(0x40)
+            mstore(m, 0x7ac99264) // `conduitSafeTransfer(address,address,uint256)`.
+            mstore(add(m, 0x20), shr(96, packedInfo))
+            mstore(add(m, 0x40), shr(96, shl(96, to)))
+            mstore(add(m, 0x60), and(0xffffffffff, packedInfo))
+            if iszero(call(gas(), 0, shr(128, contracts), add(m, 0x1c), 0x64, codesize(), 0x00)) {
+                returndatacopy(m, 0x00, returndatasize())
+                revert(m, returndatasize()) // Bubble up the revert.
+            }
+        }
+    }
+
+    /// @dev Returns the minimum annual price.
+    function _minAnnualPrice(uint256 contracts) internal view returns (uint256 result) {
+        assembly ("memory-safe") {
+            mstore(0x00, 0x360c93dd) // `minAnnualPrice()`.
+            let success := staticcall(gas(), shr(128, shl(128, contracts)), 0x1c, 0x04, 0x00, 0x20)
+            if iszero(and(gt(returndatasize(), 0x1f), success)) { revert(codesize(), 0x00) }
+            result := mload(0x00)
+        }
+    }
+
+    /// @dev Returns the integrated price.
     function _getIntegratedPrice(uint256 contracts, uint256 lastUpdatedPrice, uint256 secondsSinceUpdate)
         internal
         view
         returns (uint256 spent, uint256 price)
-    {}
+    {
+        assembly ("memory-safe") {
+            mstore(0x00, 0x4e34478d0000000000000000) // `getIntegratedPrice(uint256,uint256)`.
+            mstore(0x18, lastUpdatedPrice)
+            mstore(0x38, secondsSinceUpdate)
+            let success := staticcall(gas(), shr(128, shl(128, contracts)), 0x14, 0x44, 0x00, 0x40)
+            if iszero(and(gt(returndatasize(), 0x3f), success)) { revert(codesize(), 0x00) }
+            spent := mload(0x00)
+            price := mload(0x20)
+            mstore(0x38, 0) // Restore the part of the free memory pointer that was overwritten.
+        }
+    }
+
+    /// @dev Validates the name,
+    modifier validateName(bytes32 clusterName) virtual {
+        bytes32 normalized = LibString.normalizeSmallString(clusterName);
+        assembly ("memory-safe") {
+            if iszero(gt(eq(normalized, clusterName), iszero(clusterName))) {
+                mstore(0x00, 0x430f13b3) // `InvalidName()`.
+                revert(0x1c, 0x04)
+            }
+        }
+        _;
+    }
 
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
     /*                         OVERRIDES                          */
