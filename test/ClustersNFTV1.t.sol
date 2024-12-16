@@ -27,6 +27,20 @@ contract ClustersNFTV1Test is SoladyTest {
         DynamicArrayLib.DynamicArray recipients;
     }
 
+    function testZZZ() public {
+        ClustersNFTV1.Mint[] memory mints = new ClustersNFTV1.Mint[](2);
+        mints[0].clusterName = _randomClusterName();
+        mints[0].to = _randomRecipient();
+        mints[0].initialTimestamp = _bound(_random(), 0, type(uint40).max);
+        mints[0].initialBacking = _bound(_random(), 0, type(uint88).max);
+
+        mints[1].clusterName = _randomClusterName();
+        mints[1].to = _randomRecipient();
+        mints[1].initialTimestamp = _bound(_random(), 0, type(uint40).max);
+        mints[1].initialBacking = _bound(_random(), 0, type(uint88).max);
+        emit LogBytes(abi.encode(mints));
+    }
+
     function testInitialDataAndLinkedAddress(bytes32) public {
         ClustersNFTV1.Mint[] memory mints = new ClustersNFTV1.Mint[](1);
         mints[0].clusterName = _randomClusterName();
@@ -228,10 +242,10 @@ contract ClustersNFTV1Test is SoladyTest {
 
     function _randomClusterName() internal returns (bytes32 result) {
         do {
-            result = bytes32(
-                0x6161616161616161616161616161616161616161616161616161616161616161
-                    | (_randomUniform() & 0x0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e)
-            );
+            uint256 m = 0x6161616161616161616161616161616161616161616161616161616161616161;
+            m |= _randomUniform() & 0x0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e;
+            m <<= (_randomUniform() & 31) << 3;
+            result = bytes32(m);
         } while (LibString.normalizeSmallString(result) != result || result == bytes32(0));
     }
 

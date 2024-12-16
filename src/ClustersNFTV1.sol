@@ -327,7 +327,10 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
         if (mints.length == uint256(0)) revert NothingToMint();
         unchecked {
             for (uint256 i; i != mints.length; ++i) {
-                Mint calldata mint = mints[i];
+                Mint calldata mint;
+                assembly ("memory-safe") {
+                    mint := add(mints.offset, shl(7, i))
+                }
                 uint256 id = _mintNext(mint.clusterName, mint.to, mint.initialTimestamp, mint.initialBacking);
                 if (i == uint256(0)) startId = id;
             }
