@@ -76,7 +76,10 @@ contract ClustersMarketV1Test is SoladyTest {
 
     function _randomClusterName() internal returns (bytes32 result) {
         do {
-            result = bytes32(_random());
+            result = bytes32(
+                0x6161616161616161616161616161616161616161616161616161616161616161
+                    | (_randomUniform() & 0x0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e)
+            );
         } while (LibString.normalizeSmallString(result) != result || result == bytes32(0));
     }
 
