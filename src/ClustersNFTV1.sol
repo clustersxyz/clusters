@@ -489,9 +489,10 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
             m := mload(0x40) // Cache the free memory pointer.
         }
         string memory s = LibString.fromSmallString(clusterName);
-        result = LibString.is7BitASCII(s, 0x7fffffe8000000003ff200000000000); // `[a-z0-9_-]+`.
+        bool allValidChars = LibString.is7BitASCII(s, 0x7fffffe8000000003ff200000000000); // `[a-z0-9_-]+`.
         assembly ("memory-safe") {
-            result := iszero(or(or(iszero(result), iszero(clusterName)), xor(mload(add(0x20, s)), clusterName)))
+            let notNormalized := xor(mload(add(0x20, s)), clusterName)
+            result := iszero(or(or(iszero(allValidChars), iszero(clusterName)), notNormalized))
             mstore(0x40, m) // Restore the free memory pointer.
         }
     }
