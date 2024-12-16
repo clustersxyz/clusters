@@ -240,11 +240,10 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
                 _move(contracts, bidder, packedInfo);
             }
         } else {
-            uint256 delta = F.min(backing, spent);
-            b.backing = uint88(F.rawSub(backing, delta));
-            b.lastUpdated = uint40(block.timestamp);
             b.lastPrice = SafeCastLib.toUint88(newPrice);
-            $.protocolAccural = SafeCastLib.toUint88(F.rawAdd($.protocolAccural, delta));
+            b.lastUpdated = uint40(block.timestamp);
+            b.backing = uint88(F.rawSub(backing, spent));
+            $.protocolAccural = SafeCastLib.toUint88(F.rawAdd($.protocolAccural, spent));
         }
         emit Poked(clusterName);
     }
