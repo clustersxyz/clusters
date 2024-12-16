@@ -73,7 +73,7 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
         uint256 contracts;
         // Mapping of `clusterName` to `bid`.
         mapping(bytes32 => Bid) bids;
-        // The total amount that is locked in bids.
+        // The total amount that is locked in bids. To prevent over withdrawing.
         uint88 totalBidBacking;
         // The minimum bid increment (in Ether wei).
         uint88 minBidIncrement;
@@ -181,7 +181,7 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
     /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
 
     /// @dev Purchases the `clusterName`.
-    function buy(bytes32 clusterName) public payable validateName(clusterName) nonReentrant {
+    function buy(bytes32 clusterName) public payable nonReentrant {
         ClustersMarketStorage storage $ = _getClustersMarketStorage();
         uint256 contracts = $.contracts;
         uint256 packedInfo = _packedInfo(contracts, clusterName);
@@ -202,7 +202,7 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
     }
 
     /// @dev Increases the backing for `clusterName`.
-    function fund(bytes32 clusterName) public payable validateName(clusterName) nonReentrant {
+    function fund(bytes32 clusterName) public payable nonReentrant {
         ClustersMarketStorage storage $ = _getClustersMarketStorage();
         uint256 contracts = $.contracts;
         uint256 packedInfo = _packedInfo(contracts, clusterName);
@@ -217,7 +217,7 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
     /// @dev Flushes the ownership of `clusterName`.
     /// If `clusterName` has expired, it will be moved to the highest bidder (if any),
     /// or to a stash for reclaimmed names.
-    function poke(bytes32 clusterName) public validateName(clusterName) nonReentrant {
+    function poke(bytes32 clusterName) public nonReentrant {
         ClustersMarketStorage storage $ = _getClustersMarketStorage();
         uint256 contracts = $.contracts;
         uint256 packedInfo = _packedInfo(contracts, clusterName);
@@ -257,22 +257,22 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
     /// @dev Performs a bid on `clusterName`.
     /// If the bidder is same as the previous bidder, the previous bid amount will be
     /// incremented by the `msg.value`.
-    function bid(bytes32 clusterName) public payable validateName(clusterName) nonReentrant {
+    function bid(bytes32 clusterName) public payable nonReentrant {
         ClustersMarketStorage storage $ = _getClustersMarketStorage();
         uint256 contracts = $.contracts;
         uint256 packedInfo = _packedInfo(contracts, clusterName);
         if (!_isRegistered(packedInfo)) revert NameNotRegistered();
+        Bid storage b = _getAndLazyInitBid(contracts, clusterName);
         address sender = MessageHubLib.senderOrSigner();
         if (_owner(packedInfo) == sender) revert SelfBid();
-        Bid storage b = _getAndLazyInitBid(contracts, clusterName);
         (address oldBidder, uint256 oldBidAmount) = (b.bidder, b.bidAmount);
         if (sender == oldBidder) {
             uint256 newBidAmount = F.rawAdd(oldBidAmount, msg.value);
             b.bidUpdated = uint40(block.timestamp);
             b.bidAmount = SafeCastLib.toUint88(newBidAmount);
             _incrementTotalBidBacking(msg.value);
-            _poke(contracts, packedInfo, clusterName);
             emit BidIncreased(clusterName, sender, oldBidAmount, newBidAmount);
+            _poke(contracts, packedInfo, clusterName);
         } else {
             uint256 thres = F.rawAdd($.minBidIncrement, oldBidAmount);
             if (msg.value < F.max(_minAnnualPrice(contracts), thres)) revert Insufficient();
@@ -290,7 +290,7 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
     /// @dev Reduces the bid on `clusterName` by `delta`.
     /// If `delta` is equal to to greater than the current bid, revokes the bid.
     /// Only the bidder can reduce their own bid, after `bidTimelock()` has passed.
-    function reduceBid(bytes32 clusterName, uint256 delta) public validateName(clusterName) nonReentrant {
+    function reduceBid(bytes32 clusterName, uint256 delta) public nonReentrant {
         ClustersMarketStorage storage $ = _getClustersMarketStorage();
         uint256 contracts = $.contracts;
         uint256 packedInfo = _packedInfo(contracts, clusterName);
@@ -322,7 +322,7 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
     }
 
     /// @dev Accepts the bid for `clusterName`.
-    function acceptBid(bytes32 clusterName) public validateName(clusterName) nonReentrant {
+    function acceptBid(bytes32 clusterName) public nonReentrant {
         ClustersMarketStorage storage $ = _getClustersMarketStorage();
         uint256 contracts = $.contracts;
         uint256 packedInfo = _packedInfo(contracts, clusterName);
@@ -349,7 +349,7 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
     /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
 
     /// @dev Returns the consolidated info about the `clusterName`.
-    function nameInfo(bytes32 clusterName) public view validateName(clusterName) returns (NameInfo memory info) {
+    function nameInfo(bytes32 clusterName) public view returns (NameInfo memory info) {
         ClustersMarketStorage storage $ = _getClustersMarketStorage();
         uint256 packedInfo = _packedInfo($.contracts, clusterName);
         info.id = _id(packedInfo);
@@ -366,7 +366,7 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
     }
 
     /// @dev Returns if the `clusterName` is registered.
-    function isRegistered(bytes32 clusterName) public view validateName(clusterName) returns (bool) {
+    function isRegistered(bytes32 clusterName) public view returns (bool) {
         return _isRegistered(_packedInfo(_getClustersMarketStorage().contracts, clusterName));
     }
 
@@ -588,18 +588,6 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
     function _decrementTotalBidBacking(uint256 amount) internal {
         ClustersMarketStorage storage $ = _getClustersMarketStorage();
         $.totalBidBacking = uint88(uint256($.totalBidBacking) - amount);
-    }
-
-    /// @dev Validates the name,
-    modifier validateName(bytes32 clusterName) virtual {
-        bytes32 normalized = LibString.normalizeSmallString(clusterName);
-        assembly ("memory-safe") {
-            if iszero(gt(eq(normalized, clusterName), iszero(clusterName))) {
-                mstore(0x00, 0x430f13b3) // `InvalidName()`.
-                revert(0x1c, 0x04)
-            }
-        }
-        _;
     }
 
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/

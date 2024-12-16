@@ -6,6 +6,7 @@ import {Initializable} from "solady/utils/Initializable.sol";
 import {DynamicArrayLib} from "solady/utils/DynamicArrayLib.sol";
 import {LibMap} from "solady/utils/LibMap.sol";
 import {LibBit} from "solady/utils/LibBit.sol";
+import {LibString} from "solady/utils/LibString.sol";
 import {Ownable} from "solady/auth/Ownable.sol";
 import {ERC721} from "solady/tokens/ERC721.sol";
 import {EnumerableRoles} from "solady/auth/EnumerableRoles.sol";
@@ -137,6 +138,9 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
 
     /// @dev Transfers are paused.
     error Paused();
+
+    /// @dev The name is invalid.
+    error InvalidName();
 
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
     /*                        INITIALIZER                         */
@@ -330,7 +334,7 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
         internal
         returns (uint256 id)
     {
-        if (clusterName == bytes32(0)) revert NameIsZero();
+        if (!_isValidName(clusterName)) revert InvalidName();
         ClustersNFTStorage storage $ = _getClustersNFTStorage();
 
         NameData storage d = $.nameData[clusterName];
@@ -475,6 +479,20 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
                 }
                 _setAux(owner, aux);
             }
+        }
+    }
+
+    /// @dev Returns if the name is a valid cluster name.
+    function _isValidName(bytes32 clusterName) internal pure returns (bool result) {
+        uint256 m;
+        assembly ("memory-safe") {
+            m := mload(0x40) // Cache the free memory pointer.
+        }
+        string memory s = LibString.fromSmallString(clusterName);
+        result = LibString.is7BitASCII(s, 0x7fffffe8000000003ff200000000000); // `[a-z0-9_-]+`.
+        assembly ("memory-safe") {
+            result := iszero(or(or(iszero(result), iszero(clusterName)), xor(mload(add(0x20, s)), clusterName)))
+            mstore(0x40, m) // Restore the free memory pointer.
         }
     }
 
