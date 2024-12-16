@@ -185,7 +185,11 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
         b.lastUpdated = uint40(block.timestamp);
         b.backing = SafeCastLib.toUint88(msg.value);
         address to = MessageHubLib.senderOrSigner();
-        _mintNext(contracts, clusterName, to);
+        if (_id(packedInfo) == uint256(0)) {
+            _mintNext(contracts, clusterName, to);
+        } else {
+            _move(contracts, to, packedInfo);
+        }
         emit Bought(clusterName, to, msg.value);
     }
 
@@ -474,9 +478,9 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
         assembly ("memory-safe") {
             let m := mload(0x40)
             mstore(m, 0x7ac99264) // `conduitSafeTransfer(address,address,uint256)`.
-            mstore(add(m, 0x20), shr(96, packedInfo))
-            mstore(add(m, 0x40), shr(96, shl(96, to)))
-            mstore(add(m, 0x60), and(0xffffffffff, packedInfo))
+            mstore(add(m, 0x20), shr(96, packedInfo)) // `from`.
+            mstore(add(m, 0x40), shr(96, shl(96, to))) // `to`.
+            mstore(add(m, 0x60), and(0xffffffffff, packedInfo)) // `id`.
             if iszero(call(gas(), 0, shr(128, contracts), add(m, 0x1c), 0x64, codesize(), 0x00)) {
                 returndatacopy(m, 0x00, returndatasize())
                 revert(m, returndatasize()) // Bubble up the revert.
