@@ -76,6 +76,8 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
         mapping(address => LibMap.Uint40Map) ownedIds;
         // Mapping of `name` to the `NameData`.
         mapping(bytes32 => NameData) nameData;
+        // Whether transfers, excluding mints, are paused. For bulk seeding phase.
+        bool paused;
         // Contract for rendering the token URI.
         address tokenURIRenderer;
     }
@@ -98,6 +100,9 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     /// @dev The default id of `owner` has been set to `id`.
     event DefaultIdSet(address indexed owner, uint256 id);
 
+    /// @dev The paused status of the contract is updated.
+    event PausedSet(bool paused);
+
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
     /*                           ERRORS                           */
     /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
@@ -116,6 +121,9 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
 
     /// @dev Cannot mint nothing.
     error NothingToMint();
+
+    /// @dev Transfers are paused.
+    error Paused();
 
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
     /*                        INITIALIZER                         */
@@ -238,6 +246,11 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     /// @dev Returns the token URI renderer contract.
     function tokenURIRenderer() public view returns (address) {
         return _getClustersNFTStorage().tokenURIRenderer;
+    }
+
+    /// @dev Returns whether token transfers are paused.
+    function isPaused() public view returns (bool) {
+        return _getClustersNFTStorage().paused;
     }
 
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
@@ -384,6 +397,12 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
         emit TokenURIRendererSet(renderer);
     }
 
+    /// @dev Sets the paused status of the contract.
+    function setPaused(bool paused) public onlyOwnerOrRole(ADMIN_ROLE) {
+        _getClustersNFTStorage().paused = paused;
+        emit PausedSet(paused);
+    }
+
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
     /*                      CONDUIT TRANSFER                      */
     /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
@@ -459,6 +478,7 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
         if (LibBit.or(from == address(0), from == to)) return;
 
         ClustersNFTStorage storage $ = _getClustersNFTStorage();
+        if ($.paused) revert Paused();
         NameData storage d = $.nameData[nameOf(id)];
         uint256 p = d.packed;
         // Update the timestamp in `p`.

@@ -134,9 +134,6 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
     /// @dev `amount` has been withdrawn from the protocol accrual.
     event ProtocolAccuralWithdrawn(address to, uint256 amount);
 
-    /// @dev The contract has been paused or unpaused.
-    event PausedSet(bool paused);
-
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
     /*                           ERRORS                           */
     /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
@@ -174,7 +171,7 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
     }
 
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
-    /*                   PUBLIC WRITE FUNCTIONS                   */
+    /*                           MARKET                           */
     /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
 
     /// @dev Purchases the `clusterName`.
@@ -216,6 +213,42 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
         uint256 packedInfo = _packedInfo(contracts, clusterName);
         if (!_isRegistered(packedInfo)) revert NameNotRegistered();
         _poke(contracts, packedInfo, clusterName);
+    }
+
+    /// @dev Internal helper for poke.
+    function _poke(uint256 contracts, uint256 packedInfo, bytes32 clusterName) internal returns (bool moved) {
+        ClustersMarketStorage storage $ = _getClustersMarketStorage();
+        Bid storage b = $.bids[clusterName];
+        (uint256 spent, uint256 newPrice) =
+            _getIntegratedPrice(contracts, b.lastPrice, F.rawSub(block.timestamp, b.lastUpdated));
+        uint256 backing = b.backing;
+        // If out of backing (expired), transfer to highest sufficient bidder or delete registration.
+        if (spent >= backing) {
+            moved = true;
+            $.protocolAccural = SafeCastLib.toUint88(F.rawAdd($.protocolAccural, backing));
+            uint88 bidAmount = b.bidAmount;
+            address bidder = b.bidder;
+            b.bidAmount = 0;
+            b.bidder = address(0);
+            b.bidUpdated = 0;
+            b.lastUpdated = uint40(block.timestamp);
+            b.lastPrice = SafeCastLib.toUint88(_minAnnualPrice(contracts));
+            // If there's no bid, reclaim the name.
+            if (bidAmount == uint256(0)) {
+                b.backing = 0;
+                _move(contracts, _reclaimAddress(packedInfo), packedInfo);
+            } else {
+                b.backing = bidAmount;
+                _move(contracts, bidder, packedInfo);
+            }
+        } else {
+            uint256 delta = F.min(backing, spent);
+            b.backing = uint88(F.rawSub(backing, delta));
+            b.lastUpdated = uint40(block.timestamp);
+            b.lastPrice = SafeCastLib.toUint88(newPrice);
+            $.protocolAccural = SafeCastLib.toUint88(F.rawAdd($.protocolAccural, delta));
+        }
+        emit Poked(clusterName);
     }
 
     /// @dev Performs a bid on `clusterName`.
@@ -423,42 +456,6 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
             // Returns whether the owner is any address from `0..256`, or if the id is zero.
             result := or(lt(shr(96, packedInfo), 0x101), iszero(and(0xffffffffff, packedInfo)))
         }
-    }
-
-    /// @dev Internal helper for poke.
-    function _poke(uint256 contracts, uint256 packedInfo, bytes32 clusterName) internal returns (bool moved) {
-        ClustersMarketStorage storage $ = _getClustersMarketStorage();
-        Bid storage b = $.bids[clusterName];
-        (uint256 spent, uint256 newPrice) =
-            _getIntegratedPrice(contracts, b.lastPrice, F.rawSub(block.timestamp, b.lastUpdated));
-        uint256 backing = b.backing;
-        // If out of backing (expired), transfer to highest sufficient bidder or delete registration.
-        if (spent >= backing) {
-            moved = true;
-            $.protocolAccural = SafeCastLib.toUint88(F.rawAdd($.protocolAccural, backing));
-            uint88 bidAmount = b.bidAmount;
-            address bidder = b.bidder;
-            b.bidAmount = 0;
-            b.bidder = address(0);
-            b.bidUpdated = 0;
-            b.lastUpdated = uint40(block.timestamp);
-            b.lastPrice = SafeCastLib.toUint88(_minAnnualPrice(contracts));
-            // If there's no bid, reclaim the name.
-            if (bidAmount == uint256(0)) {
-                b.backing = 0;
-                _move(contracts, _reclaimAddress(packedInfo), packedInfo);
-            } else {
-                b.backing = bidAmount;
-                _move(contracts, bidder, packedInfo);
-            }
-        } else {
-            uint256 delta = F.min(backing, spent);
-            b.backing = uint88(F.rawSub(backing, delta));
-            b.lastUpdated = uint40(block.timestamp);
-            b.lastPrice = SafeCastLib.toUint88(newPrice);
-            $.protocolAccural = SafeCastLib.toUint88(F.rawAdd($.protocolAccural, delta));
-        }
-        emit Poked(clusterName);
     }
 
     /// @dev Returns the address which the name is to be reclaimed into.
