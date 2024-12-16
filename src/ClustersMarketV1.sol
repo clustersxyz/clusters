@@ -236,7 +236,7 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
             b.bidUpdated = 0;
             b.bidder = address(0);
             b.bidAmount = 0;
-            // If there's no bid, reclaim the name.
+            // Transfer the name to the bidder, if there's a bid, else reclaim the name.
             _move(contracts, hasBid ? bidder : _reclaimAddress(packedInfo), packedInfo);
         } else {
             b.lastPrice = SafeCastLib.toUint88(newPrice);
