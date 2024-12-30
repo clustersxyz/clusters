@@ -347,12 +347,12 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
         info.bidUpdated = b.bidUpdated;
         info.bidder = b.bidder;
         info.backing = b.backing;
-        if (info.lastUpdated == uint256(0)) {
-            (uint256 initialTimestamp, uint256 initialBacking) = _initialData(contracts, clusterName);
-            info.lastPrice = SafeCastLib.toUint88(_minAnnualPrice(contracts));
-            info.lastUpdated = SafeCastLib.toUint40(initialTimestamp);
-            info.backing = SafeCastLib.toUint88(initialBacking);
-        }
+        // if (info.lastUpdated == uint256(0)) {
+        //     (uint256 initialTimestamp, uint256 initialBacking) = _initialData(contracts, clusterName);
+        //     info.lastPrice = SafeCastLib.toUint88(_minAnnualPrice(contracts));
+        //     info.lastUpdated = SafeCastLib.toUint40(initialTimestamp);
+        //     info.backing = SafeCastLib.toUint88(initialBacking);
+        // }
     }
 
     /// @dev Returns if the `clusterName` is registered.
@@ -486,10 +486,8 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
 
     /// @dev Returns if the name has been registered.
     function _isRegistered(uint256 packedInfo) internal pure returns (bool result) {
-        assembly ("memory-safe") {
-            // Returns whether the owner is any address from `0..256`, or if the id is zero.
-            result := or(lt(shr(96, packedInfo), 0x101), iszero(and(0xffffffffff, packedInfo)))
-        }
+        // Returns whether the owner is any address greater than `0..256`.
+        return packedInfo >> 96 > 0x100;
     }
 
     /// @dev Returns the address which the name is to be reclaimed into.
@@ -506,7 +504,7 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
             mstore(0x00, 0x5dcdcf970000000000000000) // `mintNext(bytes32,address)`.
             mstore(0x18, clusterName)
             mstore(0x38, shr(96, shl(96, to)))
-            if iszero(call(gas(), 0, shr(128, contracts), 0x14, 0x44, codesize(), 0x00)) {
+            if iszero(call(gas(), shr(128, contracts), 0, 0x14, 0x44, codesize(), 0x00)) {
                 returndatacopy(mload(0x40), 0x00, returndatasize())
                 revert(mload(0x40), returndatasize()) // Bubble up the revert.
             }
@@ -522,7 +520,7 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
             mstore(add(m, 0x20), shr(96, packedInfo)) // `from`.
             mstore(add(m, 0x40), shr(96, shl(96, to))) // `to`.
             mstore(add(m, 0x60), and(0xffffffffff, packedInfo)) // `id`.
-            if iszero(call(gas(), 0, shr(128, contracts), add(m, 0x1c), 0x64, codesize(), 0x00)) {
+            if iszero(call(gas(), shr(128, contracts), 0, add(m, 0x1c), 0x64, codesize(), 0x00)) {
                 returndatacopy(m, 0x00, returndatasize())
                 revert(m, returndatasize()) // Bubble up the revert.
             }

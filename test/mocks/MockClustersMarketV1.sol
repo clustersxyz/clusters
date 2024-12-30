@@ -15,4 +15,10 @@ contract MockClustersMarketV1 is ClustersMarketV1 {
     function minAnnualPrice() public view returns (uint256) {
         return _minAnnualPrice(_getClustersMarketStorage().contracts);
     }
+
+    function directMove(bytes32 clusterName, address to) public {
+        uint256 contracts = _getClustersMarketStorage().contracts;
+        uint256 packedInfo = _packedInfo(contracts, clusterName);
+        _move(contracts, to, packedInfo);
+    }
 }

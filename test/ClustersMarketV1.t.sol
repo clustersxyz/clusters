@@ -18,8 +18,8 @@ contract ClustersMarketV1Test is SoladyTest {
     MockClustersNFTV1 internal nft;
     MockClustersMarketV1 internal market;
 
-    address internal constant ALICE = address(111);
-    address internal constant BOB = address(222);
+    address internal constant ALICE = address(0x11111);
+    address internal constant BOB = address(0x22222);
 
     function setUp() public {
         pricing = PricingFlat(_smallAddress("pricing"));
@@ -31,6 +31,9 @@ contract ClustersMarketV1Test is SoladyTest {
         nft.initialize(address(this));
         market.setPricingContract(address(pricing));
         market.setNFTContract(address(nft));
+
+        nft.setRole(address(market), nft.MINTER_ROLE(), true);
+        nft.setRole(address(market), nft.CONDUIT_ROLE(), true);
     }
 
     function testSetContractAddresses(address nftContract, address pricingContract) public {
@@ -62,15 +65,24 @@ contract ClustersMarketV1Test is SoladyTest {
 
     function testIsRegistered(bytes32) public {
         bytes32 clusterName = _randomClusterName();
+        uint256 minAnnualPrice = pricing.minAnnualPrice();
+
+        assertEq(market.isRegistered(clusterName), false);
+
+        vm.deal(ALICE, 2 ** 160 - 1);
+        vm.prank(ALICE);
+        market.buy{value: minAnnualPrice}(clusterName);
+
         assertEq(market.isRegistered(clusterName), true);
+
         if (_randomChance(2)) {
-            nft.mintNext(clusterName, address(uint160(_bound(_randomUniform(), 1, 256))));
-            assertEq(market.isRegistered(clusterName), true);
+            market.directMove(clusterName, address(uint160(_bound(_randomUniform(), 1, 256))));
+            assertEq(market.isRegistered(clusterName), false);
             return;
         }
         if (_randomChance(2)) {
-            nft.mintNext(clusterName, address(uint160(_bound(_randomUniform(), 257, 0xffffffff))));
-            assertEq(market.isRegistered(clusterName), false);
+            market.directMove(clusterName, address(uint160(_bound(_randomUniform(), 257, 0xffffffff))));
+            assertEq(market.isRegistered(clusterName), true);
         }
     }
 
@@ -87,5 +99,83 @@ contract ClustersMarketV1Test is SoladyTest {
         assembly ("memory-safe") {
             result := and(keccak256(add(seed, 0x20), mload(seed)), 0xffffffffffffffffffffffffffffffff)
         }
+    }
+
+    struct _TestTemps {
+        uint256 minAnnualPrice;
+        uint256 spent;
+        uint256 price;
+        bytes32 clusterName;
+        uint256 bidTimestamp;
+        uint256 bidAmount;
+        uint256 lastBacking;
+        uint256 bidIncrement;
+    }
+
+    function testBuyAndBidName(bytes32) public {
+        vm.deal(ALICE, 2 ** 88 - 1);
+        vm.deal(BOB, 2 ** 88 - 1);
+
+        vm.warp(_bound(_randomUniform(), 1, 256));
+
+        _TestTemps memory t;
+        t.clusterName = _randomClusterName();
+        t.minAnnualPrice = pricing.minAnnualPrice();
+        t.bidAmount = _bound(_random(), t.minAnnualPrice, address(BOB).balance / 8);
+
+        vm.expectRevert(ClustersMarketV1.NameNotRegistered.selector);
+        market.bid{value: t.bidAmount}(t.clusterName);
+
+        vm.expectRevert(ClustersMarketV1.Insufficient.selector);
+        vm.prank(ALICE);
+        market.buy(t.clusterName);
+
+        vm.expectRevert(ClustersMarketV1.Insufficient.selector);
+        vm.prank(ALICE);
+        market.buy{value: t.minAnnualPrice - 1}(t.clusterName);
+
+        vm.prank(ALICE);
+        market.buy{value: t.minAnnualPrice}(t.clusterName);
+
+        ClustersMarketV1.NameInfo memory info = market.nameInfo(t.clusterName);
+        assertEq(info.owner, ALICE);
+        assertEq(info.bidAmount, 0);
+        assertEq(info.bidUpdated, 0);
+        assertEq(info.bidder, address(0));
+        assertEq(info.backing, t.minAnnualPrice);
+        assertEq(info.lastUpdated, block.timestamp);
+        assertEq(info.lastPrice, t.minAnnualPrice);
+
+        t.lastBacking = info.backing;
+        t.bidTimestamp = block.timestamp + _bound(_randomUniform(), 0, 256);
+        vm.warp(t.bidTimestamp);
+
+        (t.spent, t.price) = pricing.getIntegratedPrice(info.lastPrice, block.timestamp - info.lastUpdated);
+
+        vm.prank(BOB);
+        market.bid{value: t.bidAmount}(t.clusterName);
+
+        info = market.nameInfo(t.clusterName);
+        assertEq(info.owner, ALICE);
+        assertEq(info.bidAmount, t.bidAmount);
+        assertEq(info.bidUpdated, t.bidTimestamp);
+        assertEq(info.bidder, BOB);
+        assertEq(info.backing, t.lastBacking - t.spent);
+        assertEq(info.lastUpdated, block.timestamp);
+        assertEq(info.lastPrice, t.minAnnualPrice);
+
+        // Test increase bid.
+        t.bidIncrement = market.minBidIncrement();
+        vm.prank(BOB);
+        market.bid{value: t.bidIncrement}(t.clusterName);
+
+        info = market.nameInfo(t.clusterName);
+        assertEq(info.owner, ALICE);
+        assertEq(info.bidAmount, t.bidAmount + t.bidIncrement);
+        assertEq(info.bidUpdated, t.bidTimestamp);
+        assertEq(info.bidder, BOB);
+        assertEq(info.backing, t.lastBacking - t.spent);
+        assertEq(info.lastUpdated, block.timestamp);
+        assertEq(info.lastPrice, t.minAnnualPrice);
     }
 }

@@ -49,11 +49,8 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     /// @dev For marketplaces to transfer tokens.
     uint256 public constant CONDUIT_ROLE = 2;
 
-    /// @dev Cluster additional data setter.
-    uint256 public constant ADDITIONAL_DATA_SETTER_ROLE = 3;
-
     /// @dev The maximum role.
-    uint256 public constant MAX_ROLE = 3;
+    uint256 public constant MAX_ROLE = 2;
 
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
     /*                          STORAGE                           */
