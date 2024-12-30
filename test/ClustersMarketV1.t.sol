@@ -126,7 +126,7 @@ contract ClustersMarketV1Test is SoladyTest {
         t.minBidIncrement = market.minBidIncrement();
         t.clusterName = _randomClusterName();
         t.minAnnualPrice = pricing.minAnnualPrice();
-        t.bidAmount = _bound(_random(), t.minAnnualPrice, address(BOB).balance / 8);
+        t.bidAmount = _bound(_random(), t.minAnnualPrice, 1 ether);
 
         vm.expectRevert(ClustersMarketV1.NameNotRegistered.selector);
         market.bid{value: t.bidAmount}(t.clusterName);
@@ -153,7 +153,7 @@ contract ClustersMarketV1Test is SoladyTest {
         assertEq(info.lastPrice, t.minAnnualPrice);
 
         t.lastBacking = info.backing;
-        t.bidTimestamp = block.timestamp + _bound(_randomUniform(), 0, 256);
+        t.bidTimestamp = block.timestamp + _bound(_random(), 0, 256);
         vm.warp(t.bidTimestamp);
 
         (t.spent, t.price) = pricing.getIntegratedPrice(info.lastPrice, block.timestamp - info.lastUpdated);
@@ -187,8 +187,8 @@ contract ClustersMarketV1Test is SoladyTest {
 
         if (_randomChance(8)) {
             uint256 bobBalanceBefore = BOB.balance;
-            uint256 bobBidAmount = t.bidAmount;
-            t.bidAmount = t.bidAmount + t.minBidIncrement * 10;
+            uint256 bobBidAmount = info.bidAmount;
+            t.bidAmount = info.bidAmount + _bound(_random(), t.minBidIncrement, t.minBidIncrement * 2);
             vm.prank(CHARLIE);
             market.bid{value: t.bidAmount}(t.clusterName);
 
