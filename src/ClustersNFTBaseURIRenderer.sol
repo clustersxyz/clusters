@@ -37,9 +37,7 @@ contract ClustersNFTBaseURIRenderer is Ownable {
 
     /// @dev Returns the token URI for the given `id`.
     function tokenURI(uint256 id) public view returns (string memory) {
-        string memory baseURI = _baseURI.get();
-        if (bytes(baseURI).length == 0) return "";
-        return LibString.replace(baseURI, "{id}", LibString.toString(id));
+        return LibString.replace(_baseURI.get(), "{id}", LibString.toString(id));
     }
 
     /*«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-«-*/
