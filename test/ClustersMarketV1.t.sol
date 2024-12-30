@@ -20,6 +20,7 @@ contract ClustersMarketV1Test is SoladyTest {
 
     address internal constant ALICE = address(0x11111);
     address internal constant BOB = address(0x22222);
+    address internal constant CHARLIE = address(0x33333);
 
     function setUp() public {
         pricing = PricingFlat(_smallAddress("pricing"));
@@ -114,9 +115,10 @@ contract ClustersMarketV1Test is SoladyTest {
         uint256 bidDecrement;
     }
 
-    function testBuyAndBidName(bytes32) public {
+    function testBuyAndBids(bytes32) public {
         vm.deal(ALICE, 2 ** 88 - 1);
         vm.deal(BOB, 2 ** 88 - 1);
+        vm.deal(CHARLIE, 2 ** 88 - 1);
 
         vm.warp(_bound(_randomUniform(), 1, 256));
 
@@ -182,6 +184,26 @@ contract ClustersMarketV1Test is SoladyTest {
         assertEq(info.backing, t.lastBacking - t.spent);
         assertEq(info.lastUpdated, block.timestamp);
         assertEq(info.lastPrice, t.minAnnualPrice);
+
+        if (_randomChance(8)) {
+            uint256 bobBalanceBefore = BOB.balance;
+            uint256 bobBidAmount = t.bidAmount;
+            t.bidAmount = t.bidAmount + t.minBidIncrement * 10;
+            vm.prank(CHARLIE);
+            market.bid{value: t.bidAmount}(t.clusterName);
+
+            info = market.nameInfo(t.clusterName);
+            assertEq(info.owner, ALICE);
+            assertEq(info.bidAmount, t.bidAmount);
+            assertEq(info.bidUpdated, block.timestamp);
+            assertEq(info.bidder, CHARLIE);
+            assertEq(info.backing, t.lastBacking - t.spent);
+            assertEq(info.lastUpdated, block.timestamp);
+            assertEq(info.lastPrice, t.minAnnualPrice);
+
+            assertEq(BOB.balance, bobBalanceBefore + bobBidAmount);
+            return;
+        }
 
         if (_randomChance(8)) {
             uint256 bidAmount = info.bidAmount;
