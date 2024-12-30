@@ -314,7 +314,7 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
         (uint256 contracts, uint256 packedInfo, Bid storage b, address sender) = _registeredCtx(clusterName);
         (address bidder, uint256 bidAmount) = (b.bidder, b.bidAmount);
         if (bidder == address(0)) revert NoBid();
-        if (bidder != sender) revert Unauthorized();
+        if (_owner(packedInfo) != sender) revert Unauthorized();
 
         b.lastPrice = SafeCastLib.toUint88(_minAnnualPrice(contracts));
         b.lastUpdated = uint40(block.timestamp);
@@ -347,12 +347,12 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
         info.bidUpdated = b.bidUpdated;
         info.bidder = b.bidder;
         info.backing = b.backing;
-        // if (info.lastUpdated == uint256(0)) {
-        //     (uint256 initialTimestamp, uint256 initialBacking) = _initialData(contracts, clusterName);
-        //     info.lastPrice = SafeCastLib.toUint88(_minAnnualPrice(contracts));
-        //     info.lastUpdated = SafeCastLib.toUint40(initialTimestamp);
-        //     info.backing = SafeCastLib.toUint88(initialBacking);
-        // }
+        if (info.lastUpdated == uint256(0)) {
+            (uint256 initialTimestamp, uint256 initialBacking) = _initialData(contracts, clusterName);
+            info.lastPrice = SafeCastLib.toUint88(_minAnnualPrice(contracts));
+            info.lastUpdated = SafeCastLib.toUint40(initialTimestamp);
+            info.backing = SafeCastLib.toUint88(initialBacking);
+        }
     }
 
     /// @dev Returns if the `clusterName` is registered.

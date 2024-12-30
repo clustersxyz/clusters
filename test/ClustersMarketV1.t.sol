@@ -102,6 +102,7 @@ contract ClustersMarketV1Test is SoladyTest {
     }
 
     struct _TestTemps {
+        uint256 minBidIncrement;
         uint256 minAnnualPrice;
         uint256 spent;
         uint256 price;
@@ -110,6 +111,7 @@ contract ClustersMarketV1Test is SoladyTest {
         uint256 bidAmount;
         uint256 lastBacking;
         uint256 bidIncrement;
+        uint256 bidDecrement;
     }
 
     function testBuyAndBidName(bytes32) public {
@@ -119,6 +121,7 @@ contract ClustersMarketV1Test is SoladyTest {
         vm.warp(_bound(_randomUniform(), 1, 256));
 
         _TestTemps memory t;
+        t.minBidIncrement = market.minBidIncrement();
         t.clusterName = _randomClusterName();
         t.minAnnualPrice = pricing.minAnnualPrice();
         t.bidAmount = _bound(_random(), t.minAnnualPrice, address(BOB).balance / 8);
@@ -134,6 +137,7 @@ contract ClustersMarketV1Test is SoladyTest {
         vm.prank(ALICE);
         market.buy{value: t.minAnnualPrice - 1}(t.clusterName);
 
+        // Test buy.
         vm.prank(ALICE);
         market.buy{value: t.minAnnualPrice}(t.clusterName);
 
@@ -152,6 +156,7 @@ contract ClustersMarketV1Test is SoladyTest {
 
         (t.spent, t.price) = pricing.getIntegratedPrice(info.lastPrice, block.timestamp - info.lastUpdated);
 
+        // Test bid.
         vm.prank(BOB);
         market.bid{value: t.bidAmount}(t.clusterName);
 
@@ -165,7 +170,7 @@ contract ClustersMarketV1Test is SoladyTest {
         assertEq(info.lastPrice, t.minAnnualPrice);
 
         // Test increase bid.
-        t.bidIncrement = market.minBidIncrement();
+        t.bidIncrement = _bound(_random(), t.minBidIncrement, t.minBidIncrement * 2);
         vm.prank(BOB);
         market.bid{value: t.bidIncrement}(t.clusterName);
 
@@ -177,5 +182,50 @@ contract ClustersMarketV1Test is SoladyTest {
         assertEq(info.backing, t.lastBacking - t.spent);
         assertEq(info.lastUpdated, block.timestamp);
         assertEq(info.lastPrice, t.minAnnualPrice);
+
+        if (_randomChance(8)) {
+            uint256 bidAmount = info.bidAmount;
+            vm.prank(ALICE);
+            market.acceptBid(t.clusterName);
+            info = market.nameInfo(t.clusterName);
+            assertEq(info.owner, BOB);
+            assertEq(info.bidAmount, 0);
+            assertEq(info.bidUpdated, 0);
+            assertEq(info.bidder, address(0));
+            assertEq(info.backing, bidAmount);
+            assertEq(info.lastUpdated, block.timestamp);
+            assertEq(info.lastPrice, t.minAnnualPrice);
+            return;
+        }
+
+        if (_randomChance(8)) {
+            vm.warp(block.timestamp + market.bidTimelock());
+            uint256 maxDecrement = info.bidAmount - pricing.minAnnualPrice();
+
+            t.bidDecrement = _bound(_randomUniform(), 0, maxDecrement);
+            uint256 expectedBidAmount = info.bidAmount - t.bidDecrement;
+            if (_randomChance(2)) {
+                vm.prank(BOB);
+                vm.expectRevert(ClustersMarketV1.Insufficient.selector);
+                market.reduceBid(t.clusterName, maxDecrement + 1);
+            }
+            vm.prank(BOB);
+            market.reduceBid(t.clusterName, t.bidDecrement);
+            info = market.nameInfo(t.clusterName);
+            assertEq(info.bidAmount, expectedBidAmount);
+            assertEq(info.bidUpdated, block.timestamp);
+            assertEq(info.bidder, BOB);
+        }
+
+        if (_randomChance(8)) {
+            vm.warp(block.timestamp + market.bidTimelock());
+            uint256 delta = market.nameInfo(t.clusterName).bidAmount + _bound(_random(), 0, 256);
+            vm.prank(BOB);
+            market.reduceBid(t.clusterName, delta);
+            info = market.nameInfo(t.clusterName);
+            assertEq(info.bidAmount, 0);
+            assertEq(info.bidUpdated, 0);
+            assertEq(info.bidder, address(0));
+        }
     }
 }
