@@ -8,6 +8,10 @@ contract MockClustersNFTV1 is ClustersNFTV1 {
 
     NameData[2] internal _data;
 
+    function directMint(address to, uint256 id) public {
+        _mintAndSetExtraDataUnchecked(to, id, 0);
+    }
+
     /// @dev Initializes the data.
     function _initialize(NameData storage data, uint256 id, uint256 ownedIndex) internal {
         if (ownedIndex <= 254) {

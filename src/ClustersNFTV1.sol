@@ -395,10 +395,10 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     /*                    DEFAULT ID FUNCTIONS                    */
     /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
 
-    /// @dev Sets the default id of the caller. The caller must own the `id`.
+    /// @dev Sets the default token ID of the caller.
+    /// Does not revert if the token ID is not actually owned by the caller.
     function setDefaultId(uint256 id) public {
         address sender = MessageHubLib.senderOrSigner();
-        if (_ownerOf(id) != sender) revert Unauthorized();
         uint224 aux = (_getAux(sender) >> 24) << 24;
         if (id >= 0xffffff) {
             _setAux(sender, aux);
@@ -410,13 +410,12 @@ contract ClustersNFTV1 is UUPSUpgradeable, Initializable, ERC721, Ownable, Enume
     }
 
     /// @dev Returns the default id of `owner`.
-    /// If the owner does not own their default id,
-    /// returns one of the ids owned by `owner`.
-    /// If the owner does not have any id, returns `0`.
+    /// If the owner does not own their default id, returns one of the ids owned by `owner`.
+    /// If the owner does not have any tokens, returns `0`.
     function defaultId(address owner) public view returns (uint256) {
         if (balanceOf(owner) == 0) return 0;
         uint256 result = _getAux(owner) & 0xffffff;
-        result = result == uint256(0) ? _getClustersNFTStorage().fullDefaultId[owner] : 0xffffff ^ result;
+        if (result == uint256(0)) result = _getClustersNFTStorage().fullDefaultId[owner];
         if (result != 0) if (_ownerOf(result) == owner) return result;
         return _getId(owner, 0);
     }
