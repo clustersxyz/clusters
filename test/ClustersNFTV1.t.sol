@@ -26,6 +26,29 @@ contract ClustersNFTV1Test is SoladyTest {
         tokenURIRenderer.setOwner(address(this));
     }
 
+    function testSeedGas() public {
+        vm.pauseGasMetering();
+        ClustersNFTV1.Mint[] memory mints = _randomSeeds();
+        vm.resumeGasMetering();
+        nft.mintNext(mints);
+    }
+
+    function _randomSeeds() internal returns (ClustersNFTV1.Mint[] memory mints) {
+        uint256 n = 100;
+        bytes32[] memory clusterNames = new bytes32[](n);
+        mints = new ClustersNFTV1.Mint[](n);
+        for (uint256 i; i < mints.length; ++i) {
+            ClustersNFTV1.Mint memory mint = mints[i];
+            mint.clusterName = bytes12(_randomClusterName());
+            mint.to = _randomNonZeroAddress();
+            mint.initialTimestamp = _bound(_random(), 0, type(uint40).max);
+            mint.initialBacking = _bound(_random(), 0, type(uint88).max);
+            clusterNames[i] = mint.clusterName;
+        }
+        LibSort.sort(clusterNames);
+        if (clusterNames.length != n) return _randomSeeds();
+    }
+
     function testTokenURI(address to, uint256 id) public {
         if (to == address(0)) to = _randomNonZeroAddress();
         nft.directMint(to, id);
@@ -91,11 +114,6 @@ contract ClustersNFTV1Test is SoladyTest {
 
         nft.mintNext(_toMints(t));
 
-        vm.prank(ALICE);
-        nft.setApprovalForAll(address(this), true);
-        vm.prank(BOB);
-        nft.setApprovalForAll(address(this), true);
-
         if (_randomChance(8)) {
             if (nft.balanceOf(ALICE) > 0) {
                 assertEq(nft.defaultId(ALICE), nft.tokensOfOwner(ALICE)[0]);
@@ -106,31 +124,49 @@ contract ClustersNFTV1Test is SoladyTest {
         }
 
         do {
-            for (uint256 i; i < t.clusterNames.length(); ++i) {
-                if (_randomChance(2)) {
-                    address recipient = _randomChance(2) ? ALICE : BOB;
-                    nft.transferFrom(nft.ownerOf(i + 1), recipient, i + 1);
-                    t.recipients.set(i, recipient);
-                }
-            }
+            _testTransferForm(t);
             _checkInvariants(t);
 
-            if (_randomChance(8)) {
-                _checkInitialData(t);
-                for (uint256 i; i < t.clusterNames.length(); ++i) {
-                    if (_randomChance(2)) {
-                        address newLinkedAddress = _randomAddress();
-                        address owner = nft.ownerOf(i + 1);
-                        vm.prank(owner);
-                        nft.setLinkedAddress(t.clusterNames.getBytes32(i), newLinkedAddress);
-                        t.linkedAddresses.set(i, newLinkedAddress);
-                    }
-                }
-                _checkInitialData(t);
-            }
-
-            _testSetAndGetDefaultId(t);
+            if (_randomChance(8)) _testInitialDataAndSetAndGetLinkedAddresses(t);
+            if (_randomChance(2)) _testSetAndGetDefaultId(t);
         } while (_randomChance(2));
+    }
+
+    function _testTransferForm(_TestTemps memory t) internal {
+        uint256 newTimestamp = vm.getBlockTimestamp() + (_random() % 100);
+        vm.warp(newTimestamp);
+        for (uint256 i; i < t.clusterNames.length(); ++i) {
+            if (_randomChance(2)) {
+                address recipient = _randomChance(2) ? ALICE : BOB;
+                uint256 id = i + 1;
+                address owner = nft.ownerOf(id);
+                vm.prank(owner);
+                nft.transferFrom(owner, recipient, id);
+                t.recipients.set(i, recipient);
+
+                bytes32 clusterName = nft.nameOf(id);
+                assertEq(clusterName, t.clusterNames.getBytes32(i));
+                (uint256 retrievedId,, uint256 startTimestamp) = nft.infoOf(clusterName);
+                assertEq(retrievedId, id);
+                if (owner != recipient) {
+                    assertEq(startTimestamp, newTimestamp);
+                }
+            }
+        }
+    }
+
+    function _testInitialDataAndSetAndGetLinkedAddresses(_TestTemps memory t) internal {
+        _checkInitialData(t);
+        for (uint256 i; i < t.clusterNames.length(); ++i) {
+            if (_randomChance(2)) {
+                address newLinkedAddress = _randomAddress();
+                address owner = nft.ownerOf(i + 1);
+                vm.prank(owner);
+                nft.setLinkedAddress(t.clusterNames.getBytes32(i), newLinkedAddress);
+                t.linkedAddresses.set(i, newLinkedAddress);
+            }
+        }
+        _checkInitialData(t);
     }
 
     function _testSetAndGetDefaultId(_TestTemps memory t) internal {
