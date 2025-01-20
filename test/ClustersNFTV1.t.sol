@@ -33,6 +33,13 @@ contract ClustersNFTV1Test is SoladyTest {
         nft.mintNext(mints);
     }
 
+    function _hasDuplicates(bytes32[] memory a) internal pure returns (bool) {
+        bytes32[] memory aCopy = LibSort.copy(a);
+        LibSort.sort(aCopy);
+        LibSort.uniquifySorted(aCopy);
+        return aCopy.length != a.length;
+    }
+
     function _randomSeeds() internal returns (ClustersNFTV1.Mint[] memory mints) {
         uint256 n = 100;
         bytes32[] memory clusterNames = new bytes32[](n);
@@ -45,8 +52,7 @@ contract ClustersNFTV1Test is SoladyTest {
             mint.initialBacking = _bound(_random(), 0, type(uint88).max);
             clusterNames[i] = mint.clusterName;
         }
-        LibSort.sort(clusterNames);
-        if (clusterNames.length != n) return _randomSeeds();
+        if (_hasDuplicates(clusterNames)) return _randomSeeds();
     }
 
     function testTokenURI(address to, uint256 id) public {
@@ -252,10 +258,11 @@ contract ClustersNFTV1Test is SoladyTest {
 
     function _randomTestTemps() internal returns (_TestTemps memory t) {
         t.clusterNames = _randomClusterNames(_randomNonZeroLength());
-        t.recipients = _randomRecipients(t.clusterNames.length());
-        t.initialTimestamps = _randomInitialTimestamps(t.clusterNames.length());
-        t.initialBackings = _randomInitialBackings(t.clusterNames.length());
-        t.linkedAddresses.resize(t.clusterNames.length());
+        uint256 n = t.clusterNames.length();
+        t.recipients = _randomRecipients(n);
+        t.initialTimestamps = _randomInitialTimestamps(n);
+        t.initialBackings = _randomInitialBackings(n);
+        t.linkedAddresses.resize(n);
     }
 
     function _randomClusterNames(uint256 maxLength) internal returns (DynamicArrayLib.DynamicArray memory a) {
@@ -364,6 +371,7 @@ contract ClustersNFTV1Test is SoladyTest {
             m <<= (_randomUniform() & 31) << 3;
             result = bytes32(m);
         } while (LibString.normalizeSmallString(result) != result || result == bytes32(0));
+        if (_randomChance(2)) result = bytes12(result);
     }
 
     function _randomRecipient() internal returns (address) {
