@@ -4,6 +4,7 @@ pragma solidity ^0.8.23;
 import {UUPSUpgradeable} from "solady/utils/UUPSUpgradeable.sol";
 import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
 import {LibClone} from "solady/utils/LibClone.sol";
+import {LibBytes} from "solady/utils/LibBytes.sol";
 import {ERC7821} from "solady/accounts/ERC7821.sol";
 import {Origin, OAppReceiverUpgradeable} from "layerzero-oapp/contracts/oapp-upgradeable/OAppReceiverUpgradeable.sol";
 
@@ -108,13 +109,21 @@ contract MessageHubV1 is UUPSUpgradeable, OAppReceiverUpgradeable {
         return LibClone.predictDeterministicAddress(_podImplementation, args, keccak256(args), address(this));
     }
 
-    /// @dev For efficiency, we will use the receive function
-    ///      to return the original sender and the sender.
+    /// @dev Returns `abi.encode(sender, originalSender, originalSenderType)`.
+    /// This is queried by the MessageHubPodV1 or contracts that use MessageHubLibV1.
     receive() external payable {
         assembly ("memory-safe") {
-            mstore(0x40, tload(_ORIGINAL_SENDER_TYPE_TRANSIENT_SLOT))
-            mstore(0x20, tload(_ORIGINAL_SENDER_TRANSIENT_SLOT))
+            // The `sender` can be either:
+            // - A MessageHubPodV1 that is deployed on-the-fly if the
+            //   message was initiated from a non-Ethereum address.
+            // - An Ethereum address that initiated the message.
+            //
+            // The `originalSender` can be either:
+            // - A non-Ethereum address.
+            // - An Ethereum address that matches `sender`.
             mstore(0x00, tload(_SENDER_TRANSIENT_SLOT))
+            mstore(0x20, tload(_ORIGINAL_SENDER_TRANSIENT_SLOT))
+            mstore(0x40, tload(_ORIGINAL_SENDER_TYPE_TRANSIENT_SLOT))
             return(0x00, 0x60)
         }
     }
@@ -143,6 +152,7 @@ contract MessageHubV1 is UUPSUpgradeable, OAppReceiverUpgradeable {
     }
 
     /// @dev Returns the immutable arguments for the sub account.
+    /// `abi.encodePacked(keccak256(abi.encode(originalSender, originalSenderType)), address(this))`.
     function _subAccountArgs(bytes32 originalSender, uint256 originalSenderType)
         internal
         view
@@ -151,8 +161,8 @@ contract MessageHubV1 is UUPSUpgradeable, OAppReceiverUpgradeable {
         if (originalSender == bytes32(0)) revert OriginalSenderIsZero();
         assembly ("memory-safe") {
             result := mload(0x40)
-            mstore(0x20, originalSenderType)
             mstore(0x00, originalSender)
+            mstore(0x20, originalSenderType)
             // Address of the mothership.
             mstore(add(result, 0x34), address())
             // Hash of the original sender and sender type.
@@ -163,7 +173,7 @@ contract MessageHubV1 is UUPSUpgradeable, OAppReceiverUpgradeable {
     }
 
     /// @dev Decodes and forwards the message to the target.
-    ///      This modifier is to be attached onto the `_lzReceive` function.
+    /// This modifier is to be attached onto the `_lzReceive` function.
     modifier forwardMessage(bytes calldata message) {
         bytes32 originalSender;
         uint256 originalSenderType;
@@ -222,6 +232,7 @@ contract MessageHubV1 is UUPSUpgradeable, OAppReceiverUpgradeable {
 
             toRefund := mul(sub(selfbalance(), balanceBefore), gt(selfbalance(), balanceBefore))
         }
+        // If the balance has somehow increased, refunds to the sender.
         if (toRefund != 0) {
             SafeTransferLib.forceSafeTransferETH(sender, toRefund);
         }

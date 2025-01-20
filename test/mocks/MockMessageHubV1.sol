@@ -9,4 +9,8 @@ contract MockMessageHubV1 is MessageHubV1 {
     }
 
     function forward(bytes calldata message) public payable forwardMessage(message) {}
+
+    function subAccountArgs(bytes32 originalSender, uint256 originalSenderType) public view returns (bytes memory) {
+        return _subAccountArgs(originalSender, originalSenderType);
+    }
 }

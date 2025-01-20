@@ -18,7 +18,7 @@ library MessageHubLibV1 {
     /*-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»-»*/
 
     /// @dev Returns the sender or signer.
-    ///      Note: this function will never return a zero address.
+    /// Note: this function will never return a zero address.
     function senderOrSigner() internal view returns (address result) {
         result = LibMulticaller.senderOrSigner();
         if (result == MESSAGE_HUB) {
