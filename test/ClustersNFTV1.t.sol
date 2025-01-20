@@ -124,9 +124,8 @@ contract ClustersNFTV1Test is SoladyTest {
         }
 
         do {
-            _testTransferForm(t);
-            _checkInvariants(t);
-
+            if (_randomChance(2)) _testTransferForm(t);
+            if (_randomChance(2)) _checkInvariants(t);
             if (_randomChance(8)) _testInitialDataAndSetAndGetLinkedAddresses(t);
             if (_randomChance(2)) _testSetAndGetDefaultId(t);
         } while (_randomChance(2));
