@@ -94,6 +94,7 @@ contract ClustersMarketV1Test is SoladyTest {
             m <<= (_randomUniform() & 31) << 3;
             result = bytes32(m);
         } while (LibString.normalizeSmallString(result) != result || result == bytes32(0));
+        if (_randomChance(2)) result = bytes12(result);
     }
 
     function _smallAddress(bytes memory seed) internal pure returns (address result) {

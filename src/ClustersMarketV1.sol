@@ -73,7 +73,8 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
         uint256 contracts;
         // Mapping of `clusterName` to `bid`.
         mapping(bytes32 => Bid) bids;
-        // The total amount that is locked in bids. To prevent over withdrawing.
+        // The total amount that is could be refunded to bidders. To prevent over withdrawing.
+        // `address(this).balance >= totalBidBacking + amountWithdrawableByProtocol`.
         uint88 totalBidBacking;
         // The minimum bid increment (in Ether wei).
         uint88 minBidIncrement;
@@ -260,6 +261,7 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
 
         (address oldBidder, uint256 oldBidAmount) = (b.bidder, b.bidAmount);
         if (sender == oldBidder) {
+            // Workflow for increasing bid.
             uint256 newBidAmount = F.rawAdd(oldBidAmount, msg.value);
             b.bidUpdated = uint40(block.timestamp);
             b.bidAmount = SafeCastLib.toUint88(newBidAmount);
@@ -267,6 +269,7 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
             emit BidIncreased(clusterName, sender, oldBidAmount, newBidAmount);
             _poke(contracts, packedInfo, clusterName, b, sender);
         } else {
+            // Workflow for attempt to outbid.
             uint256 thres = F.rawAdd(minBidIncrement(), oldBidAmount);
             if (msg.value < F.max(_minAnnualPrice(contracts), thres)) revert Insufficient();
             b.bidUpdated = uint40(block.timestamp);
@@ -274,7 +277,9 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
             b.bidAmount = SafeCastLib.toUint88(msg.value);
             _incrementTotalBidBacking(F.rawSub(msg.value, oldBidAmount));
             emit BidPlaced(clusterName, sender, msg.value);
+            // Poke decreases the total bid backing by the latest bid amount if name is moved.
             _poke(contracts, packedInfo, clusterName, b, sender);
+            // Refund the previous bidder.
             SafeTransferLib.forceSafeTransferETH(oldBidder, oldBidAmount);
             emit BidRefunded(clusterName, oldBidder, oldBidAmount);
         }
@@ -288,9 +293,12 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
         if (block.timestamp < F.rawAdd(b.bidUpdated, bidTimelock())) revert BidTimelocked();
         if (b.bidder != sender) revert Unauthorized();
 
+        // Do a poke first, and if the poke does not move the name, perform the bid reduction.
         if (!_poke(contracts, packedInfo, clusterName, b, sender)) {
             uint256 oldBidAmount = b.bidAmount;
             if (delta >= oldBidAmount) {
+                // If the delta is greater or equal to the old bid amount,
+                // clamp it to the old bid amount, then remove the bid.
                 b.bidUpdated = 0;
                 b.bidder = address(0);
                 b.bidAmount = 0;
@@ -298,6 +306,8 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
                 SafeTransferLib.forceSafeTransferETH(sender, oldBidAmount);
                 emit BidRevoked(clusterName, sender, oldBidAmount);
             } else {
+                // Otherwise, subtract `delta` from the old bid amount, and ensure that
+                // the new bid amount is not less than the minimum annual price.
                 uint256 newBidAmount = F.rawSub(oldBidAmount, delta);
                 if (newBidAmount < _minAnnualPrice(contracts)) revert Insufficient();
                 b.bidAmount = uint88(newBidAmount);
@@ -449,6 +459,10 @@ contract ClustersMarketV1 is UUPSUpgradeable, Initializable, Ownable, Reentrancy
             mstore(0x20, clusterName)
             let success := staticcall(gas(), shr(128, contracts), 0x1c, 0x24, m, 0x60)
             if iszero(and(gt(returndatasize(), 0x5f), success)) { revert(codesize(), 0x00) }
+            // `infoOf` returns 3 words: `id`, `owner`, `startTimestamp`.
+            // - `id`             : guaranteed to fit in 40 bits.
+            // - `owner`          : guaranteed to fit in 160 bits.
+            // - `startTimestamp` : guaranteed to fit in 40 bits.
             result := or(shl(96, mload(add(m, 0x20))), or(shl(40, mload(add(m, 0x40))), mload(m)))
         }
     }
