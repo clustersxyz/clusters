@@ -45,14 +45,23 @@ contract SetConfigScript is Script {
 
     uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
 
-    string originRpcUrl = "https://rpc.taiko.xyz";
+    // string originRpcUrl = "https://rpc.taiko.xyz";
+    // address originOAppAddress = 0x00000000000E1A99dDDd5610111884278BDBda1D;
+    // address originEndpoint = 0x1a44076050125825900e736c501f859c50fE728c;
+    // address originSendLib = 0xc1B621b18187F74c8F6D52a6F709Dd2780C09821;
+    // address originReceiveLib = 0x377530cdA84DFb2673bF4d145DCF0C4D7fdcB5b6;
+    // address originExecutor = 0xa20DB4Ffe74A31D17fc24BD32a7DD7555441058e;
+    // address originDVN = 0x88B27057A9e00c5F05DDa29241027afF63f9e6e0;
+    // uint32 originEid = 30290;
+
+    string originRpcUrl = "https://phoenix-rpc.plumenetwork.xyz";
     address originOAppAddress = 0x00000000000E1A99dDDd5610111884278BDBda1D;
-    address originEndpoint = 0x1a44076050125825900e736c501f859c50fE728c;
-    address originSendLib = 0xc1B621b18187F74c8F6D52a6F709Dd2780C09821;
-    address originReceiveLib = 0x377530cdA84DFb2673bF4d145DCF0C4D7fdcB5b6;
-    address originExecutor = 0xa20DB4Ffe74A31D17fc24BD32a7DD7555441058e;
-    address originDVN = 0x88B27057A9e00c5F05DDa29241027afF63f9e6e0;
-    uint32 originEid = 30290;
+    address originEndpoint = 0xC1b15d3B262bEeC0e3565C11C9e0F6134BdaCB36;
+    address originSendLib = 0xFe7C30860D01e28371D40434806F4A8fcDD3A098;
+    address originReceiveLib = 0x5B19bd330A84c049b62D5B0FC2bA120217a18C1C;
+    address originExecutor = 0x41Bdb4aa4A63a5b2Efc531858d3118392B1A1C3d;
+    address originDVN = 0x4208D6E27538189bB48E603D6123A94b8Abe0A0b; // This should not be a Dead DVN
+    uint32 originEid = 30370;
 
     string destRpcUrl = "https://eth.llamarpc.com";
     address destOAppAddress = 0x00000000000E1A99dDDd5610111884278BDBda1D;
@@ -173,6 +182,6 @@ contract SetConfigScript is Script {
         setOriginSendConfig();
         //setOriginReceiveConfig(); // Commenting these out applies minimal config
         //setDestSendConfig(); // Commenting these out applies minimal config
-        // setDestReceiveConfig();
+        setDestReceiveConfig();
     }
 }

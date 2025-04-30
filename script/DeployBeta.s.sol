@@ -37,7 +37,8 @@ contract DeployBetaScript is Script {
     using OptionsBuilder for bytes;
 
     address constant lzTestnetEndpoint = 0x6EDCE65403992e310A62460808c4b910D972f10f; // Same on all chains
-    address constant lzProdEndpoint = 0x1a44076050125825900e736c501f859c50fE728c; // Same on all except shimmer/meter
+    // address constant lzProdEndpoint = 0x1a44076050125825900e736c501f859c50fE728c; // Same on all except shimmer/meter
+    address constant lzProdEndpoint = 0xC1b15d3B262bEeC0e3565C11C9e0F6134BdaCB36; // Plume
     address constant proxyAddress = 0x00000000000E1A99dDDd5610111884278BDBda1D; // Same for hub and initiator
     address constant refunderEoa = 0x443eDFF556D8fa8BfD69c3943D6eaf34B6a048e0;
     address constant grossprofitEoa = 0x4352Fb89eB97c3AeD354D4D003611C7a26BDc616;
@@ -53,13 +54,14 @@ contract DeployBetaScript is Script {
     uint32 constant BASE_EID = 30184;
     uint32 constant BLAST_EID = 30243;
     uint32 constant TAIKO_EID = 30290;
+    uint32 constant PLUME_EID = 30370;
 
     uint32 constant CONFIG_TYPE_ULN = 2;
     uint32 constant CONFIG_TYPE_EXECUTOR = 1;
 
     Singlesig constant sig = Singlesig(0x000000dE1E80ea5a234FB5488fee2584251BC7e8);
     ImmutableCreate2Factory constant factory = ImmutableCreate2Factory(0x0000000000FFe8B47B3e2130213B802212439497);
-    bytes initCode = type(BasicUUPSImpl).creationCode;
+    bytes initCode = type(BasicUUPSImpl).creationCode; // this is now wrong with latest solady
     bytes32 salt = 0x000000000000000000000000000000000000000097e5b90d2f1f6025db407f4d; // 0x19670000000A93f312163Cec8C4612Ae7a6783b4
 
     function _checkProxyExists(address addr) internal view returns (address implementationAddr) {
@@ -78,19 +80,18 @@ contract DeployBetaScript is Script {
     function deployVanityProxy() external {
         address implAddressCorrect = 0x19670000000A93f312163Cec8C4612Ae7a6783b4;
         // Sanity check logic contract exists
-        // console2.logBytes32(UUPSUpgradeable(implAddress).proxiableUUID());
-        // console2.log(implAddress);
-
-        bytes memory proxyInitCode = LibClone.initCodeERC1967(implAddressCorrect);
+        console2.logBytes32(UUPSUpgradeable(implAddressCorrect).proxiableUUID());
+        console2.log(implAddressCorrect);
 
         vm.startBroadcast();
 
         // bytes32 initCodeHash = keccak256(initCode);
         // console2.logBytes32(initCodeHash);
 
-        address implAddress = factory.safeCreate2(salt, initCode);
-        require(implAddress == implAddressCorrect, "wrong vanity logic addy");
+        // address implAddress = factory.safeCreate2(salt, initCode);
+        // require(implAddress == implAddressCorrect, "wrong vanity logic addy");
 
+        bytes memory proxyInitCode = LibClone.initCodeERC1967(implAddressCorrect);
         bytes32 proxyInitCodeHash = LibClone.initCodeHashERC1967(implAddressCorrect);
         // console2.logBytes32(proxyInitCodeHash);
 
@@ -139,11 +140,14 @@ contract DeployBetaScript is Script {
         console2.log(_checkProxyExists(proxyAddress));
 
         vm.startBroadcast();
+        bytes memory data;
 
         ClustersInitiatorBeta logic = new ClustersInitiatorBeta();
         console2.log(address(logic));
-        bytes memory data = abi.encodeWithSelector(proxy.upgradeToAndCall.selector, address(logic), "");
+        data = abi.encodeWithSelector(proxy.upgradeToAndCall.selector, address(logic), "");
         sig.execute(proxyAddress, 0, data);
+
+        // Step 2 (only necessary the first time you deploy a new initiator address)
         // ClustersInitiatorBeta(proxyAddress).initialize(lzProdEndpoint, address(sig));
 
         // ClustersInitiatorBeta initiatorProxy = ClustersInitiatorBeta(proxyAddress);
@@ -163,9 +167,9 @@ contract DeployBetaScript is Script {
 
         vm.startBroadcast();
 
-        bytes memory data =
-            abi.encodeWithSelector(ClustersHubBeta(proxyAddress).withdraw.selector, grossprofitEoa, 15.23 ether);
-        sig.execute(proxyAddress, 0, data);
+        // bytes memory data =
+        //     abi.encodeWithSelector(ClustersHubBeta(proxyAddress).withdraw.selector, grossprofitEoa, 29.87 ether);
+        // sig.execute(proxyAddress, 0, data);
 
         // sig.execute(address(0xcbe81a20f3a1AF9e4a2813c3ab1BE730165c115d), address(sig).balance, "");
 
@@ -212,6 +216,11 @@ contract DeployBetaScript is Script {
         // );
         // sig.execute(proxyAddress, 0, data);
 
+        // bytes memory data = abi.encodeWithSelector(
+        //     ClustersHubBeta(proxyAddress).setPeer.selector, PLUME_EID, bytes32(uint256(uint160(proxyAddress)))
+        // );
+        // sig.execute(proxyAddress, 0, data);
+
         vm.stopBroadcast();
     }
 
@@ -242,9 +251,10 @@ contract DeployBetaScript is Script {
         // amounts[0] = 0.01 ether;
         // names[0] = bytes32("testCrosschainPlural");
 
+        // uint256 ethReceived = 0.01 ether;
         ClustersInitiatorBeta initiatorProxy = ClustersInitiatorBeta(proxyAddress);
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(99_000, 0.0001 ether);
-        bytes memory message = abi.encodeWithSignature("placeBid(bytes32)", bytes32("testCrosschainTaiko"));
+        bytes memory message = abi.encodeWithSignature("placeBid(bytes32)", bytes32("testCrosschainPlume"));
         // bytes memory message = abi.encodeWithSignature("placeBids(uint256[],bytes32[])", amounts, names);
         console2.logBytes(message);
         console2.logBytes(options);
@@ -277,8 +287,9 @@ contract DeployBetaScript is Script {
 
         vm.startBroadcast();
 
-        // initiatorProxy.quote(abi.encode(bytes32(uint256(uint160(msg.sender))), message), options);
-        // initiatorProxy.lzSend{value: 0.01 ether}(message, options);
+        uint256 quote = initiatorProxy.quote(abi.encode(bytes32(uint256(uint160(msg.sender))), message), options);
+        console2.log("quote:", quote / 1e18);
+        initiatorProxy.lzSend{value: quote}(message, options);
 
         vm.stopBroadcast();
     }
