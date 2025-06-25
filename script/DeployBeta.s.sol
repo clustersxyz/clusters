@@ -37,8 +37,8 @@ contract DeployBetaScript is Script {
     using OptionsBuilder for bytes;
 
     address constant lzTestnetEndpoint = 0x6EDCE65403992e310A62460808c4b910D972f10f; // Same on all chains
-    // address constant lzProdEndpoint = 0x1a44076050125825900e736c501f859c50fE728c; // Same on all except shimmer/meter
-    address constant lzProdEndpoint = 0xC1b15d3B262bEeC0e3565C11C9e0F6134BdaCB36; // Plume
+    address constant lzProdEndpoint = 0x1a44076050125825900e736c501f859c50fE728c; // Same on all except shimmer/meter/plume
+    // address constant lzProdEndpoint = 0xC1b15d3B262bEeC0e3565C11C9e0F6134BdaCB36; // Plume
     address constant proxyAddress = 0x00000000000E1A99dDDd5610111884278BDBda1D; // Same for hub and initiator
     address constant refunderEoa = 0x443eDFF556D8fa8BfD69c3943D6eaf34B6a048e0;
     address constant grossprofitEoa = 0x4352Fb89eB97c3AeD354D4D003611C7a26BDc616;
@@ -55,6 +55,7 @@ contract DeployBetaScript is Script {
     uint32 constant BLAST_EID = 30243;
     uint32 constant TAIKO_EID = 30290;
     uint32 constant PLUME_EID = 30370;
+    uint32 constant MANTLE_EID = 30181;
 
     uint32 constant CONFIG_TYPE_ULN = 2;
     uint32 constant CONFIG_TYPE_EXECUTOR = 1;
@@ -80,7 +81,7 @@ contract DeployBetaScript is Script {
     function deployVanityProxy() external {
         address implAddressCorrect = 0x19670000000A93f312163Cec8C4612Ae7a6783b4;
         // Sanity check logic contract exists
-        console2.logBytes32(UUPSUpgradeable(implAddressCorrect).proxiableUUID());
+        // console2.logBytes32(UUPSUpgradeable(implAddressCorrect).proxiableUUID());
         console2.log(implAddressCorrect);
 
         vm.startBroadcast();
@@ -168,7 +169,7 @@ contract DeployBetaScript is Script {
         vm.startBroadcast();
 
         // bytes memory data =
-        //     abi.encodeWithSelector(ClustersHubBeta(proxyAddress).withdraw.selector, grossprofitEoa, 29.87 ether);
+        //     abi.encodeWithSelector(ClustersHubBeta(proxyAddress).withdraw.selector, grossprofitEoa, 0.9301 ether);
         // sig.execute(proxyAddress, 0, data);
 
         // sig.execute(address(0xcbe81a20f3a1AF9e4a2813c3ab1BE730165c115d), address(sig).balance, "");
@@ -221,6 +222,11 @@ contract DeployBetaScript is Script {
         // );
         // sig.execute(proxyAddress, 0, data);
 
+        // bytes memory data = abi.encodeWithSelector(
+        //     ClustersHubBeta(proxyAddress).setPeer.selector, MANTLE_EID, bytes32(uint256(uint160(proxyAddress)))
+        // );
+        // sig.execute(proxyAddress, 0, data);
+
         vm.stopBroadcast();
     }
 
@@ -254,7 +260,7 @@ contract DeployBetaScript is Script {
         // uint256 ethReceived = 0.01 ether;
         ClustersInitiatorBeta initiatorProxy = ClustersInitiatorBeta(proxyAddress);
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(99_000, 0.0001 ether);
-        bytes memory message = abi.encodeWithSignature("placeBid(bytes32)", bytes32("testCrosschainPlume"));
+        bytes memory message = abi.encodeWithSignature("placeBid(bytes32)", bytes32("testCrosschainMantle"));
         // bytes memory message = abi.encodeWithSignature("placeBids(uint256[],bytes32[])", amounts, names);
         console2.logBytes(message);
         console2.logBytes(options);
