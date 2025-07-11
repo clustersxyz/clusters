@@ -54,16 +54,35 @@ contract SetConfigScript is Script {
     // address originDVN = 0x88B27057A9e00c5F05DDa29241027afF63f9e6e0;
     // uint32 originEid = 30290;
 
-    string originRpcUrl = "https://phoenix-rpc.plumenetwork.xyz";
-    address originOAppAddress = 0x00000000000E1A99dDDd5610111884278BDBda1D;
-    address originEndpoint = 0xC1b15d3B262bEeC0e3565C11C9e0F6134BdaCB36;
-    address originSendLib = 0xFe7C30860D01e28371D40434806F4A8fcDD3A098;
-    address originReceiveLib = 0x5B19bd330A84c049b62D5B0FC2bA120217a18C1C;
-    address originExecutor = 0x41Bdb4aa4A63a5b2Efc531858d3118392B1A1C3d;
-    address originDVN = 0x4208D6E27538189bB48E603D6123A94b8Abe0A0b; // This should not be a Dead DVN
-    uint32 originEid = 30370;
+    // string originRpcUrl = "https://phoenix-rpc.plumenetwork.xyz";
+    // address originOAppAddress = 0x00000000000E1A99dDDd5610111884278BDBda1D;
+    // address originEndpoint = 0xC1b15d3B262bEeC0e3565C11C9e0F6134BdaCB36;
+    // address originSendLib = 0xFe7C30860D01e28371D40434806F4A8fcDD3A098;
+    // address originReceiveLib = 0x5B19bd330A84c049b62D5B0FC2bA120217a18C1C;
+    // address originExecutor = 0x41Bdb4aa4A63a5b2Efc531858d3118392B1A1C3d;
+    // address originDVN = 0x4208D6E27538189bB48E603D6123A94b8Abe0A0b; // This should not be a Dead DVN
+    // uint32 originEid = 30370;
 
-    string destRpcUrl = "https://eth.llamarpc.com";
+    // string originRpcUrl = "https://rpc.soneium.org";
+    // address originOAppAddress = 0x00000000000E1A99dDDd5610111884278BDBda1D;
+    // address originEndpoint = 0x4bCb6A963a9563C33569D7A512D35754221F3A19;
+    // address originSendLib = 0x50351C9dA75CCC6d8Ea2464B26591Bb4bd616dD5;
+    // address originReceiveLib = 0x364B548d8e6DB7CA84AaAFA54595919eCcF961eA;
+    // address originExecutor = 0xAE3C661292bb4D0AEEe0588b4404778DF1799EE6;
+    // address originDVN = 0xfDfA2330713A8e2EaC6e4f15918F11937fFA4dBE; // This should not be a Dead DVN
+    // uint32 originEid = 30340;
+
+    string originRpcUrl = "https://rpc.morphl2.io";
+    address originOAppAddress = 0x00000000000E1A99dDDd5610111884278BDBda1D;
+    address originEndpoint = 0x6F475642a6e85809B1c36Fa62763669b1b48DD5B;
+    address originSendLib = 0xC39161c743D0307EB9BCc9FEF03eeb9Dc4802de7;
+    address originReceiveLib = 0xe1844c5D63a9543023008D332Bd3d2e6f1FE1043;
+    address originExecutor = 0xcCE466a522984415bC91338c232d98869193D46e;
+    address originDVN = 0x6788f52439ACA6BFF597d3eeC2DC9a44B8FEE842; // This should not be a Dead DVN
+    uint32 originEid = 30322;
+
+    // string destRpcUrl = "https://eth.llamarpc.com";
+    string destRpcUrl = "https://1rpc.io/eth";
     address destOAppAddress = 0x00000000000E1A99dDDd5610111884278BDBda1D;
     address destEndpoint = 0x1a44076050125825900e736c501f859c50fE728c;
     address destSendLib = 0xbB2Ea70C9E858123480642Cf96acbcCE1372dCe1;
@@ -109,49 +128,49 @@ contract SetConfigScript is Script {
         vm.stopBroadcast();
     }
 
-    function setOriginReceiveConfig() public {
-        IEndpointContract endpointContract = IEndpointContract(originEndpoint);
+    // function setOriginReceiveConfig() public {
+    //     IEndpointContract endpointContract = IEndpointContract(originEndpoint);
 
-        // ULN Configuration
-        address[] memory requiredDVNs = new address[](2);
-        requiredDVNs[0] = originDVN;
-        address[] memory optionalDVNs = new address[](0);
-        bytes memory ulnConfig = abi.encode(
-            confirmations, requiredDVNCount, optionalDVNCount, optionalDVNThreshold, requiredDVNs, optionalDVNs
-        );
+    //     // ULN Configuration
+    //     address[] memory requiredDVNs = new address[](2);
+    //     requiredDVNs[0] = originDVN;
+    //     address[] memory optionalDVNs = new address[](0);
+    //     bytes memory ulnConfig = abi.encode(
+    //         confirmations, requiredDVNCount, optionalDVNCount, optionalDVNThreshold, requiredDVNs, optionalDVNs
+    //     );
 
-        IEndpointContract.SetConfigParam[] memory params = new IEndpointContract.SetConfigParam[](2);
-        params[0] = IEndpointContract.SetConfigParam({dstEid: destEid, configType: 2, config: ulnConfig});
+    //     IEndpointContract.SetConfigParam[] memory params = new IEndpointContract.SetConfigParam[](2);
+    //     params[0] = IEndpointContract.SetConfigParam({dstEid: destEid, configType: 2, config: ulnConfig});
 
-        vm.createSelectFork(originRpcUrl);
-        vm.startBroadcast(deployerPrivateKey);
-        endpointContract.setConfig(originOAppAddress, originReceiveLib, params);
-        vm.stopBroadcast();
-    }
+    //     vm.createSelectFork(originRpcUrl);
+    //     vm.startBroadcast(deployerPrivateKey);
+    //     endpointContract.setConfig(originOAppAddress, originReceiveLib, params);
+    //     vm.stopBroadcast();
+    // }
 
-    function setDestSendConfig() public {
-        IEndpointContract endpointContract = IEndpointContract(destEndpoint);
+    // function setDestSendConfig() public {
+    //     IEndpointContract endpointContract = IEndpointContract(destEndpoint);
 
-        // ULN Configuration
-        address[] memory requiredDVNs = new address[](2);
-        requiredDVNs[0] = destDVN;
-        address[] memory optionalDVNs = new address[](0);
-        bytes memory ulnConfig = abi.encode(
-            confirmations, requiredDVNCount, optionalDVNCount, optionalDVNThreshold, requiredDVNs, optionalDVNs
-        );
+    //     // ULN Configuration
+    //     address[] memory requiredDVNs = new address[](2);
+    //     requiredDVNs[0] = destDVN;
+    //     address[] memory optionalDVNs = new address[](0);
+    //     bytes memory ulnConfig = abi.encode(
+    //         confirmations, requiredDVNCount, optionalDVNCount, optionalDVNThreshold, requiredDVNs, optionalDVNs
+    //     );
 
-        // Executor Configuration
-        bytes memory executorConfig = abi.encode(maxMessageSize, destExecutor);
+    //     // Executor Configuration
+    //     bytes memory executorConfig = abi.encode(maxMessageSize, destExecutor);
 
-        IEndpointContract.SetConfigParam[] memory params = new IEndpointContract.SetConfigParam[](2);
-        params[0] = IEndpointContract.SetConfigParam({dstEid: originEid, configType: 2, config: ulnConfig});
-        params[1] = IEndpointContract.SetConfigParam({dstEid: originEid, configType: 1, config: executorConfig});
+    //     IEndpointContract.SetConfigParam[] memory params = new IEndpointContract.SetConfigParam[](2);
+    //     params[0] = IEndpointContract.SetConfigParam({dstEid: originEid, configType: 2, config: ulnConfig});
+    //     params[1] = IEndpointContract.SetConfigParam({dstEid: originEid, configType: 1, config: executorConfig});
 
-        vm.createSelectFork(destRpcUrl);
-        vm.startBroadcast(deployerPrivateKey);
-        endpointContract.setConfig(destOAppAddress, destSendLib, params);
-        vm.stopBroadcast();
-    }
+    //     vm.createSelectFork(destRpcUrl);
+    //     vm.startBroadcast(deployerPrivateKey);
+    //     endpointContract.setConfig(destOAppAddress, destSendLib, params);
+    //     vm.stopBroadcast();
+    // }
 
     function setDestReceiveConfig() public {
         IEndpointContract endpointContract = IEndpointContract(destEndpoint);

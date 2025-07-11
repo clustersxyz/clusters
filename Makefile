@@ -5,6 +5,7 @@
 # Call upgradeInitiator() with correct lzProdEndpoint address
 # Call configureHub() on ethereum mainnet
 # Test hookup with doInitiate() simulate forge call
+# If this fails, call setOriginSendConfig() in SetDVNConfig.s.sol, then call setDestReceiveConfig()
 
 script-local:
 	forge script script/Clusters.s.sol
@@ -17,7 +18,7 @@ deploy-testnet:
 
 call-beta-hub:
 	# For live deployment, add --broadcast --verify --delay 30 --etherscan-api-key ${ETHERSCAN_API_KEY}
-	forge script -vvvvv script/DeployBeta.s.sol --sig "configureHub()" --fork-url ${ETHEREUM_RPC_URL} --private-key ${PK} --broadcast
+	forge script -vvvvv script/DeployBeta.s.sol --sig "configureHub()" --fork-url ${ETHEREUM_RPC_URL} --private-key ${PK}
 	# forge script -vvv script/DeployBeta.s.sol --sig "upgradeInitiator()" --fork-url ${PLUME_RPC_URL} --private-key ${PK}
 
 call-batch-refund:
@@ -26,7 +27,7 @@ call-batch-refund:
 call-beta-initiator:
 	# --gas-estimate-multiplier 1000
 	forge script -vvv script/DeployBeta.s.sol --sig "doInitiate()" --fork-url ${RPC_URL} --private-key ${PK} -vvv
-	# forge script -vvv script/SetDVNConfig.s.sol --sig "setDestReceiveConfig()" -vvv --broadcast
+	# forge script -vvv script/SetDVNConfig.s.sol --sig "setDestReceiveConfig()" -vvv
 
 verify:
 	forge verify-contract 0xa8a8157F4ed368F9d15468670253aC00c5661Ba9 src/beta/ClustersInitiatorBeta.sol:ClustersInitiatorBeta --chain 167000  --etherscan-api-key ${ETHERSCAN_API_KEY} --retries 5 --delay 30 --watch
