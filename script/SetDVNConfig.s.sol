@@ -72,14 +72,23 @@ contract SetConfigScript is Script {
     // address originDVN = 0xfDfA2330713A8e2EaC6e4f15918F11937fFA4dBE; // This should not be a Dead DVN
     // uint32 originEid = 30340;
 
-    string originRpcUrl = "https://rpc.morphl2.io";
+    // string originRpcUrl = "https://rpc.morphl2.io";
+    // address originOAppAddress = 0x00000000000E1A99dDDd5610111884278BDBda1D;
+    // address originEndpoint = 0x6F475642a6e85809B1c36Fa62763669b1b48DD5B;
+    // address originSendLib = 0xC39161c743D0307EB9BCc9FEF03eeb9Dc4802de7;
+    // address originReceiveLib = 0xe1844c5D63a9543023008D332Bd3d2e6f1FE1043;
+    // address originExecutor = 0xcCE466a522984415bC91338c232d98869193D46e;
+    // address originDVN = 0x6788f52439ACA6BFF597d3eeC2DC9a44B8FEE842; // This should not be a Dead DVN
+    // uint32 originEid = 30322;
+
+    string originRpcUrl = "https://rpc.ankr.com/kaia";
     address originOAppAddress = 0x00000000000E1A99dDDd5610111884278BDBda1D;
-    address originEndpoint = 0x6F475642a6e85809B1c36Fa62763669b1b48DD5B;
-    address originSendLib = 0xC39161c743D0307EB9BCc9FEF03eeb9Dc4802de7;
-    address originReceiveLib = 0xe1844c5D63a9543023008D332Bd3d2e6f1FE1043;
-    address originExecutor = 0xcCE466a522984415bC91338c232d98869193D46e;
-    address originDVN = 0x6788f52439ACA6BFF597d3eeC2DC9a44B8FEE842; // This should not be a Dead DVN
-    uint32 originEid = 30322;
+    address originEndpoint = 0x1a44076050125825900e736c501f859c50fE728c;
+    address originSendLib = 0x9714Ccf1dedeF14BaB5013625DB92746C1358cb4;
+    address originReceiveLib = 0x937AbA873827BF883CeD83CA557697427eAA46Ee;
+    address originExecutor = 0xe149187a987F129FD3d397ED04a60b0b89D1669f;
+    address originDVN = 0xc80233AD8251E668BecbC3B0415707fC7075501e; // This should not be a Dead DVN
+    uint32 originEid = 30150;
 
     // string destRpcUrl = "https://eth.llamarpc.com";
     string destRpcUrl = "https://1rpc.io/eth";
