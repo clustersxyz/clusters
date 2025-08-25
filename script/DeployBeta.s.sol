@@ -37,7 +37,8 @@ contract DeployBetaScript is Script {
     using OptionsBuilder for bytes;
 
     address constant lzTestnetEndpoint = 0x6EDCE65403992e310A62460808c4b910D972f10f; // Same on all chains
-    address constant lzProdEndpoint = 0x1a44076050125825900e736c501f859c50fE728c; // Same on all except shimmer/meter/plume
+    address constant lzProdEndpoint = 0x1a44076050125825900e736c501f859c50fE728c; // Same on all except
+        // shimmer/meter/plume
     // address constant lzProdEndpoint = 0xC1b15d3B262bEeC0e3565C11C9e0F6134BdaCB36; // Plume
     // address constant lzProdEndpoint = 0x4bCb6A963a9563C33569D7A512D35754221F3A19; // Soneium
     // address constant lzProdEndpoint = 0x6F475642a6e85809B1c36Fa62763669b1b48DD5B; // Morph

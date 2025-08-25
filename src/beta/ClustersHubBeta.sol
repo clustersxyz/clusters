@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.28;
 
 import {UUPSUpgradeable} from "solady/utils/UUPSUpgradeable.sol";
 import {Origin, OAppReceiverUpgradeable} from "layerzero-oapp/contracts/oapp-upgradeable/OAppReceiverUpgradeable.sol";
@@ -11,6 +11,8 @@ contract ClustersHubBeta is UUPSUpgradeable, OAppReceiverUpgradeable {
     error BadBatch();
     error BadDelegatecall();
     error Unauthorized();
+
+    bytes32 transient tstoreSender;
 
     /// UUPSUpgradeable Authentication ///
 
@@ -24,13 +26,6 @@ contract ClustersHubBeta is UUPSUpgradeable, OAppReceiverUpgradeable {
         _initializeOAppCore(endpoint_, owner_);
     }
 
-    function reinitialize() external reinitializer(2) {
-        // Unset placeholder 1 val from storage slot 0x2 onchain where tstoreSender used to live pre-dencun
-        assembly ("memory-safe") {
-            sstore(2, 0)
-        }
-    }
-
     function _lzReceive(
         Origin calldata origin,
         bytes32 guid,
@@ -39,32 +34,20 @@ contract ClustersHubBeta is UUPSUpgradeable, OAppReceiverUpgradeable {
         bytes calldata extraData
     ) internal override {
         (bytes32 msgsender, bytes memory calldata_) = abi.decode(message, (bytes32, bytes));
-        assembly ("memory-safe") {
-            tstore(0, msgsender)
-        }
+        tstoreSender = msgsender;
         (bool success,) = address(this).delegatecall(calldata_);
         if (!success) revert BadDelegatecall();
-        assembly ("memory-safe") {
-            tstore(0, 0)
-        }
+        tstoreSender = 0;
     }
 
     /// Core Logic ///
 
     function placeBid(bytes32 name) external payable {
-        bytes32 tstoreSender;
-        assembly ("memory-safe") {
-            tstoreSender := tload(0)
-        }
         bytes32 from = tstoreSender == 0 ? bytes32(uint256(uint160(msg.sender))) : tstoreSender;
         emit Bid(from, msg.value, name);
     }
 
     function placeBids(uint256[] calldata amounts, bytes32[] calldata names) external payable {
-        bytes32 tstoreSender;
-        assembly ("memory-safe") {
-            tstoreSender := tload(0)
-        }
         bytes32 from = tstoreSender == 0 ? bytes32(uint256(uint160(msg.sender))) : tstoreSender;
         if (amounts.length != names.length) revert BadBatch();
         uint256 amountTotal = 0;
@@ -76,10 +59,6 @@ contract ClustersHubBeta is UUPSUpgradeable, OAppReceiverUpgradeable {
     }
 
     function placeBid(bytes32 name, bytes32 referralAddress) external payable {
-        bytes32 tstoreSender;
-        assembly ("memory-safe") {
-            tstoreSender := tload(0)
-        }
         bytes32 from = tstoreSender == 0 ? bytes32(uint256(uint160(msg.sender))) : tstoreSender;
         emit Bid(from, msg.value, name, referralAddress);
     }
@@ -88,10 +67,6 @@ contract ClustersHubBeta is UUPSUpgradeable, OAppReceiverUpgradeable {
         external
         payable
     {
-        bytes32 tstoreSender;
-        assembly ("memory-safe") {
-            tstoreSender := tload(0)
-        }
         bytes32 from = tstoreSender == 0 ? bytes32(uint256(uint160(msg.sender))) : tstoreSender;
         if (amounts.length != names.length) revert BadBatch();
         uint256 amountTotal = 0;
