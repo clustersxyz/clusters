@@ -1,12 +1,6 @@
 [submodule "lib/forge-std"]
 	path = lib/forge-std
 	url = https://github.com/foundry-rs/forge-std
-[submodule "lib/openzeppelin-contracts"]
-	path = lib/openzeppelin-contracts
-	url = https://github.com/OpenZeppelin/openzeppelin-contracts
-[submodule "lib/solady"]
-	path = lib/solady
-	url = https://github.com/Vectorized/solady
 [submodule "lib/LayerZero-v2"]
 	path = lib/LayerZero-v2
 	url = https://github.com/clustersxyz/LayerZero-v2
@@ -17,3 +11,15 @@
 	path = lib/devtools
 	url = https://github.com/0xfoobar/devtools
 	branch = patch-1
+[submodule "lib/soledge"]
+	path = lib/soledge
+	url = https://github.com/Vectorized/soledge
+[submodule "lib/multicaller"]
+	path = lib/multicaller
+	url = https://github.com/vectorized/multicaller
+[submodule "lib/openzeppelin-contracts"]
+	path = lib/openzeppelin-contracts
+	url = https://github.com/openzeppelin/openzeppelin-contracts
+[submodule "lib/solady"]
+	path = lib/solady
+	url = https://github.com/vectorized/solady
